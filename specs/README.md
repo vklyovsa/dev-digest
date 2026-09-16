@@ -1,0 +1,17 @@
+# Specs — repository
+
+Cross-cutting specs: work that spans more than one package (a course lesson that
+adds a server module *and* a screen, a contract change, a new pipeline stage).
+Work contained in a single package gets a spec in that package's `specs/` instead.
+
+- Name a spec `<feature-slug>.md`. Keep it while the work is open; when it lands,
+  either delete it or fold what it taught into `../docs/`.
+- Suggested sections: **Goal · Non-goals · Behaviour and acceptance criteria ·
+  Affected packages and files · Open questions**.
+- A spec states intent, not implementation steps, and is never a changelog.
+- Read the spec before the first edit, not after. If the code contradicts the spec,
+  stop and resolve the contradiction — do not silently follow the code.
+- Name every package the work touches: the packages are independent, and a contract
+  change has to land in each copy in the same commit.
+
+_Empty for now._

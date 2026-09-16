@@ -97,6 +97,11 @@ export class JobRunner {
       }
     }) as Promise<void>;
 
+    // Callers enqueue fire-and-forget, so nothing observes this promise and an
+    // unhandled rejection would take the whole process down. The failure is
+    // already persisted on the job row; callers that do await `done` still see it.
+    done.catch(() => {});
+
     return { id: jobId, done };
   }
 
