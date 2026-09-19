@@ -58,13 +58,15 @@ a failed run keeps `cost_usd` null.
 ## Stage 3 — cost in the PR list endpoint
 
 In `pulls/routes.ts`, next to the existing `latestReviewByPr` block, add a
-`latestCostByPr` map: one query over `agent_runs` filtered to
-`prId IN (…) AND status = 'done'`, ordered `ranAt DESC`, first row per PR wins
-(same JS-grouping trick as the score). Return `cost_usd` on each list item.
+`costByPr` map: one query over `agent_runs` for `prId IN (…)`, summed per PR in
+JS (same grouping trick as the score). Rows with a null cost are skipped, so a PR
+with no priced run at all never lands in the map and reports `null`. Return
+`cost_usd` on each list item.
 
 **Test:** a DB-backed case — the file must carry the `*.it.test.ts` suffix or it
-lands in the hermetic lane and fails there. Cover: no runs → `null`; a `done`
-run → its cost; a newer `failed` run does not shadow the older `done` one.
+lands in the hermetic lane and fails there. Cover: no runs → `null`; two `done`
+runs → their sum; a `failed` run adds nothing instead of voiding the total; all
+runs unpriced → `null`, not `0`.
 
 ## Stage 4 — the shared badge
 

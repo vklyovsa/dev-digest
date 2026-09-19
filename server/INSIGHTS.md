@@ -30,6 +30,15 @@ _None yet._
 Conventions and architectural decisions found while working here, before they are
 settled enough to move into `CLAUDE.md`.
 
+- **Findings are never deduplicated between runs, so "all reviews of a PR" over-counts.** (2026-09-19) `src/modules/reviews/repository/review.repo.ts:36` inserts a fresh `findings` row per run and the table has no unique key (`src/db/schema/reviews.ts:27`), so an agent re-run on an unchanged PR stores the same problem again — three passes of one security agent read as "3 CRITICAL".
+  → For the current state of a PR, take the NEWEST review per (pr_id, agent_id) and only its findings (`src/modules/pulls/routes.ts:131`): an agent supersedes itself, never its colleagues.
+
+- **One review row per AGENT RUN, so "the latest review" of a PR is a lottery.** (2026-09-17) `src/modules/reviews/run-executor.ts:219` inserts a review per run, and a "Run all agents" batch finishes in whatever order the models answer — the local DB holds 3 review rows for a single PR with scores 100, 88 and 65. Anything PR-level that reads the newest row therefore shows a random agent's opinion.
+  → For a PR-level number, derive it from the PR's findings instead (`src/modules/pulls/routes.ts:177` scores the list rows through the engine's `scoreFromFindings`), or aggregate every row explicitly — never `ORDER BY created_at DESC LIMIT 1`.
+
+- **`findings.severity` is a free-text column, not a pg enum.** (2026-09-17) `src/db/schema/reviews.ts:36` declares `text('severity').notNull()`, so Postgres accepts any string and the Zod `Severity` enum is the only guard; a row written by an older agent or by hand can carry a value the UI has no colour for.
+  → Code that groups or ranks severities must handle an unknown value explicitly (`src/modules/pulls/findings-summary.ts:31` sorts it last), never index a severity table without a fallback.
+
 - **A studio review is ONE LLM call, whatever the test name says.** `REVIEW_STRATEGY` in `src/modules/reviews/constants.ts` is `'single-pass'`, so the whole diff goes in a single call; the integration test titled "runs a review: map-reduce …" in `test/reviews.it.test.ts` exercises single-pass, and `MockLLMProvider` bills 100/50 tokens and `costUsd` 0.001 per call.
   → Size token/cost expectations from the strategy, never from the file count in the fixture diff, and do not read a test's title as the mode it runs.
 

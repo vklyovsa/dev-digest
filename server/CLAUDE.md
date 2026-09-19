@@ -30,6 +30,8 @@ integration `pnpm exec vitest run .it.test` (needs Docker) · both `pnpm test`
 - Working from a spec → `specs/<feature>.md`, before the first edit.
 - Something behaves inexplicably → `INSIGHTS.md` (§ What Doesn't Work, § Recurring Errors).
 - You learned something non-obvious → append it to the matching `INSIGHTS.md` section.
+- Adding a derived column to the PR list → `docs/pr-list-read-model.md` (one
+  IN-query per column; "latest" vs "total" is deliberate).
 - Deeper background on a subsystem → `docs/`.
 
 ## Conventions
@@ -46,8 +48,20 @@ integration `pnpm exec vitest run .it.test` (needs Docker) · both `pnpm test`
 - `src/vendor/shared` is the copy `reviewer-core` type-checks against; the client
   keeps its own. Change a contract in both.
 
+## Naming
+
+- A module is `src/modules/<name>/` with kebab-case files inside
+  (`routes.ts`, `service.ts`, `repository.ts`, `helpers.ts`, `constants.ts`).
+- Drizzle: table objects are camelCase plural (`pullRequests`), columns are
+  camelCase in TS and snake_case in SQL; the wire shape stays snake_case.
+- Zod contract schemas are PascalCase and export a type of the same name.
+- Tests: hermetic `<area>.test.ts`, DB-backed `<area>.it.test.ts` — the suffix is
+  what routes a test into its CI lane.
+
 ## Do not touch
 
+- `pnpm-lock.yaml` — never hand-edited; add a dependency with `pnpm add` and commit
+  the lockfile it writes.
 - `clones/**` — runtime data, git-ignored.
 - Applied files in `src/db/migrations/` — a change means a **new** migration
   (`pnpm db:generate`), never an edit in place.

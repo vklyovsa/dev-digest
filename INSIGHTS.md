@@ -16,7 +16,8 @@ and leave it here as history.
 
 Approaches and solutions that held up, with the context that made them work.
 
-_None yet._
+- **To prove a screen made no model call, diff `agent_runs` / `run_traces`; the log alone is not enough.** (2026-09-19) Provider, prompt and token lines are only emitted from inside a run (`server/src/modules/reviews/run-executor.ts`), so a quiet log proves nothing on its own — while every real run inserts exactly one `agent_runs` row and exactly one `run_traces` document, which is a signal that cannot be missed.
+  → Snapshot both counts, exercise the screen, snapshot again, and only then read the log tail; a static `grep` for provider imports in the feature's files is stronger still. Kept as a recipe on purpose — a one-off checker script in `scripts/` would rot next to `dev.sh` and `e2e.sh`.
 
 ## What Doesn't Work
 
@@ -67,6 +68,16 @@ instead of an investigation.
 Dated summaries as `### YYYY-MM-DD — topic`: what was worked on and what state it
 was left in. Prune an entry once its content has moved into a section above.
 
+### 2026-09-17 — findings grouped by severity on four surfaces
+Spec first (`specs/findings-by-severity.md` plus the per-package halves), then built:
+`GET /repos/:id/pulls` now returns a `findings` summary for each PR's LATEST review (one extra
+IN-query + `src/modules/pulls/findings-summary.ts`), the PR list has a FINDINGS column with a
+read-only hover popover, timeline tiles show the same counts, and a review-run card's pills
+filter its own findings. Counting is a group-by — no model call anywhere. Green: client 52 tests,
+server 106 hermetic + the two PR-list DB suites (9), typechecks in client/server/reviewer-core.
+Two lab-1 cost assertions in `RunHistory.test.tsx` were red before this session and were fixed.
+No commits — branch `feature/lab1`, and the uncommitted lab-1 cost changes are still in the tree.
+
 ### 2026-09-16 — run cost surfaced on three screens
 Spec and plan written to `specs/run-cost.md` / `specs/run-cost-plan.md`, then implemented:
 `agent_runs.cost_usd` restored by migration `0010` (generated and applied locally),
@@ -94,4 +105,5 @@ Nothing was reseeded — see the standing rule not to seed unless asked.
 Unresolved behaviour, undecided design, unverified assumptions. Delete an entry when
 it is answered — the answer belongs in another section.
 
-_None yet._
+- **Unresolved: `INFO` is a fourth severity that only the client design system knows about.** (2026-09-17) The contract enum carries three values (`server/src/vendor/shared/contracts/findings.ts:11`), while `client/src/vendor/ui/primitives/tokens.ts:13` declares `INFO` and two client constant maps keep an entry for it; nothing in the engine, the API or the DB can produce one, so those branches are unreachable today.
+  → Decide whether to promote it (contract + the four engine tables listed in `reviewer-core/docs/severity.md`) or delete it; `reviewer-core/specs/severity-source-of-truth.md` carries the spec either way.

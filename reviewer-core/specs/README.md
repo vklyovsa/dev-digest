@@ -11,4 +11,7 @@ One file per unit of work: what we intend to build, written **before** we build 
   stop and resolve the contradiction — do not silently follow the code.
 - Link a spec from `../CLAUDE.md` only while it is the active piece of work.
 
-_Empty for now._
+## Open specs
+
+- [`severity-source-of-truth.md`](severity-source-of-truth.md) — keeping one
+  severity taxonomy across the contract, the engine tables and the UI.

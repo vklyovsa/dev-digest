@@ -12,4 +12,8 @@ written for a reader who already knows what this package does.
 Not here: work specs (`../specs/`), lessons learned (`../INSIGHTS.md`), or anything
 already covered by `../README.md`.
 
-_Empty for now._
+## Contents
+
+- [`findings-surfaces.md`](findings-surfaces.md) — the four screens that render
+  findings, which data source each reads, and why the severity pills are counted
+  after the confidence filter.

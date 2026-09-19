@@ -14,4 +14,9 @@ Work contained in a single package gets a spec in that package's `specs/` instea
 - Name every package the work touches: the packages are independent, and a contract
   change has to land in each copy in the same commit.
 
-_Empty for now._
+## Open specs
+
+- [`findings-by-severity.md`](findings-by-severity.md) — severity counters and the
+  findings filter (server + client).
+- [`run-cost.md`](run-cost.md) / [`run-cost-plan.md`](run-cost-plan.md) — run cost on
+  the PR list, the run timeline and the trace drawer.

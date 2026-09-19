@@ -29,7 +29,8 @@ Only Postgres runs in Docker — the API and the web app run on the host.
 - You need the end-to-end picture or the architecture diagrams → `README.md`.
 - Anything about test suites, the unit/integration split, or CI lanes → `TESTING.md`.
 - Writing or editing a reviewer agent's system prompt → `docs/agent-prompts/`.
-- The task comes from a written spec or a course lesson → `specs/`.
+- The task comes from a written spec or a course lesson → `specs/`, and the
+  package-level `*/specs/` for the half that lives in one package.
 - Tooling or the environment behaves inexplicably → `INSIGHTS.md` (§ Recurring Errors).
 - You learned something non-obvious → append it to the matching `INSIGHTS.md` section.
 - Domain rules (Fastify, Drizzle, Postgres, Zod, React, Next, security) live in
@@ -54,8 +55,32 @@ Only Postgres runs in Docker — the API and the web app run on the host.
 - Course lessons add features as self-contained modules; the DB schema already
   contains every table, the unused ones simply sit empty.
 
+## Naming conventions
+
+- **Packages** — `@devdigest/<name>`; the folder is the name (`server/` is the one
+  exception, `@devdigest/api`).
+- **Modules** — kebab-case files (`run-executor.ts`, `diff-parser.ts`). One server
+  feature is a folder: `src/modules/<name>/{routes,service,repository,helpers,constants}.ts`.
+- **React** — a component is a PascalCase folder holding `<Name>.tsx`, `index.ts`
+  and, when needed, `helpers.ts` / `constants.ts` / `styles.ts`. Route-local UI goes
+  in `_components/<Name>/`; cross-route chrome in `client/src/components/<kebab-case>/`.
+- **Tests** — `*.test.ts(x)` beside the code. DB-backed server tests MUST end in
+  `*.it.test.ts`. e2e flows are `NN-name.flow.json`, written e2e specs `<slug>.spec.md`.
+- **Contracts** — Zod schemas are PascalCase and the inferred type carries the same
+  name (`export const PrMeta` + `export type PrMeta`).
+- **Wire vs code** — JSON on the wire is snake_case (`head_sha`, `cost_usd`), TS is
+  camelCase, Drizzle columns are snake_case in SQL and camelCase in TS.
+- **Docs** — `specs/<feature-slug>.md`, `docs/<topic>.md`, both kebab-case.
+  Migrations keep the generated `NNNN_<name>.sql` name — never renamed by hand.
+- **i18n** — `client/messages/<locale>/<namespace>.json`; keys are camelCase and
+  read as a dotted path (`list.columns.findings`).
+
 ## Do not touch
 
+- **Lock-files** — `pnpm-lock.yaml` (`server/`, `client/`) and `package-lock.json`
+  (`reviewer-core/`, `e2e/`) are never hand-edited: change a dependency through the
+  package manager in that package and commit the lockfile it writes. There is no
+  root lockfile, because this is not a workspace.
 - `server/clones/**` — runtime data (git-ignored): checkouts of imported repos.
 - `server/package.json` — marked `skip-worktree`; the local copy diverges from the
   committed one, which is why CI invokes vitest directly instead of via scripts.

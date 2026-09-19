@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Icon, Avatar, Badge, CircularScore } from "@devdigest/ui";
 import { RunCostBadge } from "@/components/run-cost";
+import { SeverityCounts, FindingsPopover } from "@/components/findings-summary";
 import type { PrMeta } from "@/lib/types";
 import { SIZE_COLOR, STATUS_META } from "../../constants";
 import { relativeTime, sizeOf } from "../../helpers";
@@ -50,6 +51,19 @@ export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
       <div style={s.scoreCell}>
         {reviewed ? (
           <CircularScore score={pr.score!} size={34} stroke={3} />
+        ) : (
+          <span style={s.muted}>—</span>
+        )}
+      </div>
+      <div style={s.findingsCell}>
+        {/* The PR's open findings, summed over each agent's LATEST run (the
+            server sends the roll-up with the list row); hovering opens the
+            read-only preview popover. An em dash covers both "never reviewed"
+            and "reviewed, nothing open". */}
+        {pr.findings && pr.findings.counts.length > 0 ? (
+          <FindingsPopover total={pr.findings.total} previews={pr.findings.previews}>
+            <SeverityCounts counts={pr.findings.counts} />
+          </FindingsPopover>
         ) : (
           <span style={s.muted}>—</span>
         )}

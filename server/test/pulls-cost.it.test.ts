@@ -1,10 +1,10 @@
 /**
  * COST column on the PR list — GET /repos/:id/pulls.
  *
- * The column reports the cost of each PR's LATEST SETTLED run, so the two cases
- * worth pinning are the ones a naive "newest row wins" query gets wrong: a run
- * that never priced (null, not zero) and a later FAILED run, which has no usage
- * to account for and must not erase the last run that did cost money.
+ * The column reports the TOTAL of every run ever made against a PR, so the cases
+ * worth pinning are the ones a naive SUM gets wrong: an unpriced run must add
+ * nothing rather than poison the total, and a PR whose runs are all unpriced must
+ * report null ("—") rather than a confident $0.00.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { startPg, dockerAvailable, type PgFixture } from './helpers/pg.js';
@@ -95,16 +95,16 @@ d('PR list cost column (Testcontainers pg)', () => {
     expect(pr!.cost_usd).toBeNull();
   });
 
-  it('reports the cost of the latest settled run', async () => {
+  it('totals every run made against the PR', async () => {
     const { repoId } = await setup([
       { status: 'done', costUsd: 0.004, ranAt: '2026-06-01T10:00:00Z' },
       { status: 'done', costUsd: 0.012, ranAt: '2026-06-01T12:00:00Z' },
     ]);
     const [pr] = await listPulls(repoId);
-    expect(pr!.cost_usd).toBeCloseTo(0.012, 6);
+    expect(pr!.cost_usd).toBeCloseTo(0.016, 6);
   });
 
-  it('a later FAILED run does not erase the last run that cost money', async () => {
+  it('an unpriced run adds nothing to the total instead of voiding it', async () => {
     const { repoId } = await setup([
       { status: 'done', costUsd: 0.012, ranAt: '2026-06-01T10:00:00Z' },
       { status: 'failed', costUsd: null, ranAt: '2026-06-01T12:00:00Z' },
@@ -113,7 +113,7 @@ d('PR list cost column (Testcontainers pg)', () => {
     expect(pr!.cost_usd).toBeCloseTo(0.012, 6);
   });
 
-  it('a settled run on an unpriced model reports null, not zero', async () => {
+  it('a PR whose runs are all unpriced reports null, not zero', async () => {
     const { repoId } = await setup([
       { status: 'done', costUsd: null, ranAt: '2026-06-01T10:00:00Z' },
     ]);

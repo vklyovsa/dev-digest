@@ -30,6 +30,8 @@ run in order against one shared browser session by `run.ts`. npm, not pnpm.
 - Working from a spec → `specs/<slug>.spec.md`, before writing the flow.
 - Something behaves inexplicably → `INSIGHTS.md` (§ What Doesn't Work, § Recurring Errors).
 - You learned something non-obvious → append it to the matching `INSIGHTS.md` section.
+- Writing a flow that asserts on data → `docs/seeded-fixtures.md` (what the seed
+  really contains; there is no `SUGGESTION` finding).
 - Deeper background → `docs/`.
 
 ## Conventions
@@ -43,8 +45,15 @@ run in order against one shared browser session by `run.ts`. npm, not pnpm.
 - `{BASE}` in a step is substituted with `E2E_BASE_URL`.
 - Coverage is typological: the main journeys, not every screen.
 
+## Naming
+
+- Executable flows are `specs/NN-name.flow.json`, numbered in run order; written
+  specs are `specs/<slug>.spec.md`.
+- Every step carries a `label` — it is the line you read in the failure output.
+
 ## Do not touch
 
+- `package-lock.json` — npm here, not pnpm; never hand-edited.
 - `test-results/` — regenerated artifacts.
 - The `*.flow.json` extension: the runner filters on it and ignores everything else
   in `specs/`, including markdown specs and this file's neighbours.

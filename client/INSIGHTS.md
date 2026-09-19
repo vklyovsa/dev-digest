@@ -23,7 +23,8 @@ _None yet._
 Dead ends and anti-patterns: what was tried, why it failed, what to do instead.
 **The highest-value section and the one most often left empty. Fill it.**
 
-_None yet._
+- **An absolutely-positioned hover card inside the PR list gets clipped: the table card is `overflow: hidden`.** (2026-09-17) `src/app/repos/[repoId]/pulls/styles.ts:88` sets it on `tableCard`, so a card anchored in a row is cut at the table edge — worst on the last rows, where it is invisible rather than merely trimmed.
+  → Position hover cards `fixed` off the trigger's `getBoundingClientRect()` and flip above when there is no room below, as `src/components/findings-summary/FindingsPopover.tsx:24` does.
 
 ## Codebase Patterns
 
@@ -36,6 +37,9 @@ _None yet._
 
 Quirks of dependencies, versions and tooling — what a library does that its docs
 do not say.
+
+- **`MonoLink` renders a `<button>` when it is given no `href`.** (2026-09-17) `src/vendor/ui/primitives/MonoLink.tsx:42` returns a focusable `<button>`; the `<a>` is emitted only on the href branch, so reusing the primitive on a read-only surface silently adds a control and a tab stop where the design says there is none.
+  → On a read-only surface render `file:line` as a plain `<span className="mono">`; keep `MonoLink` for references that really navigate.
 
 - **A bare ICU argument does not group digits: `{count} tok` renders `9119 tok`.** next-intl passes values to intl-messageformat (10.7.18), where only a typed argument gets `Intl.NumberFormat` — `{count, number} tok` is what produces `9,119 tok`. Verified directly against the bundled formatter, not inferred from the docs.
   → Type every message argument that can exceed 999 as `{x, number}`; a plain `{x}` silently ships ungrouped digits that no type or lint check will catch.
@@ -50,7 +54,8 @@ do not say.
 Error or symptom → cause → fix, one entry each, so the next occurrence is a lookup
 instead of an investigation.
 
-_None yet._
+- **`Unable to find an element with the text: $0.0013` while the badge visibly renders it.** (2026-09-17) `RunCostBadge` variant `detailed` emits the token count and the cost as two text nodes of ONE span (`src/components/run-cost/RunCostBadge.tsx:47`), and Testing Library matches text per element, not per node — two cost assertions in `RunHistory.test.tsx` were red from the day they were written.
+  → Assert the joined text (`getByText("150 tok · $0.0013")`) or pass a regex; never an exact string for half of a multi-node element.
 
 ## Session Notes
 

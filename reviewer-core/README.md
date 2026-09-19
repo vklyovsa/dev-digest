@@ -39,8 +39,10 @@ extra slots are omitted, so `assemblePrompt` simply leaves those sections out.
 Exported from `src/index.ts`: `assemblePrompt` / `wrapUntrusted` (prompt),
 `groundFindings` / `groundingSummary` (grounding), `toJsonSchema` / `extractJson`
 / `parseWithRepair` (structured output), plus the `run` entrypoint and
-`reduce`. Contracts (`Review`, `Finding`, `Verdict`, …) come from
-`@devdigest/shared`.
+`reduce` — including `scoreFromFindings`, the deterministic 0–100 score, which
+the server reuses for the PR list so a row's SCORE cannot contradict the
+findings counted next to it. Contracts (`Review`, `Finding`, `Verdict`, …) come
+from `@devdigest/shared`.
 
 ## Testing
 

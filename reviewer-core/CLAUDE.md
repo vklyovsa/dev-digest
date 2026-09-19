@@ -31,6 +31,8 @@ its TypeScript source directly through a tsconfig path alias.
 - Working from a spec → `specs/<feature>.md`, before the first edit.
 - Something behaves inexplicably → `INSIGHTS.md` (§ What Doesn't Work, § Recurring Errors).
 - You learned something non-obvious → append it to the matching `INSIGHTS.md` section.
+- Touching severity, the score or the CI gate → `docs/severity.md`: one enum,
+  four derived tables, all read with `?? 0`.
 - Deeper background on a stage → `docs/`.
 
 ## Conventions
@@ -47,8 +49,17 @@ its TypeScript source directly through a tsconfig path alias.
   empty — `assemblePrompt` simply leaves those sections out.
 - Contracts come from `@devdigest/shared`, aliased to `../server/src/vendor/shared`.
 
+## Naming
+
+- Files are kebab-case and named after the stage they own (`prompt.ts`,
+  `grounding.ts`, `review/run.ts`, `output/to-review.ts`).
+- Exported severity/verdict tables are SCREAMING_SNAKE (`SEV_RANK`,
+  `SEVERITY_PENALTY`) and derive their keys from the contract enums.
+- Tests mirror the source file name under `test/`.
+
 ## Do not touch
 
+- `package-lock.json` — npm here, not pnpm; never hand-edited.
 - `src/index.ts` exports as a casual rename — the server compiles against them.
 - Runtime dependencies: adding one to a pure engine is a design change, not a fix.
 

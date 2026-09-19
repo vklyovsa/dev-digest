@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { Provider } from './knowledge.js';
+import { FindingsSummary } from './findings.js';
 
 /**
  * Platform / scaffolding DTOs owned by F1:
@@ -168,10 +169,19 @@ export const PrMeta = z.object({
   status: PrStatus,
   opened_at: z.string().nullish(),
   updated_at: z.string().nullish(),
-  // Latest-review score (list endpoint only; null/absent until reviewed).
+  // Score DERIVED from the PR's open findings (list endpoint only; null until
+  // the PR has been reviewed, 100 when it was reviewed and nothing is open).
+  // Not a review row's own score: a multi-agent review writes one review per
+  // agent, so "the latest" would be whichever agent finished last.
   score: z.number().int().nullish(),
-  // Cost of the latest settled run (list endpoint only; null until there is one).
+  // TOTAL cost of every run against the PR (list endpoint only; null until one
+  // of them is priced).
   cost_usd: z.number().nullish(),
+  // Severity roll-up + read-only previews of every OPEN (non-dismissed)
+  // finding in the NEWEST review of each agent — the PR's current state (list
+  // endpoint only; null until the PR has been reviewed). `score` above is
+  // derived from this very set, so the two columns cannot contradict.
+  findings: FindingsSummary.nullish(),
 });
 export type PrMeta = z.infer<typeof PrMeta>;
 

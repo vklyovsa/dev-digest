@@ -12,4 +12,8 @@ written for a reader who already knows what this package does.
 Not here: work specs (`../specs/`), lessons learned (`../INSIGHTS.md`), or anything
 already covered by `../README.md`.
 
-_Empty for now._
+## Contents
+
+- [`seeded-fixtures.md`](seeded-fixtures.md) — exactly what `db:seed` creates, so a
+  new flow asserts on data that exists (there is no `SUGGESTION` finding, no run,
+  no cost).

@@ -22,9 +22,10 @@ const SEVERITY_PENALTY: Record<Finding['severity'], number> = {
  * between models (a cheap model can "approve" with zero findings yet emit 10).
  * This mirrors how the review *event* is already computed from severities in
  * `to-review.ts`, so the number on screen can never contradict the findings
- * beneath it.
+ * beneath it. Takes only `severity`, so a caller holding a projection of
+ * findings (the studio's PR list) can score without rebuilding whole findings.
  */
-export function scoreFromFindings(findings: Finding[]): number {
+export function scoreFromFindings(findings: readonly Pick<Finding, 'severity'>[]): number {
   const penalty = findings.reduce((sum, f) => sum + (SEVERITY_PENALTY[f.severity] ?? 0), 0);
   return Math.max(0, Math.min(100, 100 - penalty));
 }

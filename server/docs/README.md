@@ -12,4 +12,8 @@ written for a reader who already knows what this package does.
 Not here: work specs (`../specs/`), lessons learned (`../INSIGHTS.md`), or anything
 already covered by `../README.md`.
 
-_Empty for now._
+## Contents
+
+- [`pr-list-read-model.md`](pr-list-read-model.md) — how `GET /repos/:id/pulls`
+  composes SCORE, COST and FINDINGS: one IN-query per column, and why "latest"
+  for two of them and "total" for the third.

@@ -7,7 +7,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import type { RunSummary } from "@devdigest/shared";
+import type { RunSummary, FindingRecord } from "@devdigest/shared";
 import messages from "../../../../../../../../messages/en/prReview.json";
 import common from "../../../../../../../../messages/en/common.json";
 import { RunHistory } from "./RunHistory";
@@ -36,12 +36,33 @@ function run(o: Partial<RunSummary>): RunSummary {
   };
 }
 
-function renderRuns(runs: RunSummary[]) {
+function renderRuns(runs: RunSummary[], findingsByRun?: Record<string, FindingRecord[]>) {
   return render(
     <NextIntlClientProvider locale="en" messages={{ prReview: messages, common }}>
-      <RunHistory runs={runs} onOpenTrace={() => {}} />
+      <RunHistory runs={runs} findingsByRun={findingsByRun} onOpenTrace={() => {}} />
     </NextIntlClientProvider>,
   );
+}
+
+function finding(severity: FindingRecord["severity"], id: string): FindingRecord {
+  return {
+    id,
+    severity,
+    category: "bug",
+    title: `${severity} finding`,
+    file: "src/index.ts",
+    start_line: 1,
+    end_line: 1,
+    rationale: "because",
+    suggestion: null,
+    confidence: 0.9,
+    kind: "finding",
+    trifecta_components: null,
+    evidence: null,
+    review_id: "r1",
+    accepted_at: null,
+    dismissed_at: null,
+  };
 }
 
 describe("RunHistory — outcome badge", () => {
@@ -50,7 +71,6 @@ describe("RunHistory — outcome badge", () => {
     expect(screen.getByText("rejected")).toBeInTheDocument();
     expect(screen.queryByText("done")).not.toBeInTheDocument();
     expect(screen.getByText("0")).toBeInTheDocument(); // CircularScore renders the number
-    expect(screen.getByText(/5 blockers/)).toBeInTheDocument();
   });
 
   it("a clean done run reads 'approved'", () => {
@@ -62,7 +82,6 @@ describe("RunHistory — outcome badge", () => {
   it("a done run with non-blocking findings reads 'reviewed'", () => {
     renderRuns([run({ status: "done", findings_count: 3, blockers: 0, score: 72 })]);
     expect(screen.getByText("reviewed")).toBeInTheDocument();
-    expect(screen.queryByText(/blockers/)).not.toBeInTheDocument();
   });
 
   it("a failed run reads 'error'", () => {
@@ -83,19 +102,55 @@ describe("RunHistory — outcome badge", () => {
 describe("RunHistory — run cost", () => {
   it("a settled run shows its token count and cost", () => {
     renderRuns([run({ status: "done", findings_count: 0, blockers: 0, score: 95 })]);
-    expect(screen.getByText(/150 tok/)).toBeInTheDocument();
-    expect(screen.getByText("$0.0013")).toBeInTheDocument();
+    // `detailed` renders tokens and cost as two text nodes of ONE span, so an
+    // exact-string query for either half finds nothing.
+    expect(screen.getByText("150 tok · $0.0013")).toBeInTheDocument();
   });
 
   it("a settled run on an unpriced model shows tokens and an em dash", () => {
     renderRuns([run({ status: "done", findings_count: 0, blockers: 0, score: 95, cost_usd: null })]);
-    expect(screen.getByText(/150 tok/)).toBeInTheDocument();
-    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(screen.getByText("150 tok · —")).toBeInTheDocument();
   });
 
   it("a failed run shows neither tokens nor cost", () => {
     renderRuns([run({ status: "failed", error: "boom", score: null, blockers: null, cost_usd: null })]);
     expect(screen.queryByText(/tok/)).not.toBeInTheDocument();
-    expect(screen.queryByText("—")).not.toBeInTheDocument();
+    expect(screen.queryByText(/—/)).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * The timeline tile carries the same severity roll-up as the PR list, read-only:
+ * the clickable filter lives in the run's card under "Review runs".
+ */
+describe("RunHistory — severity counters", () => {
+  it("a settled run shows its severity mix", () => {
+    renderRuns([run({ status: "done", findings_count: 3, blockers: 1, score: 61 })], {
+      "run-1": [finding("CRITICAL", "f1"), finding("WARNING", "f2"), finding("WARNING", "f3")],
+    });
+    expect(screen.getByLabelText("1 CRITICAL")).toBeInTheDocument();
+    expect(screen.getByLabelText("2 WARNING")).toBeInTheDocument();
+  });
+
+  it("the counters are not controls — the tile keeps its own click targets", () => {
+    renderRuns([run({ status: "done", findings_count: 1, blockers: 0, score: 88 })], {
+      "run-1": [finding("SUGGESTION", "f1")],
+    });
+    const counter = screen.getByLabelText("1 SUGGESTION");
+    expect(counter.closest("button")).toBeNull();
+  });
+
+  it("a run whose findings were not loaded shows no counters", () => {
+    renderRuns([run({ status: "done", findings_count: 2, blockers: 0, score: 70 })]);
+    expect(screen.queryByLabelText(/CRITICAL|WARNING|SUGGESTION/)).not.toBeInTheDocument();
+  });
+
+  it("the tile carries icons with numbers only — no finding/blocker sentence", () => {
+    renderRuns([run({ status: "done", findings_count: 2, blockers: 1, score: 53 })], {
+      "run-1": [finding("CRITICAL", "f1"), finding("WARNING", "f2")],
+    });
+    expect(screen.getByLabelText("1 CRITICAL")).toBeInTheDocument();
+    expect(screen.queryByText(/finding\(s\)/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/blockers/)).not.toBeInTheDocument();
   });
 });

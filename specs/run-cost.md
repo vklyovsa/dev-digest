@@ -49,10 +49,15 @@ metering.
 
 ### B2 — COST column in the PR list
 
-- `GET /repos/:id/pulls` returns `cost_usd` per PR = the cost of that PR's
-  **latest run with `status='done'`** (newest `ran_at` wins), or `null` when the
-  PR has no settled run or that run has no price.
-- Consistent with the existing SCORE column, which shows the latest review.
+- `GET /repos/:id/pulls` returns `cost_usd` per PR = the **total of every run**
+  ever made against it. The column answers "what has this PR cost us", which is
+  the question a reviewer scanning the list is actually asking; a re-reviewed PR
+  is genuinely more expensive than a once-reviewed one, and showing only the last
+  run would hide that.
+- Unpriced runs contribute nothing. A PR whose runs are *all* unpriced reports
+  `null` → `—`, never a confident `$0.00`.
+- Note the deliberate asymmetry with SCORE, which shows the *latest* review:
+  a score is a current verdict, a cost is a running tally.
 - Column sits between STATUS and UPDATED; header "Cost".
 - One additional query for the whole list (the same read pattern as the
   latest-score lookup) — never per row.
@@ -101,7 +106,7 @@ commit:
 - `src/modules/reviews/repository/run.repo.ts` — write on complete, read in list
 - `src/modules/reviews/repository.ts` — facade signature
 - `src/modules/reviews/run-executor.ts` — stop dropping `costUsd`; into the trace
-- `src/modules/pulls/routes.ts` — latest-run cost per PR
+- `src/modules/pulls/routes.ts` — total run cost per PR
 - `src/vendor/shared/contracts/{trace,platform}.ts`
 
 **client**
@@ -123,5 +128,7 @@ hand after the schema change, or every route touching `agent_runs` fails with
 
 ## Open questions
 
-None. Decisions taken up front: three surfaces only; PR-list cost = latest
-settled run; `null` for failed/cancelled runs; no backfill of history.
+None. Decisions taken up front: three surfaces only; `null` for
+failed/cancelled runs; no backfill of history. The PR-list column started as
+"latest settled run" and was changed to the per-PR total once the first real runs
+landed — one PR reviewed three times reads `$0.014`, not `$0.0065`.

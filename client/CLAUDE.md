@@ -30,6 +30,8 @@ the Fastify API. `next-intl` for copy, vendored design system for components.
 - Working from a spec → `specs/<feature>.md`, before the first edit.
 - Something behaves inexplicably → `INSIGHTS.md` (§ What Doesn't Work, § Recurring Errors).
 - You learned something non-obvious → append it to the matching `INSIGHTS.md` section.
+- Touching anything that renders findings → `docs/findings-surfaces.md` first:
+  four screens, three data sources.
 - Deeper background on a surface → `docs/`.
 - React, Next and Testing Library rules load on demand from `.claude/skills/` —
   not restated here.
@@ -44,8 +46,20 @@ the Fastify API. `next-intl` for copy, vendored design system for components.
   hardcoded strings in JSX.
 - Component tests mock `fetch`, so they need neither the API nor a browser.
 
+## Naming
+
+- A component is a PascalCase folder: `_components/<Name>/<Name>.tsx` + `index.ts`,
+  with `helpers.ts` / `constants.ts` / `styles.ts` beside it when they earn their file.
+- Route-local UI lives in `_components/`; anything a second route renders moves to
+  `src/components/<kebab-case>/` (`run-cost/`, `findings-summary/`).
+- A component's test sits next to it as `<Name>.test.tsx`.
+- Hooks are `use<Thing>` in `src/lib/hooks/<area>.ts`; message namespaces are the
+  file name under `messages/<locale>/` and keys are camelCase dotted paths.
+
 ## Do not touch
 
+- `pnpm-lock.yaml` — never hand-edited; add a dependency with `pnpm add` and commit
+  the lockfile it writes.
 - `.next/` — build output.
 - `src/vendor/shared/**` in isolation: it is one of two copies of the contracts
   (the other is `server/src/vendor/shared`, which `reviewer-core` compiles against).
