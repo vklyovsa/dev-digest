@@ -54,6 +54,9 @@ do not say.
 Error or symptom → cause → fix, one entry each, so the next occurrence is a lookup
 instead of an investigation.
 
+- **`Updating a style property during rerender (borderColor) when a conflicting property is set (borderLeftColor)` — React counts `borderColor` and `borderWidth` as SHORTHANDS too.** (2026-09-19) `FindingCard/styles.ts:5` had already dropped the `border` shorthand and even carried a comment claiming it was safe, yet still paired `borderColor` with `borderLeftColor`; the warning fires only on the rerender that changes the value, which is why `focused` toggling (j/k navigation) surfaced it and the first render never did.
+  → A per-side value means per-side longhand all the way: `borderTop/Right/Bottom/LeftColor` and the matching `*Width`. Guarded by the test "re-renders with a different focus state without a React style warning" in `FindingCard.test.tsx`.
+
 - **`Unable to find an element with the text: $0.0013` while the badge visibly renders it.** (2026-09-17) `RunCostBadge` variant `detailed` emits the token count and the cost as two text nodes of ONE span (`src/components/run-cost/RunCostBadge.tsx:47`), and Testing Library matches text per element, not per node — two cost assertions in `RunHistory.test.tsx` were red from the day they were written.
   → Assert the joined text (`getByText("150 tok · $0.0013")`) or pass a regex; never an exact string for half of a multi-node element.
 
