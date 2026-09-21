@@ -71,6 +71,14 @@ export function FindingsTab({
     setTarget((p) => ({ runId, n: (p?.n ?? 0) + 1 }));
   }, []);
 
+  // The timeline's severity counters read the findings already loaded with the
+  // PR's reviews — the run rows themselves only carry a total.
+  const findingsByRun = React.useMemo(() => {
+    const byRun: Record<string, FindingRecord[]> = {};
+    for (const review of runs) if (review.run_id) byRun[review.run_id] = review.findings;
+    return byRun;
+  }, [runs]);
+
   return (
     <section>
       {liveRunIds.length > 0 && (
@@ -131,6 +139,7 @@ export function FindingsTab({
           <RunHistory
             runs={prRuns ?? []}
             commits={prCommits}
+            findingsByRun={findingsByRun}
             onOpenTrace={handleOpenTrace}
             onGoToReview={handleGoToReview}
             onDelete={handleDelete}

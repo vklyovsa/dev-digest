@@ -201,6 +201,8 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     const trace = (await app.inject({ method: 'GET', url: `/runs/${runId}/trace` })).json();
     expect(trace.config.model).toBe('gpt-4.1');
     expect(trace.stats.grounding).toBe('1/2 passed');
+    // single-pass ⇒ exactly one LLM call ⇒ the mock provider's per-call cost
+    expect(trace.stats.cost_usd).toBeCloseTo(0.001, 6);
     expect(trace.log.length).toBeGreaterThan(0);
 
     // agent_runs row populated for A5 to aggregate
@@ -208,6 +210,29 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     expect(run!.status).toBe('done');
     expect(run!.findingsCount).toBe(1);
     expect(run!.grounding).toBe('1/2 passed');
+    expect(run!.costUsd).toBeCloseTo(0.001, 6);
+
+    await app.close();
+  });
+
+  it('a failed run records no cost — null, never 0', async () => {
+    // An empty fixture fails the Review schema inside the mock provider, so the
+    // run throws where a real one would on a quota/5xx error.
+    const app = await appWith({});
+    const { pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    const agent = (
+      await app.inject({
+        method: 'POST',
+        url: '/agents',
+        payload: { name: 'Doomed', provider: 'openai', model: 'gpt-4.1', system_prompt: 'sec' },
+      })
+    ).json();
+
+    await app.inject({ method: 'POST', url: `/pulls/${pr.id}/review`, payload: { agentId: agent.id } });
+    const runs = await waitForPrRuns(pg.handle.db, pr.id, { expected: 1 });
+
+    expect(runs[0]!.status).toBe('failed');
+    expect(runs[0]!.costUsd).toBeNull();
 
     await app.close();
   });

@@ -58,3 +58,23 @@ describe("FindingCard (smoke, both themes)", () => {
     expect(onAction).toHaveBeenCalledWith("dismiss");
   });
 });
+
+/**
+ * React treats `borderColor` and `borderWidth` as SHORTHANDS for their four
+ * sides, so pairing either with `borderLeftColor` makes it warn the moment the
+ * focused colour changes on a rerender. Guard: flipping `focused` must produce
+ * no console error at all.
+ */
+describe("FindingCard — no shorthand/longhand style conflict", () => {
+  it("re-renders with a different focus state without a React style warning", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { rerender } = renderWithIntl(<FindingCard f={FINDING} focused={false} />);
+    rerender(
+      <NextIntlClientProvider locale="en" messages={{ prReview: messages }}>
+        <FindingCard f={FINDING} focused />
+      </NextIntlClientProvider>,
+    );
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+});

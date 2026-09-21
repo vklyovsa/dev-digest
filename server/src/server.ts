@@ -6,6 +6,12 @@ async function main() {
   const config = loadConfig();
   const app = await buildApp({ config });
 
+  // Node kills the process on an unhandled rejection. A stray background
+  // failure should degrade one feature, not the whole API.
+  process.on('unhandledRejection', (err) => {
+    app.log.error(err, 'unhandled rejection');
+  });
+
   // Graceful shutdown: on SIGTERM/SIGINT close the server, which runs the
   // onClose hooks (drains in-flight requests/SSE, closes the postgres pool).
   // Guarded so a second signal during shutdown doesn't double-close.

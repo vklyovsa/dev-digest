@@ -62,6 +62,40 @@ export const Finding = z.object({
 });
 export type Finding = z.infer<typeof Finding>;
 
+/**
+ * Read-only projection of a finding for list surfaces (the PR list's FINDINGS
+ * popover): exactly what a preview renders, and nothing more — no action
+ * timestamps, no suggestion, no trifecta fields.
+ */
+export const FindingPreview = Finding.pick({
+  id: true,
+  severity: true,
+  category: true,
+  title: true,
+  file: true,
+  start_line: true,
+  end_line: true,
+  confidence: true,
+  rationale: true,
+});
+export type FindingPreview = z.infer<typeof FindingPreview>;
+
+export const SeverityCount = z.object({ severity: Severity, count: z.number().int() });
+export type SeverityCount = z.infer<typeof SeverityCount>;
+
+/**
+ * Severity roll-up of a set of findings — one review run on the PR page, or a
+ * PR's current findings on the list. `counts` is an ARRAY of the severities
+ * actually present, worst first: a missing severity means zero, so the UI can
+ * never render a "0 CRITICAL" pill. `previews` is capped by the producer.
+ */
+export const FindingsSummary = z.object({
+  total: z.number().int(),
+  counts: z.array(SeverityCount),
+  previews: z.array(FindingPreview),
+});
+export type FindingsSummary = z.infer<typeof FindingsSummary>;
+
 /** Review — the consolidated structured output of a single agent run. */
 export const Review = z.object({
   verdict: Verdict,

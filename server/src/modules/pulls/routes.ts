@@ -1,13 +1,20 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { and, desc, eq, inArray } from 'drizzle-orm';
-import type { PrMeta, PrDetail, GitHubClient, PrReviewComment } from '@devdigest/shared';
+import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
+import type {
+  PrMeta,
+  PrDetail,
+  GitHubClient,
+  PrReviewComment,
+  FindingsSummary,
+} from '@devdigest/shared';
 import { PrCommentInput } from '@devdigest/shared';
 import * as t from '../../db/schema.js';
 import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
 import { AppError, NotFoundError } from '../../platform/errors.js';
 import { deriveReviewStatus } from './status.js';
+import { scoreForFindings, summarizeFindings } from './findings-summary.js';
 
 /**
  * F1 — pulls module. PR import via Octokit (list + per-PR detail).
@@ -111,27 +118,98 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
       }
     }
 
-    // Latest-review SCORE per PR for the list's score ring. Computed on read
-    // from reviews (no FK denorm); the list is small, so one IN-query + JS
-    // grouping is cheap. (The per-severity FINDINGS breakdown is intentionally
-    // not surfaced on the list — findings live on the PR detail page.)
+    // The CURRENT opinion of every agent about each PR: the newest review per
+    // (PR, agent). One IN-query, newest first, first row per pair wins — the
+    // same JS-grouping trick the cost column uses.
+    //
+    // Not "all reviews": findings are never deduplicated between runs
+    // (`reviews/repository/review.repo.ts` inserts a fresh row per run, and
+    // `findings` has no unique key), so an agent re-run on the same PR would
+    // count the same problem twice. Not "the single newest review" either: a
+    // "Run all agents" batch writes one review per agent, so the newest row is
+    // whichever agent happened to finish last, and the others would vanish.
     const prIds = rows.map((r) => r.id);
-    const latestReviewByPr = new Map<string, { score: number | null }>();
+    const prIdByReview = new Map<string, string>();
+    const reviewedPrs = new Set<string>();
     if (prIds.length > 0) {
       const reviewRows = await container.db
-        .select({ prId: t.reviews.prId, score: t.reviews.score })
+        .select({ id: t.reviews.id, prId: t.reviews.prId, agentId: t.reviews.agentId })
         .from(t.reviews)
         .where(and(inArray(t.reviews.prId, prIds), eq(t.reviews.kind, 'review')))
-        .orderBy(desc(t.reviews.createdAt));
-      // Rows are newest-first → first seen per PR is the latest review.
+        .orderBy(desc(t.reviews.createdAt), desc(t.reviews.id));
+      const seen = new Set<string>();
       for (const rv of reviewRows) {
-        if (!latestReviewByPr.has(rv.prId)) latestReviewByPr.set(rv.prId, { score: rv.score });
+        reviewedPrs.add(rv.prId);
+        // A review with no agent cannot be superseded by identity, so it keys
+        // on itself and stands on its own.
+        const key = `${rv.prId}:${rv.agentId ?? rv.id}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        prIdByReview.set(rv.id, rv.prId);
+      }
+    }
+
+    // Severity roll-up per PR over those current reviews: every open finding
+    // each agent still reports. Dismissed findings are excluded — a reviewer who
+    // pressed Dismiss said it is not a problem, so it must stop counting here
+    // and stop dragging the score down. One IN-query plus JS grouping; counting
+    // happens here, never in the model.
+    const findingsByPr = new Map<string, FindingsSummary>();
+    const scoreByPr = new Map<string, number>();
+    const reviewIds = [...prIdByReview.keys()];
+    if (reviewIds.length > 0) {
+      const findingRows = await container.db
+        .select({
+          id: t.findings.id,
+          reviewId: t.findings.reviewId,
+          severity: t.findings.severity,
+          category: t.findings.category,
+          title: t.findings.title,
+          file: t.findings.file,
+          startLine: t.findings.startLine,
+          endLine: t.findings.endLine,
+          confidence: t.findings.confidence,
+          rationale: t.findings.rationale,
+        })
+        .from(t.findings)
+        .where(and(inArray(t.findings.reviewId, reviewIds), isNull(t.findings.dismissedAt)));
+
+      const grouped = new Map<string, typeof findingRows>();
+      for (const f of findingRows) {
+        const prId = prIdByReview.get(f.reviewId);
+        if (!prId) continue;
+        const bucket = grouped.get(prId);
+        if (bucket) bucket.push(f);
+        else grouped.set(prId, [f]);
+      }
+      // A reviewed PR with nothing open still gets a summary (total 0) and a
+      // score of 100 — "clean", which is not the same as "never reviewed".
+      for (const prId of reviewedPrs) {
+        const found = grouped.get(prId) ?? [];
+        findingsByPr.set(prId, summarizeFindings(found));
+        scoreByPr.set(prId, scoreForFindings(found));
+      }
+    }
+
+    // TOTAL cost of every run ever made against each PR — the list's COST column
+    // answers "what has this PR cost us", not "what did the last run cost". Same
+    // read pattern as the score above: one IN-query plus JS grouping. Unpriced
+    // runs contribute nothing, and a PR whose runs are ALL unpriced stays absent
+    // from the map, so it reports null ("—") instead of a misleading $0.00.
+    const costByPr = new Map<string, number>();
+    if (prIds.length > 0) {
+      const runRows = await container.db
+        .select({ prId: t.agentRuns.prId, costUsd: t.agentRuns.costUsd })
+        .from(t.agentRuns)
+        .where(inArray(t.agentRuns.prId, prIds));
+      for (const run of runRows) {
+        if (!run.prId || run.costUsd == null) continue;
+        costByPr.set(run.prId, (costByPr.get(run.prId) ?? 0) + run.costUsd);
       }
     }
 
     const now = Date.now();
     return rows.map((r) => {
-      const review = latestReviewByPr.get(r.id);
       return {
         id: r.id,
         number: r.number,
@@ -152,7 +230,9 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
         }),
         opened_at: r.openedAt?.toISOString() ?? null,
         updated_at: r.updatedAt?.toISOString() ?? null,
-        score: review ? review.score : null,
+        score: scoreByPr.get(r.id) ?? null,
+        cost_usd: costByPr.get(r.id) ?? null,
+        findings: findingsByPr.get(r.id) ?? null,
       };
     });
   });

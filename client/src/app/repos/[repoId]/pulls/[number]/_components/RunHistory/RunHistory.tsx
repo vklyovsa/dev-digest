@@ -3,7 +3,9 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Badge, Icon, CircularScore, type IconName } from "@devdigest/ui";
-import type { RunSummary, PrCommit } from "@devdigest/shared";
+import type { RunSummary, PrCommit, FindingRecord } from "@devdigest/shared";
+import { RunCostBadge } from "@/components/run-cost";
+import { SeverityCounts, FindingsPopover, countBySeverity } from "@/components/findings-summary";
 
 /**
  * PR timeline — every agent run interleaved with the PR's commits, newest-first
@@ -87,12 +89,16 @@ function tsOf(s: string | null | undefined): number {
 export function RunHistory({
   runs,
   commits = [],
+  findingsByRun,
   onOpenTrace,
   onGoToReview,
   onDelete,
 }: {
   runs: RunSummary[];
   commits?: PrCommit[];
+  /** run_id → that run's persisted findings, for the severity counters on the
+   *  tile. Already loaded with the PR's reviews, so this costs no request. */
+  findingsByRun?: Record<string, FindingRecord[]>;
   /** Open the trace + log drawer for a run (the logs icon). */
   onOpenTrace: (runId: string) => void;
   /** Jump to this run's inline review accordion below (clicking the agent name). */
@@ -149,6 +155,10 @@ export function RunHistory({
         const r = item.run;
         const o = outcomeOf(r);
         const settled = r.status === "done";
+        // Read-only on the timeline: the clickable severity filter lives in the
+        // run's card under "Review runs", which owns the findings list.
+        const runFindings = findingsByRun?.[r.run_id] ?? [];
+        const counts = countBySeverity(runFindings);
         return (
           <div key={`run:${r.run_id}`} style={rowStyle}>
             <Badge color={o.color} bg={o.bg} icon={o.icon}>
@@ -188,15 +198,25 @@ export function RunHistory({
                   {r.error}
                 </div>
               )}
-              {settled && (
-                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                  {t("runStatus.findings", { count: r.findings_count ?? 0 })}
-                  {(r.blockers ?? 0) > 0 ? t("runStatus.blockers", { count: r.blockers ?? 0 }) : ""}
-                </div>
+              {/* Icons with numbers only: the run's own severity mix, no
+                  "N finding(s) · M blockers" text — the outcome badge on the
+                  left already says how serious the run was. */}
+              {settled && counts.length > 0 && (
+                <FindingsPopover total={runFindings.length} previews={runFindings}>
+                  <SeverityCounts counts={counts} iconSize={12} />
+                </FindingsPopover>
               )}
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, fontSize: 11, color: "var(--text-muted)", flexShrink: 0 }}>
               {r.ran_at && <span>{new Date(r.ran_at).toLocaleTimeString()}</span>}
+              {settled && (
+                <RunCostBadge
+                  variant="detailed"
+                  costUsd={r.cost_usd}
+                  tokensIn={r.tokens_in}
+                  tokensOut={r.tokens_out}
+                />
+              )}
             </div>
             <button
               type="button"
