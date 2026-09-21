@@ -24,12 +24,22 @@ Approaches and solutions that held up, with the context that made them work.
 Dead ends and anti-patterns: what was tried, why it failed, what to do instead.
 **The highest-value section and the one most often left empty. Fill it.**
 
-_None yet._
+- **A `PreToolUse(Bash)` hook that matches a bare substring locks you out of fixing the hook itself.** `guard-pr.sh` first gated on `gh[[:space:]]+pr[[:space:]]+(create|ready)` anywhere in the command, so the very tool call carrying the patch was refused — its text contained `--check "gh pr create --fill"` as test data. The block is silent about this: it reads exactly like a real PR being stopped.
+  → Match the binary in COMMAND POSITION only (`(^|[;&|(]|&&|\|\|)[[:space:]]*(VAR=x[[:space:]]+)*gh[[:space:]]+pr …`) and exit 0 early when the command invokes the guard script itself. Verify a gate with a table of allow/deny commands run through `--check`, never by typing the real command.
 
 ## Codebase Patterns
 
 Conventions and architectural decisions found while working here, before they are
 settled enough to move into `CLAUDE.md`.
+
+- **A consumer-declared structural port is what actually breaks a module/composition-root cycle — moving code does not.** `repo-intel/service.ts → platform/container.ts → repo-intel/service.ts` survived every rearrangement; it disappeared the moment the module declared `RepoIntelDeps` in its own `types.ts` and stopped importing `Container` at all. `Container` satisfies the interface structurally, so `new RepoIntelService(this)` in the container is unchanged and there is no registration step. Same pattern in `modules/reviews/deps.ts`, `pulls/service.ts` (`PullsRepoReader`), `polling/service.ts` (`PollingPullWriter`), `workspace/service.ts` (`WorkspaceRepoReader`).
+  → When a module needs another module's data or a container capability, write the two-or-three-method slice you actually call and let the concrete class satisfy it. Importing the real class back is what `no-cross-module-internals` catches — it fired on `reviews/deps.ts → agents/repository.ts` and the fix was an `AgentsReader` interface over `AgentRow`.
+
+- **Corrected 2026-09-21: the layering baseline below is history — the tree is now green and the rules are enforced.** `pnpm exec depcruise src --config .dependency-cruiser.cjs` in `server/` reports `no dependency violations found` across 157 modules, with all ten rules at `severity: 'error'` and a CI step in `.github/workflows/server-unit.yml`. The four routes go through service+repository, no `modules/**` service takes `Container`, and the repo-intel import cycle is gone.
+  → Treat the entry below as the before-picture, not as work outstanding. New backend code must keep `arch:check` green; the rules cannot be lowered to make a change fit.
+
+- **The backend layering is service-locator + transport-reaches-persistence, measured not assumed.** (2026-09-21) Four route files query Drizzle straight from the HTTP layer (`modules/{polling,pulls,settings,workspace}/routes.ts` import `drizzle-orm` + `db/schema.js`); five collaborators take the whole DI container instead of named dependencies (`reviews/service.ts:33`, `agents/service.ts:54`, `repos/service.ts:36`, `repo-intel/service.ts:104`, `reviews/run-executor.ts:45`); and `ReviewService.resolveTargets()` returns `AgentRow[]` (`typeof agents.$inferSelect`). Adapters are the clean half — every external call already sits behind an interface in `vendor/shared/adapters.ts` — but repositories have no port.
+  → Reproduce with two greps (`container: Container` under `modules/`, and `drizzle-orm|db/schema` in `*/routes.ts`) before claiming progress. Order matters: lift the four routes onto service+repository first — the ports the services need are only visible once routes stop bypassing them. Rules and migration phases are in `.claude/skills/onion-architecture/`.
 
 - **Run cost is already plumbed end-to-end — only the sink was removed.** `reviewer-core/src/llm/openrouter.ts` asks OpenRouter for `usage: { include: true }` and returns the real `usage.cost` (falling back to the injected PriceBook), and `reviewer-core/src/review/run.ts:184` sums it per chunk, but `server/src/db/migrations/0009_complex_runaways.sql` DROPs `agent_runs.cost_usd` and `server/src/modules/reviews/run-executor.ts:213` destructures only tokens + grounding, discarding `outcome.costUsd`. Contracts that declare `cost_usd` (AgentColumn, AgentStats, eval/ci/knowledge) are aspirational, not proof it is persisted.
   → Surfacing cost means re-adding the column and forwarding `outcome.costUsd`; never build a second pricing path or a per-run estimation call.
@@ -39,7 +49,14 @@ settled enough to move into `CLAUDE.md`.
 Quirks of dependencies, versions and tooling — what a library does that its docs
 do not say.
 
-_None yet._
+- **`jq` `//` treats `false` as empty, so `.blocked // true` turns a PASSING verdict into a block.** `guard-pr.sh:67` read the gate decision that way; a verdict with `"blocked": false` and matching hashes still refused `gh pr create`, and the failure looks like a stale-artifact bug rather than a JSON read.
+  → For any boolean read from JSON use `if has("k") then .k else <default> end`; keep `//` for strings. A gate test that only exercises the deny path will never catch it — assert the allow path too.
+
+- **A dependency-cruiser rule targeting an npm package matches the RESOLVED path, not the specifier — so `^drizzle-orm` never fires and the rule passes vacuously.** Under pnpm the graph reports `node_modules/.pnpm/drizzle-orm@0.38.4_postgres@3.4.9/node_modules/drizzle-orm/index.cjs`, so the `^` anchor guarantees zero matches; the first `no-routes-to-drizzle` run reported 0 violations against four route files that plainly imported it.
+  → Write `to: { dependencyTypes: ['npm'], path: 'node_modules/(drizzle-orm|postgres)' }` and prove a new rule fires before trusting a green run. The same trap applies to the `$1` backreference in `from.path` — it does substitute (a probe rule `to: '^src/modules/$1/'` reported 62 same-module edges), but a rule that is silently inert looks identical to a rule that is satisfied.
+
+- **`dependency-cruiser@17` is already a `server/` runtime dependency, and the repo has no ESLint anywhere.** `server/src/adapters/depgraph/index.ts:17` imports `cruise` from it to build the repo-intel import graph, so architecture linting costs no new package; a `find` for `.eslintrc*` / `eslint.config.*` across all four packages returns nothing, so `eslint-plugin-boundaries` would mean introducing ESLint first.
+  → Enforce layering with a `depcruise` config + script, not with an ESLint plugin. Two gotchas: this package is ESM and imports `./service.js` from `service.ts`, so `tsPreCompilationDeps: true` is required for resolution; and `server/package.json` is `skip-worktree`, so CI must call `pnpm exec depcruise` directly rather than a script name.
 
 ## Recurring Errors & Fixes
 
@@ -67,6 +84,21 @@ instead of an investigation.
 
 Dated summaries as `### YYYY-MM-DD — topic`: what was worked on and what state it
 was left in. Prune an entry once its content has moved into a section above.
+
+### 2026-09-21 — pr-self-review skill + PR gate
+Plan first (`specs/pr-self-review-skill.md`), then built `.claude/skills/pr-self-review/` — SKILL.md,
+`rules/{routing,severity,repo-conventions}.md`, `examples.md`, `tile.json` and five scripts
+(`collect-diff`, `route-skills`, `write-verdict`, `guard-pr`, `lib`). `.claude/settings.json` is NEW in this
+repo and exists only to register the `PreToolUse(Bash)` hook. Gate verified with a 13-case allow/deny matrix;
+the local artifact under `.claude/pr-self-review/` (git-ignored) was deleted afterwards, so the gate is closed
+until the first real run. No package code touched, no commits.
+
+### 2026-09-21 — onion-architecture skill
+Researched the backend stack and the layering baseline, wrote the plan to `specs/onion-architecture-skill.md`,
+then built `.claude/skills/onion-architecture/` (SKILL.md + 8 rules + examples.md + references.md + tile.json)
+and added its row to `.claude/skills/README.md`. Phase 0 only — no `server/` or `reviewer-core/` code touched,
+and `.dependency-cruiser.cjs` exists as a paste-ready block inside `rules/enforcement.md`, not on disk.
+A parallel session was adding `frontend-ui-architecture` at the same time; both catalog rows coexist.
 
 ### 2026-09-17 — findings grouped by severity on four surfaces
 Spec first (`specs/findings-by-severity.md` plus the per-package halves), then built:

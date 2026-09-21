@@ -22,6 +22,30 @@
  * while still guaranteeing every consumer can fall back without throwing.
  */
 
+import type { CodeIndex, GitClient } from '@devdigest/shared';
+import type { AppConfig } from '../../platform/config.js';
+import type { Db } from '../../db/client.js';
+import type { JobRunner } from '../../platform/jobs.js';
+import type { DepGraph } from '../../adapters/depgraph/index.js';
+import type { Tokenizer } from '../../adapters/tokenizer/index.js';
+
+/**
+ * What repo-intel needs from the outside, declared here by the consumer.
+ *
+ * The DI container satisfies this structurally, so the module depends on a
+ * capability set rather than on the composition root — which is also what
+ * breaks the repo-intel -> container -> repo-intel import cycle.
+ */
+export interface RepoIntelDeps {
+  readonly config: AppConfig;
+  readonly db: Db;
+  readonly git: GitClient;
+  readonly codeIndex: CodeIndex;
+  readonly jobs: JobRunner;
+  readonly depgraph: DepGraph;
+  readonly tokenizer: Tokenizer;
+}
+
 export type IndexStatus = 'full' | 'partial' | 'degraded' | 'failed';
 
 export type DegradedReason =

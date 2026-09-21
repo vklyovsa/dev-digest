@@ -31,7 +31,11 @@ Dead ends and anti-patterns: what was tried, why it failed, what to do instead.
 Conventions and architectural decisions found while working here, before they are
 settled enough to move into `CLAUDE.md`.
 
-_None yet._
+- **`[number]/_components/` is flat, but its real ownership tree is four levels deep and each of its twelve components has exactly one importer.** `page.tsx` imports only PrDetailHeader/OverviewTab/FindingsTab/DiffTab/RunTraceDrawer; FindingsTab owns RunStatus, RunHistory and ReviewRunAccordion, which owns VerdictBanner and FindingsPanel, which owns FindingCard. `RunTraceDrawer/_components/` in the same folder already nests its parts, so the flat siblings are the inconsistency, not the pattern.
+  → Nesting them all would push past the 3-4 level folder-depth cap, so treat this route as a feature that outgrew `_components/` rather than flattening further; a new component goes under the single parent that renders it.
+
+- **A helper two sibling `_components/` folders share moves to a route-level `helpers.ts`/`constants.ts` in the route segment, not to `src/components/<kebab>/`.** `src/app/repos/[repoId]/pulls/constants.ts` and `helpers.ts` are imported as `../../constants` by both `_components/PRRow/PRRow.tsx:11` and `_components/FilterBar/FilterBar.tsx:7` alongside `page.tsx:19`; the `src/components/<kebab>/` tier is reserved for a second *route*, and CLAUDE.md § Naming conventions names only `_components/<Name>/` and `src/components/<kebab-case>/`, so the route-level slot is invisible until you find it.
+  → Promote a shared route-local helper to the nearest common parent segment first; reach for `src/components/<kebab>/` only when a different route renders it.
 
 ## Tool & Library Notes
 
