@@ -85,6 +85,22 @@ instead of an investigation.
 Dated summaries as `### YYYY-MM-DD — topic`: what was worked on and what state it
 was left in. Prune an entry once its content has moved into a section above.
 
+### 2026-09-21 — skills feature (storage → editor → agent binding → prompt)
+Spec first (`specs/skills.md` + the two package halves), then built: `server/src/modules/skills/`
+(CRUD, `skill_versions` + restore, a dependency-free ZIP reader for imports, a bundled community
+catalog), migration `0011` adding `skill_versions.note`, a `SkillsReader` port in `reviews/deps.ts`
+so `run-executor` renders one labelled block per linked+enabled skill, `/skills` in the client
+(list · config · preview · stats · versions + import drawer), an agent-editor Skills tab with
+ordering, and a seeded `Test Quality Reviewer` with 3 linked skills. Evals tab and the design's
+pull-frequency/accept-rate metrics were deliberately NOT built — no data backs them. Green:
+typecheck in client/server/reviewer-core, `arch:check` (167 modules), `next build`. Tests were
+WRITTEN but not run (standing rule); migrations 0011/0012 are generated, not applied to the local DB.
+Then `/pr-self-review` over 11 lanes found 2 CRITICALs — the agent's Skills tab could unlink every
+skill when clicked before its links loaded, and `PUT /skills/:id {}` answered 500 (`No values to set`)
+— both fixed, along with transactions around the version snapshots, real-length ZIP bounds, a
+route-level `bodyLimit`, and an index on `agent_skills(skill_id)` (migration 0012). Closed with
+`Agent.skill_count`, `specs/homework-2-acceptance.md`, `PR_BODY-skills.md` and `DEMO_SCRIPT-skills.md`.
+
 ### 2026-09-21 — pr-self-review skill + PR gate
 Plan first (`specs/pr-self-review-skill.md`), then built `.claude/skills/pr-self-review/` — SKILL.md,
 `rules/{routing,severity,repo-conventions}.md`, `examples.md`, `tile.json` and five scripts

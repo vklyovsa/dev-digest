@@ -17,11 +17,25 @@ export interface AgentsReader {
   getById(workspaceId: string, id: string): Promise<AgentRow | undefined>;
 }
 
+/**
+ * The one thing a run needs from the skills module: the ENABLED skills linked
+ * to an agent, already in prompt order. Declared here (not imported from
+ * `modules/skills`) for the same reason as `AgentsReader` — `SkillsRepository`
+ * satisfies it structurally, so neither module reaches into the other's data
+ * layer.
+ */
+export interface SkillsReader {
+  linkedEnabled(agentId: string): Promise<
+    { id: string; name: string; type: string; source: string; body: string }[]
+  >;
+}
+
 export interface ReviewsDeps {
   readonly db: Db;
   readonly git: GitClient;
   readonly runBus: RunBus;
   readonly repoIntel: RepoIntel;
   readonly agentsRepo: AgentsReader;
+  readonly skillsRepo: SkillsReader;
   llm(id: 'openai' | 'anthropic' | 'openrouter'): Promise<LLMProvider>;
 }

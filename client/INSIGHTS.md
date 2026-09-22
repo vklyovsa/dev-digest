@@ -42,6 +42,9 @@ settled enough to move into `CLAUDE.md`.
 Quirks of dependencies, versions and tooling — what a library does that its docs
 do not say.
 
+- **A static route that calls `useSearchParams()` does NOT fail `next build` on Next 15.5 — the Next-14-era "should be wrapped in a suspense boundary" error never fires.** (2026-09-21) `/skills` was built both with and without the boundary in `src/app/skills/page.tsx`; both runs were green and the route stayed `○ (Static)` in the output table either way. The boundary still earns its place — without one the tree above `useSearchParams()` falls back to client rendering — but it is a rendering decision, not a build gate.
+  → Do not add `<Suspense>` "because the build will fail", and do not trust a comment that says so; prove a build gate by removing the guard and running `pnpm build` before writing it down.
+
 - **`MonoLink` renders a `<button>` when it is given no `href`.** (2026-09-17) `src/vendor/ui/primitives/MonoLink.tsx:42` returns a focusable `<button>`; the `<a>` is emitted only on the href branch, so reusing the primitive on a read-only surface silently adds a control and a tab stop where the design says there is none.
   → On a read-only surface render `file:line` as a plain `<span className="mono">`; keep `MonoLink` for references that really navigate.
 
@@ -57,6 +60,12 @@ do not say.
 
 Error or symptom → cause → fix, one entry each, so the next occurrence is a lookup
 instead of an investigation.
+
+- **A vitest hook that RETURNS a function gets that function called as teardown — and `mock.mockReset()` returns the mock itself, which is callable.** (2026-09-22) `beforeEach(() => mutateAsync.mockReset())` (implicit-return arrow) made vitest invoke the mock again after the test body finished; with a throwing implementation set inside the test, the failure surfaced as `ApiError: …` attributed to a test whose assertions had all passed, and `mock.calls.length` still read 1 while the body ran. Bisected in `CreateSkillModal.test.tsx`: deleting the hook fixed it, swapping `mockReset`→`mockClear` did not, a block body did.
+  → Always give a mock-resetting hook a BLOCK body: `beforeEach(() => { m.mockReset(); })`. The same trap waits on `mockClear`, `mockImplementation`, `mockReturnValue` — every one of them returns the mock. An unexplained error carrying a test-fixture message, after the assertions passed, is this.
+
+- **The client's vendored `@devdigest/shared` is a TYPE-only dependency: importing a VALUE from it type-checks, passes vitest, and then fails `next build`.** (2026-09-22) `src/vendor/shared/index.ts` re-exports with `.js` specifiers (`./contracts/findings.js`) against `.ts` sources; `tsc` and vite resolve that, Next's webpack does not — `import { SkillType } from "@devdigest/shared"` in `src/app/skills/constants.ts` produced `Module not found: Can't resolve ./contracts/findings.js`, naming a file the importer never mentions. Every pre-existing client import from that path is `import type`, so nothing had hit it before.
+  → In `client/`, import only types from `@devdigest/shared`. When a zod enum's VALUES are needed (select options, an allow-list), write the literal tuple locally and guard it with `type Missing = Exclude<TheUnion, (typeof LOCAL)[number]>` — a contract change then breaks the build instead of drifting. `pnpm typecheck` + `pnpm test` cannot catch this; only `pnpm build` can.
 
 - **`Updating a style property during rerender (borderColor) when a conflicting property is set (borderLeftColor)` — React counts `borderColor` and `borderWidth` as SHORTHANDS too.** (2026-09-19) `FindingCard/styles.ts:5` had already dropped the `border` shorthand and even carried a comment claiming it was safe, yet still paired `borderColor` with `borderLeftColor`; the warning fires only on the rerender that changes the value, which is why `focused` toggling (j/k navigation) surfaced it and the first render never did.
   → A per-side value means per-side longhand all the way: `borderTop/Right/Bottom/LeftColor` and the matching `*Width`. Guarded by the test "re-renders with a different focus state without a React style warning" in `FindingCard.test.tsx`.

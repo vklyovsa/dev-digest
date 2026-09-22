@@ -32,6 +32,8 @@ the Fastify API. `next-intl` for copy, vendored design system for components.
 - You learned something non-obvious → append it to the matching `INSIGHTS.md` section.
 - Touching anything that renders findings → `docs/findings-surfaces.md` first:
   four screens, three data sources.
+- Working on `/skills` or the agent's Skills tab → `docs/skills-ui.md`
+  (query-string state, the tabs that exist on purpose, the two-step import).
 - Deeper background on a surface → `docs/`.
 - React, Next and Testing Library rules load on demand from `.claude/skills/` —
   not restated here.

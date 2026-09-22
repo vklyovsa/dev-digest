@@ -30,6 +30,9 @@ _None yet._
 Conventions and architectural decisions found while working here, before they are
 settled enough to move into `CLAUDE.md`.
 
+- **A derived count belongs on the DTO, filled by one grouped IN-query — and it has to be filled on EVERY read path, not just the list.** (2026-09-22) `Skill.agent_count` and `Agent.skill_count` are the same join read from opposite ends (`agentCounts` / `skillCounts`); the trap is `update()`, which returns a DTO too — leaving it at the `toDto(row)` default made a freshly-saved agent report 0 skills until the next list refetch, with nothing in the types to notice.
+  → When adding a derived field, grep the module for every `to<Thing>Dto(` call site before declaring it done: create legitimately defaults to 0, but get/list/update must all resolve it. `z.number().int().nonnegative().default(0)` over `.nullish()` keeps the inferred type a plain number so no reader needs `?? 0`.
+
 - **Findings are never deduplicated between runs, so "all reviews of a PR" over-counts.** (2026-09-19) `src/modules/reviews/repository/review.repo.ts:36` inserts a fresh `findings` row per run and the table has no unique key (`src/db/schema/reviews.ts:27`), so an agent re-run on an unchanged PR stores the same problem again — three passes of one security agent read as "3 CRITICAL".
   → For the current state of a PR, take the NEWEST review per (pr_id, agent_id) and only its findings (`src/modules/pulls/routes.ts:131`): an agent supersedes itself, never its colleagues.
 
@@ -47,7 +50,8 @@ settled enough to move into `CLAUDE.md`.
 Quirks of dependencies, versions and tooling — what a library does that its docs
 do not say.
 
-_None yet._
+- **`pnpm typecheck` does not look at `test/**` — the tsconfig `include` is `src/**/*.ts` only.** (2026-09-21) A type error in a new test file is therefore invisible until vitest runs it, and vitest strips types rather than checking them, so it can stay invisible for good. Running tsc over a test-inclusive config shows the backlog this hides: `test/adapters.test.ts:37`, `test/agents-versions.it.test.ts:168`, seven spots in `test/prompt-callers.test.ts`, `test/repo-intel-facade-degraded.test.ts:112` are all red today on `main`-equivalent code.
+  → To check a NEW test statically, drop a throwaway config in `server/` that extends `tsconfig.json` with `"include": ["src/**/*.ts", "test/**/*.ts"]`, run `pnpm exec tsc --noEmit -p` it, and grep the output for your own files — the pre-existing errors make an unfiltered run unreadable. Delete the config afterwards.
 
 ## Recurring Errors & Fixes
 

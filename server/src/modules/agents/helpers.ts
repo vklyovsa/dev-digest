@@ -10,8 +10,8 @@ import type { AgentRow, AgentVersionRow } from '../../db/rows.js';
  * implementations.
  */
 
-/** Map a persisted agent row to the public `Agent` DTO. */
-export function toAgentDto(row: AgentRow): Agent {
+/** Map a persisted agent row to the public `Agent` DTO. `skillCount` is derived. */
+export function toAgentDto(row: AgentRow, skillCount = 0): Agent {
   return {
     id: row.id,
     name: row.name,
@@ -25,6 +25,7 @@ export function toAgentDto(row: AgentRow): Agent {
     strategy: row.strategy as ReviewStrategy,
     ci_fail_on: row.ciFailOn as CiFailOn,
     repo_intel: row.repoIntel,
+    skill_count: skillCount,
   };
 }
 

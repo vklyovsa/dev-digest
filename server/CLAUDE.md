@@ -32,6 +32,9 @@ integration `pnpm exec vitest run .it.test` (needs Docker) · both `pnpm test`
 - You learned something non-obvious → append it to the matching `INSIGHTS.md` section.
 - Adding a derived column to the PR list → `docs/pr-list-read-model.md` (one
   IN-query per column; "latest" vs "total" is deliberate).
+- Touching skills, the prompt's skills block, or the import path →
+  `docs/skills-in-prompt.md` (two SQL gates; imported text is NOT wrapped as
+  untrusted data, and why).
 - Deeper background on a subsystem → `docs/`.
 
 ## Conventions

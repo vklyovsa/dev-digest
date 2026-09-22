@@ -5,7 +5,7 @@ import { RunLogger } from '../../platform/run-logger.js';
 import type { AgentRow } from '../../db/rows.js';
 import type { ReviewRepository, FindingRow, PullRow, ReviewRow } from './repository.js';
 import { REVIEW_STRATEGY } from './constants.js';
-import { taskLine } from './helpers.js';
+import { renderSkillBlocks, taskLine } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
 
 /** Thrown by a run when the user cancels it mid-flight (between map files). */
@@ -161,6 +161,22 @@ export class ReviewRunExecutor {
         { kind: 'tool' },
       );
 
+      // Skills — the reusable instruction blocks linked to this agent, already
+      // filtered to the ENABLED ones and ordered by the agent editor. A skill
+      // that is unlinked or disabled changes nothing about this prompt, which
+      // is what makes the with/without comparison meaningful.
+      const skills = await runLog.step(
+        'Loading agent skills',
+        () => this.deps.skillsRepo.linkedEnabled(agent.id),
+        { kind: 'tool' },
+      );
+      const skillBlocks = renderSkillBlocks(skills);
+      runLog.info(
+        skillBlocks.length > 0
+          ? `Skills in prompt (${skillBlocks.length}): ${skills.map((s) => s.name).join(', ')}`
+          : 'No enabled skills linked to this agent — the prompt carries no skills block',
+      );
+
       // Per-agent repo-intel toggle (Agent editor). When an agent opts out we
       // skip all enrichment entirely so its prompt is identical to the
       // repo-intel-off baseline — independent of the global REPO_INTEL_ENABLED
@@ -195,6 +211,9 @@ export class ReviewRunExecutor {
         // Per-agent review strategy (configured in the Agent editor); falls back
         // to the studio default. single-pass = whole diff in one call.
         strategy: agent.strategy ?? REVIEW_STRATEGY,
+        // Skills block — omitted entirely when the agent loads none, so the
+        // prompt is byte-identical to the pre-skills shape.
+        ...(skillBlocks.length > 0 ? { skills: skillBlocks } : {}),
         // T1.3 — pass the callers digest only when we built one. assemblePrompt
         // omits the section when this is empty/undefined.
         ...(callersDigest ? { callers: callersDigest } : {}),
