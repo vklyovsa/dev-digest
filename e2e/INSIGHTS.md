@@ -37,6 +37,9 @@ _None yet._
 Quirks of dependencies, versions and tooling — what a library does that its docs
 do not say.
 
+- **`find … click` scrolls the target with `DOM.scrollIntoViewIfNeeded` and discards any failure, then clicks the box centre — so a target that stays off-screen is "clicked" with exit 0 and nothing happens.** Source: `scroll_node_into_view` (`let _ = …`) and `resolve_element_center` in agent-browser `cli/src/native/element.rs`. The `/skills` list scrolls inside its own `overflow: auto` panel, and the seed puts `pr-quality-rubric` below the fold at 1280×577.
+  → Bring the target on screen before clicking (filter the list, as flow 08 now does) rather than relying on the click to scroll an inner container.
+
 - **`agent-browser find` needs an action after the locator: `find role button --name X` with none exits non-zero as a bare `Command failed`.** README § Find Elements: `find role <role> <action> [value]`, actions `click|fill|check|hover|text`; flow 10 failed exactly this way in CI on `4319fd3`.
   → For a presence check that must not click, use `find role button text --name X` with `"assert": { "stdoutIncludes": "X" }`.
 
@@ -63,6 +66,12 @@ _None yet._
 
 Unresolved behaviour, undecided design, unverified assumptions. Delete an entry when
 it is answered — the answer belongs in another section.
+
+- **On this machine an isolated stack (fresh seed, `next start`) fails flows 04 and 05 at "open the PR row" (`find text Add rate limiting to public API endpoints`), while CI passes them.** (2026-09-25) Unverified suspicion: the isolated API still loads `server/.env`, whose real `GITHUB_TOKEN` lets it sync `acme/payments-api` against GitHub after flow 02; CI has no token. `scripts/e2e.sh` loads the same file.
+  → Before treating a local 04/05 failure as a regression, rerun with `GITHUB_TOKEN=` exported empty.
+
+- **Corrected 2026-09-25: flow 08 was not `find text` hitting the `<script>` — it failed the same way with `find role button click --name pr-quality-rubric` (`ca2bd52`).** The CI screenshot shows the list unscrolled and no card selected. Locally the step passes under `next build` + `next start` at 1280×577, with 6× CPU throttling via CDP, and after flows 01–07 in one session — the CI cause was not reproduced. The flow now fills `Search skills…` first, so the card sits at the top and no scroll is needed.
+  → If CI still fails at "select the skill", read the new failure screenshot: a filtered one-card list rules out scrolling and points at the click itself.
 
 - **Flow 08 still timed out on `wait --url /skills/` after selection moved into the path (`4319fd3`), so the navigation mechanism was never the cause — the click was.** (2026-09-24) Likely `find text pr-quality-rubric` hit the next-intl `<script>` payload (`skills.json` `config.namePlaceholder`), which the production build (`next build` + `next start` in `e2e-web.yml`) places before the list; the step now uses `find role button click --name pr-quality-rubric` (the card is `role="button"`). Unconfirmed until the next CI run.
   → If CI passes, treat `find text` on any string that also lives in `client/messages/` as broken under `next start`, not only "risky".
