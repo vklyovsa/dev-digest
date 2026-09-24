@@ -1,5 +1,5 @@
 /* SkillsList — the left panel of /skills: search, the "Add Skill" menu, and one
-   SkillCard per skill. Selection and data live in SkillsView; this renders. */
+   SkillCard per skill. Selection and data live in SkillsShell; this renders. */
 "use client";
 
 import React from "react";
@@ -19,6 +19,7 @@ export function SkillsList({
   onSearch,
   onSelect,
   onToggle,
+  onDelete,
   onCreate,
   onImportFile,
   onImportCommunity,
@@ -32,6 +33,7 @@ export function SkillsList({
   onSearch: (v: string) => void;
   onSelect: (id: string) => void;
   onToggle: (skill: Skill, enabled: boolean) => void;
+  onDelete: (skill: Skill) => void;
   onCreate: () => void;
   onImportFile: () => void;
   onImportCommunity: () => void;
@@ -98,6 +100,7 @@ export function SkillsList({
             active={skill.id === selectedId}
             onClick={() => onSelect(skill.id)}
             onToggle={(enabled) => onToggle(skill, enabled)}
+            onDelete={() => onDelete(skill)}
           />
         ))}
       </div>

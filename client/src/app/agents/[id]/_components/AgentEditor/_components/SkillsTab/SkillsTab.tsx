@@ -7,7 +7,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Badge, Checkbox, Icon, Skeleton, type IconName } from "@devdigest/ui";
+import { Badge, Icon, Skeleton, Toggle, type IconName } from "@devdigest/ui";
 import type { Agent, Skill } from "@devdigest/shared";
 import { useAgentSkills, useSetAgentSkills } from "@/lib/hooks/agents";
 import { useSkills } from "@/lib/hooks/skills";
@@ -129,15 +129,17 @@ export function SkillsTab({ agent }: { agent: Agent }) {
             <span style={s.handle(linked)} aria-hidden>
               <Icon.Menu size={13} />
             </span>
-            <Checkbox
-              checked={linked}
+            {/* On = this agent loads the skill, in the position shown on the
+                right. Off = not in this agent's prompt at all. */}
+            <Toggle
+              on={linked}
               onChange={() => commit(toggleSkill(selected, skill.id))}
-              label={
-                <span className="mono" style={s.name}>
-                  {skill.name}
-                </span>
-              }
+              size={14}
+              label={t("skills.toggleLabel", { name: skill.name })}
             />
+            <span className="mono" style={s.name}>
+              {skill.name}
+            </span>
             {!skill.enabled && (
               <Badge color="var(--text-muted)">{tSkills("listItem.disabled")}</Badge>
             )}

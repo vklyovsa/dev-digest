@@ -37,11 +37,14 @@ If a test wouldn't catch a class of regression we care about, we don't write it.
 **client** — components render and react to interaction (React Testing Library
 + jsdom). `fetch` is mocked; no API, DB, or browser. Covers the PR-review
 surface (list, diff, findings, run controls), the agent editor (config + the
-skills it links), and the Skills screen (list, editor, versions, import).
+skills it links), the Skills screen (list, editor, versions, import) and the
+Conventions screen (scan states, candidate decisions, the create-skill modal).
 
 **server-unit** — the DB-free majority: adapters, prompt assembly, grounding,
-repo-intel ranking & indexing, pricing, route smoke, and the skill-import
-extractor (frontmatter, ZIP core selection, executable classification). The `typecheck` job also
+repo-intel ranking & indexing, pricing, route smoke, the skill-import
+extractor (frontmatter, ZIP core selection, executable classification), and the
+conventions scan's three pure halves (sample selection, evidence verification,
+skill rendering). The `typecheck` job also
 runs on Windows, which doubles as the `@ast-grep/napi` prebuilt gate (install
 fails there if the win32 prebuilt is missing).
 
@@ -49,7 +52,9 @@ fails there if the win32 prebuilt is missing).
 (pgvector) via testcontainers, builds the Fastify app, migrates + seeds, and
 drives routes end-to-end: reviews + run lifecycle (incl. grounding), agents CRUD,
 skills CRUD + versions + the two-step import, the skills block in a run's prompt,
-repo-intel symbol clamping, pulls comments, settings models. They self-skip when
+repo-intel symbol clamping, pulls comments, settings models, and the conventions
+scan (one model call, verified evidence, decisions surviving a re-scan, the
+skill the accepted rules become). They self-skip when
 Docker is unavailable.
 
 **reviewer-core** — the pure engine: `toReview` selection, prompt construction,

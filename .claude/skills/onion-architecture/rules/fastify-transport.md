@@ -26,8 +26,31 @@ Anything else belongs one ring inward.
 - `import * as t from '../../db/schema.js'`
 - `import type { AgentRow } from '../../db/rows.js'`
 - `container.db` in any form
+- **any adapter**: `container.github()`, `container.llm(id)`, `container.git`,
+  `container.codeIndex`, `container.embedder()`, `container.secrets` — the route
+  calls a service, and the service holds the port
 - business conditions (status transitions, eligibility, quota, scoring)
 - building a DTO field by field — that is `helpers.ts`
+
+## A route never calls an adapter
+
+```ts
+// BAD — the use case lives in the transport layer and talks to GitHub itself
+app.post('/pulls/:id/comments', { schema: { params: IdParams, body: CommentBody } }, async (req) => {
+  const gh = await app.container.github();
+  return gh.createReviewComment(repo, req.body);
+});
+
+// GOOD — one service call; the service received the GitHubClient port from the container
+app.post('/pulls/:id/comments', { schema: { params: IdParams, body: CommentBody } }, async (req) => {
+  const { workspaceId } = await getContext(app.container, req);
+  return service.addComment(workspaceId, req.params.id, req.body);
+});
+```
+
+The BAD form cannot be unit-tested without HTTP, and the next caller of the same use
+case — a job handler, the CI runner — has to copy the adapter call instead of calling
+the service.
 
 ## Validation is declarative
 

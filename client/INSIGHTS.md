@@ -85,5 +85,8 @@ _None yet._
 Unresolved behaviour, undecided design, unverified assumptions. Delete an entry when
 it is answered — the answer belongs in another section.
 
+- **Unverified in a browser: `<Markdown>` headings and lists probably render as plain body text.** (2026-09-23) `src/vendor/ui/styles.css:1` is `@import "tailwindcss"`, whose v4 preflight resets `h1`–`h6` to inherited size/weight and strips list bullets, and `src/vendor/ui/primitives/Markdown.tsx` styles only `p`, `strong`, `code` and `a`; nothing targets `.dd-md`. This is the surface behind the skill Preview tab (hw2 criterion 26: "rendered, not raw markdown").
+  → Open a skill with `##` headings and `-` lists in Preview; if they look like paragraphs, add heading/list styles under `.dd-md` (or component overrides) and move this entry to Tool & Library Notes.
+
 - **Unverified: whether a shared `src/components/*` component forces every test that renders it to register the `common` namespace.** `RunCostBadge` takes its copy from `common`, while `RunHistory.test.tsx` passed only `{ prReview }` to `NextIntlClientProvider`; `common` was added preemptively and no test run has shown whether next-intl throws there or quietly renders the key path.
   → Settle it on the next `client` test run; if it throws, this is a rule for every shared component and belongs in Codebase Patterns.

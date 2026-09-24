@@ -1,16 +1,7 @@
-import { Suspense } from "react";
-import { SkillsView } from "./_components/SkillsView";
+import { SkillsIndex } from "./_components/SkillsIndex";
 
-/* Route: /skills (Skills Lab). Thin route entry — the two-pane view, its list,
-   detail tabs, create modal and import drawer live under _components/.
-
-   The Suspense boundary is what keeps this static route prerenderable:
-   SkillsView reads the selection out of `useSearchParams()`, and without a
-   boundary the whole tree above it falls back to client rendering. */
+/* Route: /skills — the list (from the layout) with nothing selected. Also the
+   landing point of the old `/skills?skill=<id>` links, which it forwards. */
 export default function SkillsPage() {
-  return (
-    <Suspense>
-      <SkillsView />
-    </Suspense>
-  );
+  return <SkillsIndex />;
 }

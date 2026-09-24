@@ -1,6 +1,6 @@
 # Conventions lane — runs on every file, always
 
-No skill covers these; `CLAUDE.md` does. This lane sees the whole file list, including
+No skill covers these; `AGENTS.md` does. This lane sees the whole file list, including
 the files no path rule routed anywhere.
 
 ## Contracts exist twice

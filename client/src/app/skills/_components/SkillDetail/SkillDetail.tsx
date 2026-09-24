@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl";
 import { Badge, Button, Icon, Tabs } from "@devdigest/ui";
 import type { Skill } from "@devdigest/shared";
 import { useDeleteSkill } from "@/lib/hooks/skills";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { typeColor } from "../../helpers";
 import { SKILL_TABS } from "../../constants";
 import { ConfigTab } from "./_components/ConfigTab";
@@ -29,16 +30,35 @@ export function SkillDetail({
 }) {
   const t = useTranslations("skills");
   const del = useDeleteSkill();
+  const [confirming, setConfirming] = React.useState(false);
   const color = typeColor(skill.type);
   const tabs = SKILL_TABS.map((tb) => ({ key: tb.key, label: t(tb.labelKey), icon: tb.icon }));
 
   const remove = () => {
-    if (!window.confirm(t("detail.deleteConfirm", { name: skill.name }))) return;
-    del.mutate(skill.id, { onSuccess: onDeleted });
+    del.mutate(skill.id, {
+      onSuccess: () => {
+        setConfirming(false);
+        onDeleted();
+      },
+    });
   };
 
   return (
     <div style={s.wrap}>
+      {confirming && (
+        <ConfirmDialog
+          title={t("detail.deleteTitle")}
+          body={t("detail.deleteConfirm", { name: skill.name })}
+          confirmLabel={t("detail.delete")}
+          busy={del.isPending}
+          error={del.error}
+          onConfirm={remove}
+          onCancel={() => {
+            del.reset();
+            setConfirming(false);
+          }}
+        />
+      )}
       <div style={s.header}>
         <Icon.Sparkles size={18} style={{ color }} />
         <h1 className="mono" style={s.h1}>
@@ -56,7 +76,7 @@ export function SkillDetail({
             size="sm"
             icon="Trash"
             disabled={del.isPending}
-            onClick={remove}
+            onClick={() => setConfirming(true)}
           >
             {t("detail.delete")}
           </Button>

@@ -3,16 +3,23 @@ name: pr-self-review
 description: "Self-review of the open local changes before a pull request is opened. Use when the user runs /pr-self-review, asks to check the changes before opening a PR, or when the PreToolUse gate refuses `gh pr create`. Collects the whole open diff (committed on the branch + uncommitted + untracked), routes every changed file onto the project skills that actually govern it — UI skills on UI files, backend/architecture skills on backend files — runs each lane, verifies every CRITICAL candidate, and writes a verdict that blocks `gh pr create` while any confirmed CRITICAL stands. Trigger terms: pr self review, самоперевірка, перед PR, before opening a PR, pre-PR check, blocked by pr-self-review."
 allowed-tools: Bash, Read, Grep, Glob, Agent
 metadata:
+  type: workflow
   tags: review, pre-pr, conventions, routing, severity, gate
 ---
 
 # PR Self Review
 
+**Type: Workflow — a skill dispatcher.** It owns no review rules of its own. It
+collects the diff, decides which of the project's knowledge skills govern each changed
+file, runs those skills as lanes, and aggregates their findings into one verdict. The
+rules live in the skills it dispatches to (`onion-architecture`,
+`frontend-ui-architecture`, `fastify-best-practices`, `react-best-practices`, …).
+
 Check the open changes against the project's own skills **before** they become a pull
 request. One confirmed `CRITICAL` → the PR does not get opened.
 
 This is not `/code-review`. That one hunts for bugs in a diff; this one checks the diff
-against the conventions encoded in `.claude/skills/` and in the `CLAUDE.md` files, and it
+against the conventions encoded in `.claude/skills/` and in the `AGENTS.md` files, and it
 owns the merge gate. Run both if you want both — they are deliberately separate.
 
 ## How it starts

@@ -23,6 +23,11 @@ Work contained in a single package gets a spec in that package's `specs/` instea
 - [`skills.md`](skills.md) — reusable skills: storage, editor, agent binding, import
   (server + client), plus
   [`skills-control-experiment.md`](skills-control-experiment.md) — the with/without
-  procedure, [`homework-2-acceptance.md`](homework-2-acceptance.md) — the acceptance
-  checklist with its evidence, and [`fixtures/`](fixtures/) — the archive used to
-  demo the import.
+  procedure, and [`fixtures/`](fixtures/) — the archive used to demo the import.
+- [`conventions-extractor.md`](conventions-extractor.md) — scan a repo for house
+  conventions, verify the evidence in code, accept/reject/edit, build a
+  `repo-conventions` skill (server + client).
+- [`api-contract-reviewer.md`](api-contract-reviewer.md) — the second agent of
+  homework 2: four contract skills (texts in
+  [`fixtures/api-contract-reviewer/`](fixtures/api-contract-reviewer/)) and the
+  A/B experiment.

@@ -42,6 +42,7 @@ function renderList(props: Partial<React.ComponentProps<typeof SkillsList>> = {}
     onSearch: vi.fn(),
     onSelect: vi.fn(),
     onToggle: vi.fn(),
+    onDelete: vi.fn(),
     onCreate: vi.fn(),
     onImportFile: vi.fn(),
     onImportCommunity: vi.fn(),

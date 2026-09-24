@@ -220,15 +220,152 @@ export const CommunitySkill = z.object({
 export type CommunitySkill = z.infer<typeof CommunitySkill>;
 
 // ---- Conventions ----
+
+/**
+ * The rubric a candidate falls under. An enum rather than free text: the UI
+ * groups by it and the generated skill uses it for headings, and
+ * `findings.severity` is the cautionary tale of a free-text column that the
+ * Zod schema alone has to police.
+ */
+export const ConventionCategory = z.enum([
+  'naming',
+  'structure',
+  'imports',
+  'types',
+  'async',
+  'error-handling',
+  'api',
+  'testing',
+  'logging',
+  'other',
+]);
+export type ConventionCategory = z.infer<typeof ConventionCategory>;
+
+/**
+ * Where a candidate stands with the user. `rejected` is a stored state, not the
+ * absence of a row: a rejected rule must survive a reload AND a re-scan, and a
+ * boolean `accepted` cannot tell "not yet looked at" from "looked at and said no".
+ */
+export const ConventionStatus = z.enum(['pending', 'accepted', 'rejected']);
+export type ConventionStatus = z.infer<typeof ConventionStatus>;
+
+/**
+ * One house rule proposed by a scan, after its evidence was verified against
+ * the clone. `evidence_snippet` is read from the FILE, never from the model's
+ * answer, and `evidence_sha` pins the GitHub deep-link to the commit that was
+ * scanned so the line numbers stay true after the next push.
+ */
 export const ConventionCandidate = z.object({
   id: z.string(),
+  repo_id: z.string(),
   rule: z.string(),
-  evidence_path: z.string(),
-  evidence_snippet: z.string(),
+  /**
+   * The model's one-sentence case for the rule, usually citing counts from the
+   * measured facts. The snippet shows ONE occurrence; this says how widespread
+   * the pattern is — the thing a reviewer weighs before accepting.
+   */
+  rationale: z.string().nullish(),
+  category: ConventionCategory,
+  status: ConventionStatus,
   confidence: z.number().min(0).max(1),
-  accepted: z.boolean(),
+  evidence_path: z.string(),
+  evidence_line_start: z.number().int().nullish(),
+  evidence_line_end: z.number().int().nullish(),
+  evidence_snippet: z.string(),
+  evidence_sha: z.string().nullish(),
+  scan_id: z.string().nullish(),
+  /** The skill this candidate was folded into, once one was created. */
+  skill_id: z.string().nullish(),
+  created_at: z.string(),
+  updated_at: z.string(),
 });
 export type ConventionCandidate = z.infer<typeof ConventionCandidate>;
+
+/** Why candidates the model returned did not become rows. */
+export const ConventionDiscarded = z.object({
+  missing_file: z.number().int().default(0),
+  bad_lines: z.number().int().default(0),
+  snippet_mismatch: z.number().int().default(0),
+  duplicate: z.number().int().default(0),
+  rejected_before: z.number().int().default(0),
+});
+export type ConventionDiscarded = z.infer<typeof ConventionDiscarded>;
+
+export const ConventionScanStatus = z.enum(['running', 'done', 'failed']);
+export type ConventionScanStatus = z.infer<typeof ConventionScanStatus>;
+
+/**
+ * One extraction run. Scan-level facts (which files the model saw, which model
+ * answered, how much was thrown away) have no home on a candidate row, and the
+ * page header states them: "Detected from N sample files · last scan 1h ago".
+ */
+export const ConventionScan = z.object({
+  id: z.string(),
+  repo_id: z.string(),
+  status: ConventionScanStatus,
+  provider: z.string(),
+  model: z.string(),
+  head_sha: z.string().nullish(),
+  sample_files: z.array(z.string()),
+  candidates_total: z.number().int(),
+  candidates_kept: z.number().int(),
+  discarded: ConventionDiscarded,
+  tokens_in: z.number().int(),
+  tokens_out: z.number().int(),
+  cost_usd: z.number().nullish(),
+  error: z.string().nullish(),
+  started_at: z.string(),
+  finished_at: z.string().nullish(),
+});
+export type ConventionScan = z.infer<typeof ConventionScan>;
+
+/** What the Conventions screen loads in one request. */
+export const ConventionsPage = z.object({
+  scan: ConventionScan.nullable(),
+  candidates: z.array(ConventionCandidate),
+});
+export type ConventionsPage = z.infer<typeof ConventionsPage>;
+
+/**
+ * What the model must return. This IS the required candidate shape — category,
+ * rule, evidence as file + line, confidence — and it is enforced out of band by
+ * the provider's structured-output mode, not by prompt text.
+ *
+ * Several evidence entries are allowed because a convention is a REPEATED
+ * pattern; the verifier keeps the first that survives and drops the candidate
+ * when none do.
+ */
+export const ConventionEvidence = z.object({
+  path: z.string(),
+  line_start: z.number().int(),
+  line_end: z.number().int(),
+  snippet: z.string(),
+});
+export type ConventionEvidence = z.infer<typeof ConventionEvidence>;
+
+export const ConventionExtraction = z.object({
+  candidates: z.array(
+    z.object({
+      category: ConventionCategory,
+      rule: z.string(),
+      rationale: z.string().nullish(),
+      evidence: z.array(ConventionEvidence),
+      confidence: z.number().min(0).max(1),
+    }),
+  ),
+});
+export type ConventionExtraction = z.infer<typeof ConventionExtraction>;
+
+/** Body of a skill assembled from accepted candidates, before it is saved. */
+export const ConventionsSkillPreview = z.object({
+  name: z.string(),
+  description: z.string(),
+  type: SkillType,
+  body: z.string(),
+  evidence_files: z.array(z.string()),
+  candidate_count: z.number().int(),
+});
+export type ConventionsSkillPreview = z.infer<typeof ConventionsSkillPreview>;
 
 // ---- Agents ----
 export const Provider = z.enum(['openai', 'anthropic', 'openrouter']);

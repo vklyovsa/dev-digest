@@ -30,5 +30,11 @@
     "emptyCta": "Add repository",
     "redirecting": "Taking you to your repository…",
     "openRepo": "Open {name}"
+  },
+  "confirm": {
+    "confirm": "Delete",
+    "cancel": "Cancel",
+    "working": "Deleting…",
+    "failed": "Could not delete. Try again."
   }
 }

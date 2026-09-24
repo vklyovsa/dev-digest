@@ -1,6 +1,6 @@
 # This Repository
 
-How the general rules map onto DevDigest's `client/` package. Read `client/CLAUDE.md` for the authoritative conventions; this file only explains **which architectural rule each convention is an instance of**, and where the codebase currently diverges.
+How the general rules map onto DevDigest's `client/` package. Read `client/AGENTS.md` for the authoritative conventions; this file only explains **which architectural rule each convention is an instance of**, and where the codebase currently diverges.
 
 ## The tier map
 
@@ -39,7 +39,7 @@ There are no Server Actions here (`'use server'` appears nowhere) and no `server
 53 `index.ts` files, and they fit the sanctioned pattern rather than the anti-pattern:
 
 - **Per-component one-line re-exports** — the compromise both sides of the barrel argument accept.
-- **`@devdigest/ui` as a package-style public API** (13 lines) — the one case nobody disputes, and `client/CLAUDE.md` already forbids importing a layer file behind it.
+- **`@devdigest/ui` as a package-style public API** (13 lines) — the one case nobody disputes, and `client/AGENTS.md` already forbids importing a layer file behind it.
 
 What to keep avoiding: a barrel over an unrelated collection, `export *`, and importing a module through its own `index.ts`. `src/lib/hooks/index.ts` is the one to watch — it is a grouping barrel, so keep it a pure re-export.
 

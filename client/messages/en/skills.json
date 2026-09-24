@@ -20,7 +20,8 @@
     "selectPrompt": {
       "title": "Select a skill",
       "body": "Pick a skill on the left to preview its body."
-    }
+    },
+    "backToList": "All skills"
   },
   "detail": {
     "crumbSkill": "Skill",
@@ -37,7 +38,8 @@
       "preview": "Preview",
       "stats": "Stats",
       "versions": "Versions"
-    }
+    },
+    "deleteTitle": "Delete this skill?"
   },
   "config": {
     "title": "Configuration",
@@ -91,7 +93,10 @@
     "restoring": "Restoring…",
     "noNote": "No note",
     "restoredToast": "Restored v{version} as v{newVersion}",
-    "seeded": "Seeded"
+    "seeded": "Seeded",
+    "diff": "Diff",
+    "diffTitle": "v{version} → v{current} (current)",
+    "diffStat": "{added, number} added · {removed, number} removed"
   },
   "create": {
     "title": "Create skill",
@@ -172,6 +177,7 @@
       "extracted": "Extracted",
       "community": "Community",
       "imported_url": "Imported"
-    }
+    },
+    "delete": "Delete skill"
   }
 }

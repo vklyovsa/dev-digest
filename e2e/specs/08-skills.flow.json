@@ -1,6 +1,6 @@
 {
   "name": "Skills Lab lists the seeded skills and previews one",
-  "description": "Loads /skills, selects the seeded pr-quality-rubric, and walks Config → Preview → Versions. Confirms the list card, the body editor header (filename + token estimate), the rendered preview, and the seeded v1 snapshot. Read-only seeded data — no import, no model call. Assumes a freshly-seeded DB (see e2e/README.md).",
+  "description": "Loads /skills, selects the seeded pr-quality-rubric (the URL becomes /skills/:id while the list stays on screen), and walks Config → Preview → Versions. Confirms the list card, the body editor header (filename + token estimate), the rendered preview, and the seeded v1 snapshot. Read-only seeded data — no import, no model call. Assumes a freshly-seeded DB (see e2e/README.md).",
   "steps": [
     { "cmd": ["open", "{BASE}/skills"], "label": "load the Skills screen" },
     { "cmd": ["wait", "--url", "/skills"], "label": "skills route reached" },
@@ -8,7 +8,7 @@
     { "cmd": ["wait", "--text", "pr-quality-rubric"], "label": "seeded skill card is visible" },
     { "cmd": ["wait", "--text", "3 agents"], "label": "card shows the derived agent count" },
     { "cmd": ["find", "text", "pr-quality-rubric", "click"], "label": "select the skill" },
-    { "cmd": ["wait", "--url", "skill="], "label": "selection lives in the query string" },
+    { "cmd": ["wait", "--url", "/skills/"], "label": "selection lives in the path: /skills/:id, list still beside it" },
     { "cmd": ["wait", "--text", "Configuration"], "label": "Config tab is the default" },
     { "cmd": ["wait", "--text", "pr-quality-rubric.md"], "label": "body editor names the skill file" },
     { "cmd": ["find", "role", "button", "click", "--name", "Preview"], "label": "switch to Preview" },

@@ -23,6 +23,24 @@ together in exactly one place: the **composition root**.
 If you cannot state which layer a new file belongs to, do not write it yet — read
 `rules/layers.md`.
 
+## The request path
+
+```
+route (driving adapter) → application service → domain
+                              ↓ through ports
+                         driven adapters (Drizzle, octokit, simple-git, LLM, ast-grep)
+```
+
+The **container** is what connects them: it builds each service with the concrete
+adapters behind its ports. A route reaches a use case, never an adapter.
+
+**A route never calls an adapter directly.** Not `container.github()`, not
+`container.llm(id)`, not `container.git`, not `container.codeIndex`, not a Drizzle
+query — even for "just one read". The moment a route talks to an adapter, the use case
+is split between two rings, it can no longer be tested without HTTP, and the next
+caller (a job, the CI runner) has to copy it. Put the call in a service method and
+call that.
+
 ## Layer map onto this repository
 
 | Layer | What it is here | Where it lives |
@@ -75,6 +93,10 @@ Run through this before finishing any backend change. Each item maps to a
 dependency-cruiser rule in `rules/enforcement.md`.
 
 - [ ] No `routes.ts` imports `drizzle-orm`, `../../db/schema.js` or `../../db/rows.js`.
+- [ ] No `routes.ts` calls an adapter: no `container.github()`, `container.llm()`,
+      `container.git`, `container.codeIndex`, `container.embedder()`, `container.secrets`.
+      It calls one service method. (dependency-cruiser sees imports, not property
+      access, so this one is checked by review and by the grep in `rules/enforcement.md`.)
 - [ ] No `service.ts` imports `drizzle-orm` or the Drizzle schema.
 - [ ] No constructor under `src/modules/**` takes `Container`; it takes named ports.
 - [ ] No public method signature exposes a `*Row` type (`typeof table.$inferSelect`).

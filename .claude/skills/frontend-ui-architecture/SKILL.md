@@ -29,6 +29,30 @@ This skill answers **placement and dependency** questions. Three neighbouring sk
 
 Everything below is these two rules applied to a specific kind of file.
 
+## This repository — `client/`
+
+The generic default is below; this is where it lands in DevDigest. Details and the
+known deviations: [devdigest.md](devdigest.md).
+
+| What | Where | Rule |
+|---|---|---|
+| Pages (App Router) | `client/src/app/**/page.tsx` | thin: compose `_components`, hold no feature logic; a layout (`layout.tsx`) when a pane must survive navigation, as `/skills` does |
+| Components of one page | `client/src/app/<route>/_components/<Name>/` | only that route subtree imports them; nest under the single parent that renders them |
+| Shared components | `client/src/components/<kebab-case>/` | earned by a SECOND route rendering it; domain-free primitives live in `src/vendor/ui` (`@devdigest/ui`) |
+| Helpers two siblings share | `client/src/app/<route>/helpers.ts` / `constants.ts` | the nearest common route segment, not `src/components/` |
+| Server data | `client/src/lib/hooks/<area>.ts` → `src/lib/api.ts` | no `fetch` in a component |
+| Copy | `client/messages/<locale>/<namespace>.json` | no hardcoded strings in JSX |
+
+**Naming.** A component is a PascalCase folder holding `<Name>.tsx` + `index.ts`,
+with `helpers.ts` / `constants.ts` / `styles.ts` beside it only when they earn the
+file. The cross-route tier is kebab-case (`run-cost/`, `confirm-dialog/`), so the tier
+is visible at the import site. Hooks are `use<Thing>` in `src/lib/hooks/<area>.ts`;
+i18n keys are camelCase dotted paths.
+
+**Tests.** A component's test sits beside it as `<Name>.test.tsx`, a helper's as
+`helpers.test.ts` (Vitest + React Testing Library, `fetch` mocked). Real-browser
+journeys are the one exception to colocation: `e2e/specs/NN-name.flow.json`.
+
 ## Default architecture
 
 Route-anchored feature modules over a domain-free shared tier:

@@ -50,6 +50,6 @@ Sources behind the rules in this skill, and what each one contributes.
 ## In-repo context
 
 - `specs/onion-architecture-skill.md` — the plan this skill was built from, including the measured baseline.
-- `reviewer-core/CLAUDE.md` § Conventions — "Stay pure", the existing statement of the core contract.
-- `server/CLAUDE.md` § Conventions — schema-first validation, plugin order, module registration.
+- `reviewer-core/AGENTS.md` § Conventions — "Stay pure", the existing statement of the core contract.
+- `server/AGENTS.md` § Conventions — schema-first validation, plugin order, module registration.
 - `TESTING.md` — the unit/integration split and the `*.it.test.ts` lane rule.

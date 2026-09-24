@@ -5,7 +5,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Badge, Icon, Toggle } from "@devdigest/ui";
+import { Badge, Icon, IconBtn, Toggle } from "@devdigest/ui";
 import type { Skill } from "@devdigest/shared";
 import { isThirdParty, typeColor } from "../../helpers";
 import { s } from "./styles";
@@ -15,11 +15,14 @@ export function SkillCard({
   active,
   onClick,
   onToggle,
+  onDelete,
 }: {
   skill: Skill;
   active?: boolean;
   onClick?: () => void;
   onToggle?: (enabled: boolean) => void;
+  /** Asks to delete; the parent confirms and performs it — the card stays presentational. */
+  onDelete?: () => void;
 }) {
   const t = useTranslations("skills");
   const color = typeColor(skill.type);
@@ -50,6 +53,12 @@ export function SkillCard({
         {onToggle && (
           <div onClick={(e) => e.stopPropagation()}>
             <Toggle on={skill.enabled} onChange={onToggle} size={14} />
+          </div>
+        )}
+        {onDelete && (
+          // Its own click must not also select the card.
+          <div onClick={(e) => e.stopPropagation()}>
+            <IconBtn icon="Trash" label={t("listItem.delete")} onClick={onDelete} />
           </div>
         )}
       </div>

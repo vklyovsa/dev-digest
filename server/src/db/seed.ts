@@ -7,6 +7,7 @@ import {
   SECURITY_REVIEWER_PROMPT,
   PERFORMANCE_REVIEWER_PROMPT,
   TEST_QUALITY_REVIEWER_PROMPT,
+  API_CONTRACT_REVIEWER_PROMPT,
 } from './seed-prompts.js';
 import { SEED_SKILLS } from './seed-skills.js';
 
@@ -244,13 +245,31 @@ export async function seed(
       version: 1,
       createdBy: userId,
     },
+    {
+      workspaceId,
+      name: 'API Contract Reviewer',
+      description:
+        'Finds API contract breaks in a pull request: removed or renamed routes, parameters and response fields, tightened validation, missing version bump or deprecation.',
+      provider: DEFAULT_PROVIDER,
+      model: DEFAULT_MODEL,
+      systemPrompt: API_CONTRACT_REVIEWER_PROMPT,
+      enabled: true,
+      version: 1,
+      createdBy: userId,
+    },
   ];
+  // Agents this run actually created. Only these get their seeded skill links
+  // wholesale — see the linking rule below.
+  const createdAgents = new Set<string>();
   for (const a of seedAgents) {
     const [existing] = await db
       .select()
       .from(t.agents)
       .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.name, a.name)));
-    if (!existing) await db.insert(t.agents).values(a);
+    if (!existing) {
+      await db.insert(t.agents).values(a);
+      createdAgents.add(a.name);
+    }
   }
 
   // ---- built-in skills + their agent links ----
@@ -265,13 +284,25 @@ export async function seed(
 
   // Next free slot in each agent's skill list. SEED_SKILLS is iterated in
   // order, so this is the position the block takes in that agent's prompt.
+  //
+  // Starts AFTER the links an agent already has. Re-seeding a workspace whose
+  // user already built an agent of the same name (the seed matches agents by
+  // name) would otherwise put the seeded skills at orders 0..n on top of the
+  // user's own 0..m — two blocks claiming the same prompt position.
+  const existingLinks = await db
+    .select({ agentId: t.agentSkills.agentId, order: t.agentSkills.order })
+    .from(t.agentSkills);
   const nextOrder = new Map<string, number>();
+  for (const link of existingLinks) {
+    nextOrder.set(link.agentId, Math.max(nextOrder.get(link.agentId) ?? 0, link.order + 1));
+  }
 
   for (const skill of SEED_SKILLS) {
     let [row] = await db
       .select()
       .from(t.skills)
       .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.name, skill.name)));
+    const skillCreated = !row;
     if (!row) {
       [row] = await db
         .insert(t.skills)
@@ -301,6 +332,13 @@ export async function seed(
           `seed: skill "${skill.name}" links unknown agent "${agentName}" — fix SEED_SKILLS.agents`,
         );
       }
+      // Link only what is NEW on at least one side. When both the agent and the
+      // skill already existed, a missing link is a DECISION — the user unlinked
+      // it on the agent's Skills tab — and re-seeding must not undo it: the
+      // block would silently come back into that agent's prompt. A new agent
+      // gets its full default set; a new built-in skill joins the existing
+      // agents it was written for, because nobody has had a chance to refuse it.
+      if (!createdAgents.has(agentName) && !skillCreated) continue;
       const order = nextOrder.get(agentId) ?? 0;
       nextOrder.set(agentId, order + 1);
       await db

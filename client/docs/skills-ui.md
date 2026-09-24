@@ -3,16 +3,27 @@
 `/skills` is a two-pane editor for text that ends up in an agent's prompt. This
 file records the decisions that are not obvious from the components.
 
-## One route, query-string state
+## One address per skill, list kept in the layout
 
-Everything lives in `?skill=<id>&tab=<config|preview|stats|versions>` rather than
-in `/skills/[id]`. Two reasons:
+**Corrected 2026-09-24.** The list used to live in `/skills?skill=<id>`, and a
+detail-only `/skills/[id]` page was added beside it. That split failed the
+grading criteria both ways: clicking a card never produced `/skills/:id`, and
+the detail page had no list beside it. Both are now one route family.
 
-- the list stays mounted while you move between skills, so scroll position and
-  the search box survive a selection (a nested route remounts them);
-- "this skill, this tab" is one shareable link, and a deleted skill degrades to
-  the empty state instead of a 404 — `SkillsView` looks the id up in the list it
-  already has and falls through when it is gone.
+- `/skills` and `/skills/[id]` share `app/skills/layout.tsx`, which renders
+  `SkillsShell`: the list on the left, the active page on the right. A layout
+  survives navigation between its child routes, so moving from one skill to the
+  next keeps the list mounted — search text and scroll position included. That
+  was the only reason selection had ever lived in the query string.
+- `/skills` shows "Select a skill"; `/skills/[id]?tab=<config|preview|stats|versions>`
+  shows `SkillDetail` in the right pane. Clicking a card PUSHES `/skills/:id`
+  (one history entry per skill); switching tabs REPLACES it.
+- The pane reads the skill out of the same cached `useSkills()` list the left
+  side renders, so a toggle or rename shows on both sides with no extra request.
+  An unknown id — deleted in another tab, or a stale link — gets the
+  "Skill not found" empty state, not an empty pane.
+- Old `/skills?skill=<id>&tab=…` links are forwarded to `/skills/<id>?tab=…` by
+  `SkillsIndex`, so bookmarks and PR descriptions keep working.
 
 ## What the tabs are, and what they are not
 

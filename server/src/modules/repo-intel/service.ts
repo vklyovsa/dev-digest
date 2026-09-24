@@ -32,6 +32,7 @@ import type {
   BlastCallerRow,
   BlastChangedSymbol,
   BlastResult,
+  ConventionFacts,
   FileRankRow,
   IndexResult,
   IndexState,
@@ -54,6 +55,12 @@ import {
 } from './constants.js';
 import { runFullIndex, type IndexPayload } from './pipeline/full.js';
 import { runIncremental } from './pipeline/incremental.js';
+import {
+  chooseStrataDepth,
+  computeConventionFacts,
+  interleaveByStratum,
+  isToolingPath,
+} from './pipeline/convention-facts.js';
 
 /**
  * GLOBALS allowlist — common JS/TS builtins + runtime that appear as bare
@@ -626,9 +633,45 @@ export class RepoIntelService implements RepoIntel {
     return out;
   }
 
-  /** Top-N files by rank, minus tests/configs/migrations — conventions sample. */
+  /**
+   * Conventions sample: ranked files minus tests/configs/migrations/tooling,
+   * interleaved across the repo's top-level parts.
+   *
+   * Plain rank order was the first implementation, and a real scan of this
+   * monorepo sampled seven server files, five client files and nothing from
+   * the two smaller packages — every file the model saw came from the two
+   * places PageRank favours. The interleave keeps rank order inside each part.
+   */
   async getConventionSamples(repoId: string, n: number): Promise<string[]> {
-    return this.getTopFilesByRank(repoId, n);
+    if (!this.deps.config.repoIntelEnabled) return [];
+    if (n <= 0) return [];
+    const rows = await this.repo.getRankedPaths(repoId, CONVENTION_RANK_SCAN_LIMIT);
+    const usable = rows.filter((r) => !isJunkPath(r.path) && !isToolingPath(r.path));
+    if (usable.length === 0) return [];
+    const depth = chooseStrataDepth(usable.map((r) => r.path));
+    return interleaveByStratum(usable, depth)
+      .slice(0, n)
+      .map((r) => r.path);
+  }
+
+  /**
+   * Whole-index counts for a conventions scan. Reads three tables the indexer
+   * already maintains; an unindexed repo yields an empty, `degraded` result
+   * rather than an error, like every other facade read.
+   */
+  async getConventionFacts(repoId: string): Promise<ConventionFacts> {
+    if (!this.deps.config.repoIntelEnabled) {
+      return { ...EMPTY_CONVENTION_FACTS, degraded: true, reason: 'flag_off' };
+    }
+    const [ranked, edges, exportedSymbols] = await Promise.all([
+      this.repo.getRankedPaths(repoId, CONVENTION_RANK_SCAN_LIMIT),
+      this.repo.getEdges(repoId),
+      this.repo.getExportedSymbolKinds(repoId),
+    ]);
+    if (ranked.length === 0) {
+      return { ...EMPTY_CONVENTION_FACTS, degraded: true, reason: 'no_data' };
+    }
+    return computeConventionFacts({ paths: ranked.map((r) => r.path), edges, exportedSymbols });
   }
 
   /**
@@ -704,6 +747,26 @@ export class RepoIntelService implements RepoIntel {
 
 /** How many top-ranked files seed `getCriticalPaths` dependency chains. */
 const CRITICAL_PATH_ROOTS = 5;
+
+/**
+ * Upper bound on the rank rows a conventions read pulls. Comfortably above
+ * MAX_INDEXED_FILES in practice for the repos this runs on, and a hard stop
+ * for the ones where it is not.
+ */
+const CONVENTION_RANK_SCAN_LIMIT = 10_000;
+
+const EMPTY_CONVENTION_FACTS: ConventionFacts = {
+  filesIndexed: 0,
+  edgesIndexed: 0,
+  strataDepth: 1,
+  strata: [],
+  recurringFileNames: [],
+  naming: [],
+  tests: [],
+  exportKinds: [],
+  siblingImports: [],
+  directoryImports: [],
+};
 
 /**
  * Path kinds excluded from rank-driven file samples (conventions/onboarding):

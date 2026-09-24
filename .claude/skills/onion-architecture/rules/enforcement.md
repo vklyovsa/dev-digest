@@ -88,5 +88,12 @@ is exactly right — the core-purity rules live in the server config.
 2. `pnpm typecheck` in `server/`, plus `reviewer-core/` if a shared type moved.
 3. Walk the `SKILL.md` pre-flight checklist for the signature-level rules the graph
    cannot see.
+4. Check that no route calls an adapter. The graph cannot see this one: a route
+   reaches an adapter by PROPERTY access on the container it already holds, not by an
+   import. This must print nothing:
+
+   ```bash
+   grep -nE "container\.(github\(|llm\(|git\b|codeIndex|embedder\(|secrets)" src/modules/*/routes.ts
+   ```
 
 Report what actually ran. A check that was not executed is not evidence.

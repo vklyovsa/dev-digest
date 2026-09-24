@@ -472,4 +472,77 @@ d('skills module', () => {
     );
     await app.close();
   });
+
+  it('seeds the API Contract Reviewer with its four skills in prompt order', async () => {
+    const app = await makeApp();
+    const agents = (await app.inject({ method: 'GET', url: '/agents' })).json();
+    const reviewer = agents.find((a: { name: string }) => a.name === 'API Contract Reviewer');
+    expect(reviewer).toBeDefined();
+    expect(reviewer.skill_count).toBe(4);
+
+    const links = (
+      await app.inject({ method: 'GET', url: `/agents/${reviewer.id}/skills` })
+    ).json() as { skill_id: string; order: number }[];
+    const skills = (await app.inject({ method: 'GET', url: '/skills' })).json() as {
+      id: string;
+      name: string;
+    }[];
+    const nameOf = new Map(skills.map((sk) => [sk.id, sk.name]));
+    // What is wrong → how it should have been done → what version it costs.
+    expect(links.map((l) => nameOf.get(l.skill_id))).toEqual([
+      'breaking-change',
+      'response-schema',
+      'deprecation-policy',
+      'semver-discipline',
+    ]);
+    await app.close();
+  });
+
+  it('re-seeding appends after an agent\'s existing links instead of colliding with them', async () => {
+    const app = await makeApp();
+    const agents = (await app.inject({ method: 'GET', url: '/agents' })).json();
+    const reviewer = agents.find((a: { name: string }) => a.name === 'API Contract Reviewer');
+    const before = (
+      await app.inject({ method: 'GET', url: `/agents/${reviewer.id}/skills` })
+    ).json() as { skill_id: string; order: number }[];
+
+    await seed(pg.handle.db);
+
+    const after = (
+      await app.inject({ method: 'GET', url: `/agents/${reviewer.id}/skills` })
+    ).json() as { skill_id: string; order: number }[];
+    expect(after).toEqual(before);
+    await app.close();
+  });
+
+  it('re-seeding never re-links a built-in skill the user unlinked', async () => {
+    const app = await makeApp();
+    const agents = (await app.inject({ method: 'GET', url: '/agents' })).json();
+    const testQuality = agents.find((a: { name: string }) => a.name === 'Test Quality Reviewer');
+    const skills = (await app.inject({ method: 'GET', url: '/skills' })).json() as {
+      id: string;
+      name: string;
+    }[];
+    const mockGate = skills.find((sk) => sk.name === 'mock-overuse-gate')!;
+
+    const before = (
+      await app.inject({ method: 'GET', url: `/agents/${testQuality.id}/skills` })
+    ).json() as { skill_id: string }[];
+    const kept = before.map((l) => l.skill_id).filter((id) => id !== mockGate.id);
+    const unlink = await app.inject({
+      method: 'POST',
+      url: `/agents/${testQuality.id}/skills`,
+      payload: { skill_ids: kept },
+    });
+    expect(unlink.statusCode).toBe(200);
+
+    await seed(pg.handle.db, { demo: false });
+
+    const after = (
+      await app.inject({ method: 'GET', url: `/agents/${testQuality.id}/skills` })
+    ).json() as { skill_id: string }[];
+    expect(after.map((l) => l.skill_id)).toEqual(kept);
+    expect(after.map((l) => l.skill_id)).not.toContain(mockGate.id);
+    await app.close();
+  });
 });

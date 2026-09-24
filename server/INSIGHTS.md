@@ -23,7 +23,8 @@ _None yet._
 Dead ends and anti-patterns: what was tried, why it failed, what to do instead.
 **The highest-value section and the one most often left empty. Fill it.**
 
-_None yet._
+- **The hermetic lane is not hermetic: `test/routes-smoke.test.ts` boots the app against your REAL dev database, and boot writes to it.** (2026-09-23) It calls `buildApp({ config })` without a `db`, so `src/app.ts` opens `DATABASE_URL` from `server/.env` and awaits `ReviewService.reapStaleRuns()` before serving — which marks every `agent_runs` row in `running` as failed. Run the unit suite while a review is in flight and that review dies; nothing in the test output says so.
+  → Run the unit lane as `DATABASE_URL=postgres://isolated:isolated@127.0.0.1:1/isolated pnpm exec vitest run --exclude '**/*.it.test.ts'` — the reaper failure is non-fatal and `/health` needs no DB, so all 197 still pass. The `.it` lane is safe: every file passes its own testcontainers `db`. The durable fix (give the smoke test an unreachable `databaseUrl`, or skip the reaper under `NODE_ENV=test`) is still open.
 
 ## Codebase Patterns
 
@@ -50,6 +51,9 @@ settled enough to move into `CLAUDE.md`.
 Quirks of dependencies, versions and tooling — what a library does that its docs
 do not say.
 
+- **`drizzle-kit generate` becomes INTERACTIVE the moment one migration both drops and adds columns — and no form of piped input answers it.** (2026-09-22) Dropping `conventions.accepted` while adding eight columns made it ask "Is category column in conventions table created or renamed from another column?" once per new column; `printf '\\n\\n\\n' | pnpm exec drizzle-kit generate` returned instantly having written nothing (it reads the TTY, not stdin), and `script -qec "pnpm exec drizzle-kit generate" /dev/null` with the same input hung past a 120s timeout.
+  → Write the migration by hand, then build `meta/<NNNN>_snapshot.json` from the previous snapshot: patch only the changed tables, set `prevId` to the old `id` and a fresh uuid as `id`, and append the `_journal.json` entry (`{idx, version: "7", when, tag, breakpoints: true}`). Verify by running `drizzle-kit generate` again — `No schema changes, nothing to migrate` means the snapshot matches the schema; anything else means it does not. A partial unique index carries `"where": "<sql>"` inside its index object.
+
 - **`pnpm typecheck` does not look at `test/**` — the tsconfig `include` is `src/**/*.ts` only.** (2026-09-21) A type error in a new test file is therefore invisible until vitest runs it, and vitest strips types rather than checking them, so it can stay invisible for good. Running tsc over a test-inclusive config shows the backlog this hides: `test/adapters.test.ts:37`, `test/agents-versions.it.test.ts:168`, seven spots in `test/prompt-callers.test.ts`, `test/repo-intel-facade-degraded.test.ts:112` are all red today on `main`-equivalent code.
   → To check a NEW test statically, drop a throwaway config in `server/` that extends `tsconfig.json` with `"include": ["src/**/*.ts", "test/**/*.ts"]`, run `pnpm exec tsc --noEmit -p` it, and grep the output for your own files — the pre-existing errors make an unfiltered run unreadable. Delete the config afterwards.
 
@@ -58,7 +62,8 @@ do not say.
 Error or symptom → cause → fix, one entry each, so the next occurrence is a lookup
 instead of an investigation.
 
-_None yet._
+- **A new table gets a column called `created_at` when you meant `started_at`: `now()` hardcodes the NAME, not just the type.** (2026-09-22) `src/db/schema/_shared.ts:9` is `timestamp('created_at', …)`, so `startedAt: now()` in `convention_scans` compiled, typechecked and read correctly in every query — the only symptom was `drizzle-kit generate` asking "Is created_at column in convention_scans table created or renamed from started_at?".
+  → Use `now()` only for a column that is genuinely `created_at`; write any other timestamp out as `timestamp('<name>', { withTimezone: true }).defaultNow().notNull()`. The migration diff is the only place this disagreement surfaces, so read the generated SQL for column NAMES before trusting a new table.
 
 ## Session Notes
 

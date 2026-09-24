@@ -1,4 +1,5 @@
 import type { Skill, SkillSource } from "@devdigest/shared";
+import { SKILL_TAB_KEYS } from "./constants";
 
 /**
  * Helpers shared by more than one component under /skills. They sit at the
@@ -33,4 +34,14 @@ export function typeColor(type: Skill["type"]): string {
     default:
       return "var(--text-secondary)";
   }
+}
+
+/** The tab a URL asks for, or Config when it asks for nothing valid. */
+export function resolveSkillTab(requested: string | null | undefined): string {
+  return requested && SKILL_TAB_KEYS.includes(requested) ? requested : "config";
+}
+
+/** `/skills/<id>?tab=<tab>` — the one address of "this skill, this tab". */
+export function skillHref(id: string, tab?: string | null): string {
+  return `/skills/${encodeURIComponent(id)}?tab=${resolveSkillTab(tab)}`;
 }

@@ -90,6 +90,15 @@ describe("SkillsTab", () => {
     expect(screen.getByText("2 of 3 enabled")).toBeInTheDocument();
   });
 
+  it("lists every skill in the system, each with its own on/off toggle", () => {
+    renderTab();
+    const toggles = screen.getAllByRole("switch");
+    // All three skills, not only the two this agent links.
+    expect(toggles).toHaveLength(3);
+    expect(toggles.filter((el) => el.getAttribute("aria-checked") === "true")).toHaveLength(2);
+    expect(toggles.filter((el) => el.getAttribute("aria-checked") === "false")).toHaveLength(1);
+  });
+
   it("shows linked skills first, with their prompt position", () => {
     renderTab();
     expect(screen.getByText("#1")).toBeInTheDocument();
@@ -100,8 +109,8 @@ describe("SkillsTab", () => {
 
   it("attaching a skill appends it to the end of the order", () => {
     renderTab();
-    const checkboxes = screen.getAllByRole("checkbox");
-    fireEvent.click(checkboxes[2]!);
+    const toggles = screen.getAllByRole("switch");
+    fireEvent.click(toggles[2]!);
     expect(setSkills).toHaveBeenCalledWith(
       { agentId: "ag1", skillIds: ["a", "b", "c"] },
       expect.anything(),
@@ -110,7 +119,7 @@ describe("SkillsTab", () => {
 
   it("detaching a skill keeps the order of the rest", () => {
     renderTab();
-    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getAllByRole("switch")[0]!);
     expect(setSkills).toHaveBeenCalledWith(
       { agentId: "ag1", skillIds: ["b"] },
       expect.anything(),
@@ -157,7 +166,7 @@ describe("SkillsTab", () => {
     // unlink every skill the agent already had.
     links = undefined;
     renderTab();
-    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+    expect(screen.queryAllByRole("switch")).toHaveLength(0);
     expect(setSkills).not.toHaveBeenCalled();
   });
 });
