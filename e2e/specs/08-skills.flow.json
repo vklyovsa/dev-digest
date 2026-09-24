@@ -7,7 +7,7 @@
     { "cmd": ["wait", "--load", "networkidle"], "label": "skills fetch settles" },
     { "cmd": ["wait", "--text", "pr-quality-rubric"], "label": "seeded skill card is visible" },
     { "cmd": ["wait", "--text", "3 agents"], "label": "card shows the derived agent count" },
-    { "cmd": ["find", "text", "pr-quality-rubric", "click"], "label": "select the skill" },
+    { "cmd": ["find", "role", "button", "click", "--name", "pr-quality-rubric"], "label": "select the skill" },
     { "cmd": ["wait", "--url", "/skills/"], "label": "selection lives in the path: /skills/:id, list still beside it" },
     { "cmd": ["wait", "--text", "Configuration"], "label": "Config tab is the default" },
     { "cmd": ["wait", "--text", "pr-quality-rubric.md"], "label": "body editor names the skill file" },
