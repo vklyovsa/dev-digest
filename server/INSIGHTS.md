@@ -80,4 +80,5 @@ _None yet._
 Unresolved behaviour, undecided design, unverified assumptions. Delete an entry when
 it is answered — the answer belongs in another section.
 
-_None yet._
+- **Unverified: `test/reviews-skills.it.test.ts` "without linked skills the prompt carries no skills block" failed once in the full `.it` lane and passed alone and on a second full run.** (2026-09-28) Failure was `trace.prompt_assembly` undefined at `test/reviews-skills.it.test.ts:175` (`runAndTrace` read the trace before it existed); unrelated to the code under change, seen while 12 `.it` files ran in parallel.
+  → If it recurs, check whether `runAndTrace` waits for the run to settle before fetching the trace; re-run the file alone before blaming a change.

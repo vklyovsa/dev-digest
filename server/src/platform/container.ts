@@ -36,6 +36,7 @@ import { SettingsService } from '../modules/settings/service.js';
 import { WorkspaceService } from '../modules/workspace/service.js';
 import { IntentRepository } from '../modules/intent/repository.js';
 import { IntentService } from '../modules/intent/service.js';
+import { SmartDiffService } from '../modules/smart-diff/service.js';
 import type { RepoIntel } from '../modules/repo-intel/types.js';
 import { RepoIntelService } from '../modules/repo-intel/service.js';
 import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph/index.js';
@@ -104,6 +105,7 @@ export class Container {
   private _settingsService?: SettingsService;
   private _workspaceService?: WorkspaceService;
   private _intentService?: IntentService;
+  private _smartDiffService?: SmartDiffService;
   private logger: ContainerLogger = SILENT_LOGGER;
   private _repoIntel?: RepoIntel;
   private _depgraph?: DepGraph;
@@ -206,6 +208,10 @@ export class Container {
       llm: (id) => this.llm(id),
       promptLog: () => this.promptLog,
     }));
+  }
+
+  get smartDiffService(): SmartDiffService {
+    return (this._smartDiffService ??= new SmartDiffService(this.pullsRepo, this.reviewRepo));
   }
 
   get codeIndex(): CodeIndex {

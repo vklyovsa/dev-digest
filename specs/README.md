@@ -31,6 +31,24 @@ Work contained in a single package gets a spec in that package's `specs/` instea
   homework 2: four contract skills (texts in
   [`fixtures/api-contract-reviewer/`](fixtures/api-contract-reviewer/)) and the
   A/B experiment.
-- [`intent-layer-plan.md`](intent-layer-plan.md) — L03 Intent layer: derive a
-  PR's intent from its title, linked docs/issues or indirect data, cache it,
-  and carry it into every agent's prompt as an untrusted block (server + client).
+- [`smart-diff.md`](smart-diff.md) / [`smart-diff-plan.md`](smart-diff-plan.md) — HW3 Smart
+  Diff: Files changed grouped by role, agent findings inline in the diff (server + client);
+  criteria in [`smart-diff-acceptance.md`](smart-diff-acceptance.md), default decisions in
+  [`smart-diff-questions.md`](smart-diff-questions.md), demo PR in
+  [`fixtures/smart-diff-demo/`](fixtures/smart-diff-demo/).
+- [`intent-layer.md`](intent-layer.md) / [`intent-layer-plan.md`](intent-layer-plan.md) —
+  L03 Intent layer: derive a PR's intent from its title, linked docs/issues or
+  indirect data, cache it, and carry it into every agent's prompt as an untrusted
+  block (server + reviewer-core + client).
+
+## Tooling plans (`.claude/`)
+
+Plans for the development tooling itself, not for product features.
+
+- [`project-subagents-plan.md`](project-subagents-plan.md) — L03 project subagents in
+  `.claude/agents/` (options → plan → implement → tests → verify → review → docs) and
+  their guard hooks.
+- [`onion-architecture-skill.md`](onion-architecture-skill.md) — the `onion-architecture`
+  skill: layering rules for `server/` and `reviewer-core/`, enforced by dependency-cruiser.
+- [`pr-self-review-skill.md`](pr-self-review-skill.md) — the `pr-self-review` skill and
+  the hook that blocks `gh pr create` while a confirmed CRITICAL stands.

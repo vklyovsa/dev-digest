@@ -15,9 +15,12 @@ import {
   type CommentThread,
   type DiffCommentApi,
 } from "../comments";
+import { partitionFindings, fs, type DiffFindingsApi } from "../findings";
 import { s, chevronFor } from "../styles";
 import { CodeLine } from "../CodeLine";
 import { OutdatedComments } from "../OutdatedComments";
+import { OutsideFindings } from "../OutsideFindings";
+import type { FindingRecord } from "@devdigest/shared";
 
 /** Threads anchored to a given parsed line (RIGHT=new, LEFT=old). */
 function threadsForLine(ln: Line, matched: Map<string, CommentThread[]>): CommentThread[] {
@@ -30,12 +33,31 @@ function threadsForLine(ln: Line, matched: Map<string, CommentThread[]>): Commen
   return out;
 }
 
-export function FileCard({ file, commenting }: { file: PrFile; commenting?: DiffCommentApi }) {
+function findingsForLine(ln: Line, matched: Map<string, FindingRecord[]>): FindingRecord[] {
+  if (matched.size === 0) return [];
+  return keysForLine(ln).flatMap((key) => matched.get(key) ?? []);
+}
+
+export function FileCard({
+  file,
+  commenting,
+  findings,
+}: {
+  file: PrFile;
+  commenting?: DiffCommentApi;
+  findings?: DiffFindingsApi;
+}) {
   const t = useTranslations("shell");
   const [open, setOpen] = React.useState(
     (file.additions ?? 0) + (file.deletions ?? 0) <= AUTO_EXPAND_MAX_LINES
   );
   const lines = React.useMemo(() => parsePatch(file.patch), [file.patch]);
+
+  const renderedKeys = React.useMemo(() => {
+    const keys = new Set<string>();
+    for (const ln of lines) for (const k of keysForLine(ln)) keys.add(k);
+    return keys;
+  }, [lines]);
 
   // Group this file's comments into threads, then split into ones we can anchor
   // to a rendered line vs. "outdated" (GitHub dropped the line / it's not here).
@@ -43,10 +65,15 @@ export function FileCard({ file, commenting }: { file: PrFile; commenting?: Diff
   const { matched, outdated } = React.useMemo(() => {
     if (!comments) return { matched: new Map<string, CommentThread[]>(), outdated: [] };
     const fileThreads = buildThreads(comments.filter((c) => c.path === file.path));
-    const renderedKeys = new Set<string>();
-    for (const ln of lines) for (const k of keysForLine(ln)) renderedKeys.add(k);
     return partitionThreads(fileThreads, renderedKeys);
-  }, [comments, file.path, lines]);
+  }, [comments, file.path, renderedKeys]);
+
+  const allFindings = findings?.findings;
+  const { matchedFindings, outsideFindings } = React.useMemo(() => {
+    const fileFindings = (allFindings ?? []).filter((f) => f.file === file.path);
+    const { matched, outside } = partitionFindings(fileFindings, renderedKeys);
+    return { matchedFindings: matched, outsideFindings: outside };
+  }, [allFindings, file.path, renderedKeys]);
 
   const commentCount = commenting
     ? commenting.comments.filter((c) => c.path === file.path).length
@@ -57,8 +84,13 @@ export function FileCard({ file, commenting }: { file: PrFile; commenting?: Diff
       <div onClick={() => setOpen((o) => !o)} style={s.fileHeader}>
         <Icon.ChevronRight size={13} style={chevronFor(open)} />
         <Icon.FileText size={14} style={s.fileIcon} />
-        <span className="mono" style={s.filePath}>
-          {file.path}
+        <span style={fs.pathWrap}>
+          <span className="mono" style={{ ...s.filePath, flex: "0 1 auto" }}>
+            {file.path}
+          </span>
+          {findings?.flaggedPaths.has(file.path) && (
+            <span role="img" aria-label={findings.labels.flagged} style={fs.dot} />
+          )}
         </span>
         <span className="mono tnum" style={s.fileStat}>
           <span style={s.addText}>+{file.additions}</span>{" "}
@@ -85,10 +117,15 @@ export function FileCard({ file, commenting }: { file: PrFile; commenting?: Diff
                 path={file.path}
                 threads={threadsForLine(ln, matched)}
                 commenting={commenting}
+                lineFindings={findingsForLine(ln, matchedFindings)}
+                findings={findings}
               />
             ))
           )}
           {commenting && commenting.showComments && <OutdatedComments threads={outdated} />}
+          {findings && findings.showCards && (
+            <OutsideFindings findings={outsideFindings} api={findings} />
+          )}
         </div>
       )}
     </div>

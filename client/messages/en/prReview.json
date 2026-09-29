@@ -56,14 +56,39 @@
     "inProgressSub": "the agent is analyzing the diff — this can take a while on large PRs."
   },
   "smartDiff": {
-    "coreLabel": "Core",
+    "heading": "Reviewer-ordered diff",
+    "coreLabel": "Core logic",
+    "testsLabel": "Tests",
     "wiringLabel": "Wiring",
+    "docsLabel": "Docs",
     "boilerplateLabel": "Boilerplate",
+    "coreDescription": "The substance of the change — review closely",
+    "testsDescription": "Proves the change works",
+    "wiringDescription": "Hooks the core into the app",
+    "docsDescription": "Explains the change",
+    "boilerplateDescription": "Generated / mechanical — skim",
     "largeTitle": "This PR is large ({lines} changed lines)",
     "largeBody": "Consider splitting it into smaller, focused PRs for easier review:",
-    "filesCount": "{count} files",
+    "filesCount": "{count, number} files",
     "findingLines": "{count} finding-lines",
-    "groupedByRole": "Smart Diff · grouped by role"
+    "groupedByRole": "Smart Diff · grouped by role",
+    "smartOrder": "Smart order",
+    "originalOrder": "Original order",
+    "orderLabel": "Diff order",
+    "showComments": "Show comments ({count, number})",
+    "hideComments": "Hide comments ({count, number})",
+    "noReviewHint": "No review has run yet — run one to see findings in the diff",
+    "lineLabel": {
+      "CRITICAL": "blocker",
+      "WARNING": "warning",
+      "SUGGESTION": "suggestion"
+    },
+    "lineLabelFallback": "finding",
+    "outsideDiffTitle": "{count, number} findings outside the diff",
+    "fileHasFindings": "Has findings",
+    "groupFlagged": "{count, number} files with findings",
+    "groupingUnavailable": "Grouping unavailable — showing GitHub order",
+    "commentPostFailed": "Couldn't post the comment to GitHub."
   },
   "list": {
     "breadcrumb": "Pull Requests",

@@ -64,6 +64,9 @@ do not say.
 Error or symptom → cause → fix, one entry each, so the next occurrence is a lookup
 instead of an investigation.
 
+- **The PR page renders blank and unstyled (plain blue links, empty body) right after `pnpm build` in `client/` — the build overwrote `client/.next` under the running `next dev`.** (2026-09-28) `next dev` and `next build` share `.next` (`next.config.mjs` sets no `distDir`); `client/.next/BUILD_ID` with a fresh timestamp next to a live `next dev -p 3000` is the tell. Only stopping the stack, `rm -rf client/.next` and restarting brought it back.
+  → Never build in the live `client/` while the stack runs: `rsync -a --exclude .next --exclude node_modules client/ /tmp/x/`, `ln -s "$PWD/client/node_modules" /tmp/x/node_modules`, `/tmp/x/node_modules/.bin/next build`, then delete the copy.
+
 - **A vitest hook that RETURNS a function gets that function called as teardown — and `mock.mockReset()` returns the mock itself, which is callable.** (2026-09-22) `beforeEach(() => mutateAsync.mockReset())` (implicit-return arrow) made vitest invoke the mock again after the test body finished; with a throwing implementation set inside the test, the failure surfaced as `ApiError: …` attributed to a test whose assertions had all passed, and `mock.calls.length` still read 1 while the body ran. Bisected in `CreateSkillModal.test.tsx`: deleting the hook fixed it, swapping `mockReset`→`mockClear` did not, a block body did.
   → Always give a mock-resetting hook a BLOCK body: `beforeEach(() => { m.mockReset(); })`. The same trap waits on `mockClear`, `mockImplementation`, `mockReturnValue` — every one of them returns the mock. An unexplained error carrying a test-fixture message, after the assertions passed, is this.
 

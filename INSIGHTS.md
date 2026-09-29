@@ -79,6 +79,9 @@ settled enough to move into `CLAUDE.md`.
 Quirks of dependencies, versions and tooling — what a library does that its docs
 do not say.
 
+- **pnpm 12.4.2 exits non-zero with `ERR_PNPM_IGNORED_BUILDS` (esbuild, sharp) AFTER doing the work — on `pnpm add`, and on `pnpm <script>` in `client/` too.** (2026-09-28) `pnpm add pretty-ms` in a fresh fork clone printed the error yet wrote `package.json` and `pnpm-lock.yaml`; `pnpm typecheck` / `pnpm build` in `client/` failed the same way before running anything, while `./node_modules/.bin/tsc --noEmit` was green. `--config.strict-dep-builds=false` did not help, and pnpm also drops an `allowBuilds:` stub into `client/pnpm-workspace.yaml`.
+  → Judge `pnpm add` by the lockfile (`grep <pkg> pnpm-lock.yaml`), run checks via `node_modules/.bin/<tool>`, and revert the `pnpm-workspace.yaml` stub; do not answer the `approve-builds` prompt on the user's behalf.
+
 - **`permissionMode` in an agent is not a guard: a session in `bypassPermissions` forces its subagents into it.** (2026-09-27, https://code.claude.com/docs/en/sub-agents) Path-scoped writes are not a frontmatter field either (anthropics/claude-code#31940, closed not planned). A new `.claude/agents/<name>.md` is picked up by the running session (Claude Code 2.1.280) — no restart needed.
   → Enforce read-only / write scopes with `tools`/`disallowedTools` plus a frontmatter `PreToolUse` hook (`.claude/agents/scripts/`), and state the same rules in the agent text for sessions before workspace trust.
 

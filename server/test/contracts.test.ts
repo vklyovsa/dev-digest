@@ -115,6 +115,15 @@ describe('AI contracts parse fixtures', () => {
       split_suggestion: { too_big: false, total_lines: 285, proposed_splits: [] },
     });
     expect(d.groups[0]!.role).toBe('core');
+    expect(() =>
+      SmartDiff.parse({
+        groups: [
+          { role: 'tests', files: [{ path: 'a.test.ts', additions: 1, deletions: 0, finding_lines: [] }] },
+          { role: 'docs', files: [{ path: 'README.md', additions: 2, deletions: 1, finding_lines: [] }] },
+        ],
+        split_suggestion: { too_big: false, total_lines: 4, proposed_splits: [] },
+      }),
+    ).not.toThrow();
   });
 
   it('Conformance / Onboarding / EvalRun / MemoryItem', () => {

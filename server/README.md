@@ -71,6 +71,7 @@ flowchart TB
   subgraph Review["Review & runs"]
     reviews["reviews<br/>/pulls/:id/review · /reviews · /findings/:id/(accept|dismiss)<br/>/runs/:id/(events|trace)"]
     intent["intent<br/>/pulls/:id/intent · /pulls/:id/intent/derive"]
+    smartDiff["smart-diff<br/>/pulls/:id/smart-diff"]
   end
   subgraph Agents["Agents & skills"]
     agents["agents<br/>/agents · /agents/:id · /agents/:id/skills"]

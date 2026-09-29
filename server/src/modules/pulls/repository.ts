@@ -3,6 +3,7 @@ import type { PrDetail, PrMeta } from '@devdigest/shared';
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
 import type { SummarizableFinding } from './findings-summary.js';
+import { newestPerAgent } from '../../domain/reviews/current-opinion.js';
 
 /**
  * F1 — pulls data-access layer. The ONLY place that touches `pull_requests`,
@@ -240,22 +241,22 @@ export class PullsRepository {
     if (prIds.length === 0) return { openFindingsByPr, costByPr };
 
     const reviewRows = await this.db
-      .select({ id: t.reviews.id, prId: t.reviews.prId, agentId: t.reviews.agentId })
+      .select({
+        id: t.reviews.id,
+        prId: t.reviews.prId,
+        agentId: t.reviews.agentId,
+        kind: t.reviews.kind,
+        createdAt: t.reviews.createdAt,
+      })
       .from(t.reviews)
       .where(and(inArray(t.reviews.prId, prIds), eq(t.reviews.kind, 'review')))
       .orderBy(desc(t.reviews.createdAt), desc(t.reviews.id));
 
-    const prIdByReview = new Map<string, string>();
-    const seen = new Set<string>();
     for (const rv of reviewRows) {
       if (!openFindingsByPr.has(rv.prId)) openFindingsByPr.set(rv.prId, []);
-      // A review with no agent cannot be superseded by identity, so it keys on
-      // itself and stands on its own.
-      const key = `${rv.prId}:${rv.agentId ?? rv.id}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      prIdByReview.set(rv.id, rv.prId);
     }
+    const prIdByReview = new Map<string, string>();
+    for (const rv of newestPerAgent(reviewRows, (r) => r)) prIdByReview.set(rv.id, rv.prId);
 
     const reviewIds = [...prIdByReview.keys()];
     if (reviewIds.length > 0) {
