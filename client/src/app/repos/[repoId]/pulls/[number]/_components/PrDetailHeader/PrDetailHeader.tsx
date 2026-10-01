@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useCallback } from "react";
+import React, { useCallback, useLayoutEffect, useRef } from "react";
 import { Icon, Avatar, Badge, Button, Tabs } from "@devdigest/ui";
 import { RunReviewDropdown } from "../RunReviewDropdown";
 import { s } from "./styles";
+import { PR_HEADER_HEIGHT_VAR } from "../../constants";
 import type { PrDetail } from "@/lib/types";
 
 interface PrDetailHeaderProps {
@@ -36,6 +37,21 @@ export function PrDetailHeader({
     onRunsStarted();
   }, [onRunsStarted]);
 
+  const rootRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = rootRef.current;
+    const host = el?.parentElement;
+    if (!el || !host || typeof ResizeObserver === "undefined") return;
+    const publish = () => host.style.setProperty(PR_HEADER_HEIGHT_VAR, `${el.offsetHeight}px`);
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      host.style.removeProperty(PR_HEADER_HEIGHT_VAR);
+    };
+  }, []);
+
   const statusColor =
     pr.status === "merged"
       ? "var(--ok)"
@@ -44,7 +60,7 @@ export function PrDetailHeader({
         : "var(--warn)";
 
   return (
-    <div style={s.root}>
+    <div ref={rootRef} style={s.root}>
       <div style={s.titleRow}>
         <div style={s.titleCol}>
           <h1 style={s.h1}>

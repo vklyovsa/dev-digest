@@ -3,7 +3,10 @@
 "use client";
 
 import React from "react";
+import { Icon, SEV, type Severity } from "@devdigest/ui";
+import type { FindingRecord } from "@devdigest/shared";
 import { commentTargetFor, type CommentThread, type DiffCommentApi, cs } from "../comments";
+import { fs, topSeverity, type DiffFindingsApi } from "../findings";
 import { type Line } from "../helpers";
 import { s, lineRowFor, lineSignFor } from "../styles";
 import { CommentThreadView } from "../CommentThreadView";
@@ -14,11 +17,15 @@ export function CodeLine({
   path,
   threads,
   commenting,
+  lineFindings,
+  findings,
 }: {
   ln: Line;
   path: string;
   threads: CommentThread[];
   commenting?: DiffCommentApi;
+  lineFindings: FindingRecord[];
+  findings?: DiffFindingsApi;
 }) {
   const [hover, setHover] = React.useState(false);
   const [composing, setComposing] = React.useState(false);
@@ -35,13 +42,24 @@ export function CodeLine({
   const target = commenting?.canComment ? commentTargetFor(ln) : null;
   const showAdd = hover && !!target && !composing;
 
+  const severity = findings && lineFindings.length > 0 ? topSeverity(lineFindings) : undefined;
+  const tok = severity ? SEV[severity as Severity] : undefined;
+  const barColor = tok?.c ?? (severity ? "var(--text-muted)" : undefined);
+  const SevIcon = tok ? Icon[tok.icon] : Icon.Info;
+
   return (
     <div
       style={cs.rowWrap}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
-      <div style={lineRowFor(ln.kind)}>
+      <div
+        style={
+          barColor
+            ? { ...lineRowFor(ln.kind), boxShadow: `inset 3px 0 0 ${barColor}` }
+            : lineRowFor(ln.kind)
+        }
+      >
         <span className="mono tnum" style={{ ...s.lineNo, position: "relative" }}>
           {showAdd && target && (
             <button
@@ -62,7 +80,21 @@ export function CodeLine({
         <span className="mono" style={s.lineText}>
           {ln.text || " "}
         </span>
+        {findings && severity && (
+          <span style={{ ...fs.lineLabel, color: barColor }}>
+            <SevIcon size={12} />
+            {findings.labels.line(severity)}
+          </span>
+        )}
       </div>
+
+      {findings && findings.showCards && lineFindings.length > 0 && (
+        <div style={cs.thread}>
+          {lineFindings.map((f) => (
+            <div key={f.id}>{findings.renderFinding(f)}</div>
+          ))}
+        </div>
+      )}
 
       {commenting &&
         commenting.showComments &&

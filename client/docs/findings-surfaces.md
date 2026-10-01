@@ -1,7 +1,7 @@
 # Findings surfaces — where a finding is rendered, and from which data
 
-A finding shows up on four screens. They look related on purpose, but they read
-from three different sources, which is what decides where a new detail belongs.
+A finding shows up on five screens. They look related on purpose, but they read
+from four different sources, which is what decides where a new detail belongs.
 
 | Surface | Component | Data source | Scope | Interactive? |
 |---|---|---|---|---|
@@ -9,6 +9,7 @@ from three different sources, which is what decides where a new detail belongs.
 | PR timeline tile | `_components/RunHistory` | `usePrReviews` findings, keyed `run_id` → findings in `FindingsTab` | that **run's own** findings, including dismissed | the same popover header, read-only |
 | Review run card | `_components/FindingsPanel` + `FindingCard` | `usePrReviews`, that run's own `findings` | that run, after the confidence gate | severity filter, accept/dismiss |
 | Trace drawer | `RunTraceDrawer/_components/FindingsSection` | the findings passed in from the PR page | that run | read-only |
+| Files changed | `_components/DiffTab` + the `diff-viewer` findings slot | dots and `● K` from `GET /pulls/:id/smart-diff` `finding_lines`; cards from `usePrReviews` | each agent's **newest** run, dismissed and accepted included (muted) | accept/dismiss on the line card |
 
 The scope column is the part to keep in mind: **the list is about the PR's
 current state, the PR page is about what each run produced.** So the list total

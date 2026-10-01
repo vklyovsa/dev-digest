@@ -31,6 +31,9 @@ Dead ends and anti-patterns: what was tried, why it failed, what to do instead.
 Conventions and architectural decisions found while working here, before they are
 settled enough to move into `CLAUDE.md`.
 
+- **`MockGitHubClient.getPullRequest()`s base fixture carries no `labels` key, so `PrDetail.labels` reads back `undefined` (→ `[]` after the pulls-module `?? []`) unless a test overrides it.** (2026-09-27) `server/src/adapters/mocks.ts` — the fixture object built for the Intent Layer (`server/src/modules/intent/`) has no default entry for the new `PrDetail.labels` field, so any test asserting a `labels`-derived confidence path needs `new MockGitHubClient({ detail: { labels: [...] } })` explicitly.
+  → Set `detail.labels` in the mock when writing the deferred `intent.it.test.ts` / `reviews-intent.it.test.ts` (Stage 6/7 of `specs/intent-layer-plan.md`) — otherwise the labels source silently stays empty and no assertion catches it.
+
 - **A derived count belongs on the DTO, filled by one grouped IN-query — and it has to be filled on EVERY read path, not just the list.** (2026-09-22) `Skill.agent_count` and `Agent.skill_count` are the same join read from opposite ends (`agentCounts` / `skillCounts`); the trap is `update()`, which returns a DTO too — leaving it at the `toDto(row)` default made a freshly-saved agent report 0 skills until the next list refetch, with nothing in the types to notice.
   → When adding a derived field, grep the module for every `to<Thing>Dto(` call site before declaring it done: create legitimately defaults to 0, but get/list/update must all resolve it. `z.number().int().nonnegative().default(0)` over `.nullish()` keeps the inferred type a plain number so no reader needs `?? 0`.
 
@@ -77,4 +80,5 @@ _None yet._
 Unresolved behaviour, undecided design, unverified assumptions. Delete an entry when
 it is answered — the answer belongs in another section.
 
-_None yet._
+- **Unverified: `test/reviews-skills.it.test.ts` "without linked skills the prompt carries no skills block" failed once in the full `.it` lane and passed alone and on a second full run.** (2026-09-28) Failure was `trace.prompt_assembly` undefined at `test/reviews-skills.it.test.ts:175` (`runAndTrace` read the trace before it existed); unrelated to the code under change, seen while 12 `.it` files ran in parallel.
+  → If it recurs, check whether `runAndTrace` waits for the run to settle before fetching the trace; re-run the file alone before blaming a change.

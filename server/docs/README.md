@@ -5,9 +5,9 @@ written for a reader who already knows what this package does.
 
 - `README.md` stays the map; the long explanation belongs here.
 - One topic per file, kebab-case filename, a title line stating the topic.
-- Link every doc from `../CLAUDE.md` under `## Read when`, together with the
+- Link every doc from `../AGENTS.md` under `## Read when`, together with the
   trigger that should make someone open it — an unlinked doc is an unread doc.
-- Architecture diagrams live here or in `README.md`, never in `CLAUDE.md`.
+- Architecture diagrams live here or in `README.md`, never in `AGENTS.md` / `CLAUDE.md`.
 
 Not here: work specs (`../specs/`), lessons learned (`../INSIGHTS.md`), or anything
 already covered by `../README.md`.
@@ -20,3 +20,10 @@ already covered by `../README.md`.
 - [`skills-in-prompt.md`](skills-in-prompt.md) — the path from `agent_skills` to
   the model: the two SQL gates, the labelled block, and why skills are NOT
   wrapped as untrusted data.
+- [`intent-in-prompt.md`](intent-in-prompt.md) — the path from a PR's title,
+  linked docs and issues to the cached `pr_intent` row to the prompt's
+  `## PR intent (derived)` block: the content-addressed cache key, why intent
+  IS wrapped as untrusted data (unlike skills), why derivation is lazy, and
+  the cross-repo issue policy.
+- [`prompt-logging.md`](prompt-logging.md) — the `prompt.assembled` log line: fields,
+  `correlationId`, what is never logged, and why `verbose` is development-only.

@@ -42,6 +42,9 @@ settled enough to move into `CLAUDE.md`.
 Quirks of dependencies, versions and tooling — what a library does that its docs
 do not say.
 
+- **`Chip` always renders a `<button onClick={onClick}>`, even when no `onClick` is passed — a focusable, keyboard-tabbable no-op.** (2026-09-27) `client/src/vendor/ui/primitives/Chip.tsx:19` has no read-only branch; the Intent Layer plan asks for `risk_areas` as `Chip`s (`IntentCard.tsx`), so each PR with risk areas now ships several tab-stops that do nothing. Same category as the existing `MonoLink` entry above, different primitive.
+  → On a genuinely read-only surface, do not reach for `Chip` — render a plain `<span>` with its padding/border styles, or pass a real `onClick` (even just `undefined` guard logic) if the tag should stay a `Chip`.
+
 - **A static route that calls `useSearchParams()` does NOT fail `next build` on Next 15.5 — the Next-14-era "should be wrapped in a suspense boundary" error never fires.** (2026-09-21) `/skills` was built both with and without the boundary in `src/app/skills/page.tsx`; both runs were green and the route stayed `○ (Static)` in the output table either way. The boundary still earns its place — without one the tree above `useSearchParams()` falls back to client rendering — but it is a rendering decision, not a build gate.
   → Do not add `<Suspense>` "because the build will fail", and do not trust a comment that says so; prove a build gate by removing the guard and running `pnpm build` before writing it down.
 
@@ -60,6 +63,9 @@ do not say.
 
 Error or symptom → cause → fix, one entry each, so the next occurrence is a lookup
 instead of an investigation.
+
+- **The PR page renders blank and unstyled (plain blue links, empty body) right after `pnpm build` in `client/` — the build overwrote `client/.next` under the running `next dev`.** (2026-09-28) `next dev` and `next build` share `.next` (`next.config.mjs` sets no `distDir`); `client/.next/BUILD_ID` with a fresh timestamp next to a live `next dev -p 3000` is the tell. Only stopping the stack, `rm -rf client/.next` and restarting brought it back.
+  → Never build in the live `client/` while the stack runs: `rsync -a --exclude .next --exclude node_modules client/ /tmp/x/`, `ln -s "$PWD/client/node_modules" /tmp/x/node_modules`, `/tmp/x/node_modules/.bin/next build`, then delete the copy.
 
 - **A vitest hook that RETURNS a function gets that function called as teardown — and `mock.mockReset()` returns the mock itself, which is callable.** (2026-09-22) `beforeEach(() => mutateAsync.mockReset())` (implicit-return arrow) made vitest invoke the mock again after the test body finished; with a throwing implementation set inside the test, the failure surfaced as `ApiError: …` attributed to a test whose assertions had all passed, and `mock.calls.length` still read 1 while the body ran. Bisected in `CreateSkillModal.test.tsx`: deleting the hook fixed it, swapping `mockReset`→`mockClear` did not, a block body did.
   → Always give a mock-resetting hook a BLOCK body: `beforeEach(() => { m.mockReset(); })`. The same trap waits on `mockClear`, `mockImplementation`, `mockReturnValue` — every one of them returns the mock. An unexplained error carrying a test-fixture message, after the assertions passed, is this.

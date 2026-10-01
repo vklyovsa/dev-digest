@@ -31,7 +31,7 @@ the Fastify API. `next-intl` for copy, vendored design system for components.
 - Something behaves inexplicably → `INSIGHTS.md` (§ What Doesn't Work, § Recurring Errors).
 - You learned something non-obvious → append it to the matching `INSIGHTS.md` section.
 - Touching anything that renders findings → `docs/findings-surfaces.md` first:
-  four screens, three data sources.
+  five screens, four data sources.
 - Working on `/skills` or the agent's Skills tab → `docs/skills-ui.md`
   (the list lives in the layout, `/skills/:id` is the pane; the tabs that exist on
   purpose; the two-step import).

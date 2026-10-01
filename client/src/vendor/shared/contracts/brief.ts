@@ -13,6 +13,41 @@ export const Intent = z.object({
 });
 export type Intent = z.infer<typeof Intent>;
 
+export const IntentConfidence = z.enum(['high', 'medium', 'low']);
+export type IntentConfidence = z.infer<typeof IntentConfidence>;
+
+export const IntentSourceKind = z.enum([
+  'pr_title',
+  'pr_body',
+  'linked_doc',
+  'linked_issue',
+  'ticket_ref',
+  'external_link',
+  'branch_name',
+  'commit_messages',
+  'changed_files',
+  'labels',
+]);
+export type IntentSourceKind = z.infer<typeof IntentSourceKind>;
+
+export const IntentSourceStatus = z.enum(['used', 'unresolved', 'truncated']);
+export type IntentSourceStatus = z.infer<typeof IntentSourceStatus>;
+
+export const IntentSource = z.object({
+  kind: IntentSourceKind,
+  ref: z.string(),
+  status: IntentSourceStatus,
+  note: z.string().nullish(),
+});
+export type IntentSource = z.infer<typeof IntentSource>;
+
+/** The model's own output for the intent derivation call — risk_areas only;
+    array bounds (MAX_RISK_AREAS etc.) are enforced in code, not in the schema. */
+export const IntentDerivation = Intent.extend({
+  risk_areas: z.array(z.string()),
+});
+export type IntentDerivation = z.infer<typeof IntentDerivation>;
+
 // ---- Blast radius ----
 export const ChangedSymbol = z.object({
   name: z.string(),
@@ -78,7 +113,7 @@ export const PrHistory = z.object({
 export type PrHistory = z.infer<typeof PrHistory>;
 
 // ---- Smart Diff ----
-export const SmartDiffRole = z.enum(['core', 'wiring', 'boilerplate']);
+export const SmartDiffRole = z.enum(['core', 'tests', 'wiring', 'docs', 'boilerplate']);
 export type SmartDiffRole = z.infer<typeof SmartDiffRole>;
 
 export const SmartDiffFile = z.object({
