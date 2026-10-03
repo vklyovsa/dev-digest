@@ -1,0 +1,69 @@
+# Insights — mcp
+
+Learnings for `@devdigest/mcp`: MCP SDK and client behaviour, the tool-surface size
+budgets, and the DevDigest API facts the wrapper depends on.
+
+**Fixed sections — append to the matching one, never to the bottom of the file.**
+If an entry fits nowhere here, it probably belongs in `docs/` or nowhere at all.
+
+How to write one: 1–3 lines, newest first inside its section, recording what a
+careful reader could not have predicted from the code. Not a task log, not a
+changelog, not a restatement of the diff. When an entry has bitten a third time,
+promote it to `CLAUDE.md` — § Conventions for a pattern, § Gotchas for a trap —
+and leave it here as history.
+
+## What Works
+
+Approaches and solutions that held up, with the context that made them work.
+
+_None yet._
+
+## What Doesn't Work
+
+Dead ends and anti-patterns: what was tried, why it failed, what to do instead.
+**The highest-value section and the one most often left empty. Fill it.**
+
+- **dependency-cruiser leaves every `@modelcontextprotocol/sdk/...` import UNRESOLVED, so a rule written on `node_modules/@modelcontextprotocol` passes vacuously — the graph is green and the SDK boundary unchecked.** (2026-10-03) `npx depcruise src --output-type json` reported `couldNotResolve: true`, `dependencyTypes: ["unknown"]` and the bare specifier as `resolved`; the SDK maps `"./*"` to `{ types: "./dist/esm/*.d.ts", import: "./dist/esm/*" }` and enhanced-resolve takes the first key (`types`), appends `.d.ts` to `server/mcp.js` and finds nothing. `zod` resolved fine, which hides it.
+  → `mcp/.dependency-cruiser.cjs` sets `options.enhancedResolveOptions.conditionNames` without `types` (resolves to `node_modules/@modelcontextprotocol/sdk/dist/esm/...`) and matches `(^|node_modules/)@modelcontextprotocol/`. After adding a rule on an npm package, list `resolved` for it in the JSON output and probe-import it once.
+
+## Codebase Patterns
+
+Conventions and architectural decisions found while working here, before they are
+settled enough to move into `CLAUDE.md`.
+
+_None yet._
+
+## Tool & Library Notes
+
+Quirks of dependencies, versions and tooling — what a library does that its docs
+do not say.
+
+- **`client.listTools()` entries from the in-memory transport carry `_meta` as an own key with value `undefined`, so `expect(tool).not.toHaveProperty("_meta")` fails although nothing is sent.** (2026-10-03) `mcp.js:126` builds `_meta: tool._meta` for every tool; `JSON.stringify` drops it, and over real stdio the key is absent.
+  → Assert `tool._meta` is `undefined` and that `JSON.stringify(tools)` contains no `_meta` (`server.test.ts`, `stdio.test.ts`).
+
+- **`registerTool` adds bytes to every `tools/list` entry that count against the 5,000-char budget, and the handler signature depends on `inputSchema`.** (2026-10-03) Probed with SDK 1.32.0: each tool carries `"execution":{"taskSupport":"forbidden"}`; `inputSchema: {}` serialises as `{"type":"object","properties":{},"$schema":"http://json-schema.org/draft-07/schema#"}` and any non-empty Zod shape adds `"additionalProperties":false` plus the same `$schema`; omitting `inputSchema` gives a bare `{"type":"object","properties":{}}`. With `inputSchema` (even `{}`) the callback is `(args, extra)`; without it, `(extra)` (`executeToolHandler` in `mcp.js`).
+  → Measure `JSON.stringify((await client.listTools()).tools).length` from a real in-memory client rather than summing descriptions, and for the zero-argument tool pick one form on purpose and match the callback to it.
+
+- **MCP SDK 1.32.0 never raises a protocol error for a tool call: a schema-validation failure and ANY error thrown by a handler both come back as `isError: true`, carrying the raw `error.message`.** (2026-10-03) `node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js:140-182` catches everything except `UrlElicitationRequired`. Probed in memory: a call missing `pr` returned `MCP error -32602: Input validation error: Invalid arguments for tool flat: Required at pr`, an unknown tool `MCP error -32602: Tool nope not found`, and a handler that threw `boom` returned just `boom`. Unknown argument keys are silently stripped, not rejected.
+  → Catch inside every handler (`toToolResult`) so no internal message leaks verbatim, and assert bad arguments in `server.test.ts` as an `isError` result naming the field, not as a rejected promise.
+
+## Recurring Errors & Fixes
+
+Error or symptom → cause → fix, one entry each, so the next occurrence is a lookup
+instead of an investigation.
+
+_None yet._
+
+## Session Notes
+
+Dated summaries as `### YYYY-MM-DD — topic`: what was worked on and what state it
+was left in. Prune an entry once its content has moved into a section above.
+
+_None yet._
+
+## Open Questions
+
+Unresolved behaviour, undecided design, unverified assumptions. Delete an entry when
+it is answered — the answer belongs in another section.
+
+_None yet._

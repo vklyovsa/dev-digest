@@ -15,7 +15,7 @@ diff -r server/src/vendor/shared client/src/vendor/shared
 
 ## Lockfiles
 
-`pnpm-lock.yaml` (`server/`, `client/`) and `package-lock.json` (`reviewer-core/`, `e2e/`)
+`pnpm-lock.yaml` (`server/`, `client/`) and `package-lock.json` (`reviewer-core/`, `e2e/`, `mcp/`)
 are written by the package manager only. A lockfile in the diff with no `package.json`
 change beside it → CRITICAL. There is no root lockfile; one appearing is a mistake.
 

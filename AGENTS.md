@@ -1,6 +1,6 @@
 # DevDigest — repository map
 
-Local-first AI pull-request review. **Four standalone packages, not a workspace**:
+Local-first AI pull-request review. **Five standalone packages, not a workspace**:
 each has its own `package.json` and lockfile; code is shared through tsconfig path
 aliases, never through published modules.
 
@@ -10,8 +10,9 @@ aliases, never through published modules.
 | `client/` | `@devdigest/web` | Next.js 15 App Router + React 19 | 3000 |
 | `reviewer-core/` | `@devdigest/reviewer-core` | pure engine: diff → prompt → LLM → findings | — |
 | `e2e/` | `@devdigest/e2e` | deterministic browser e2e (agent-browser) | — |
+| `mcp/` | `@devdigest/mcp` | local MCP server over stdio, thin wrapper over the API | — |
 
-Node >= 22. **`server/` and `client/` use pnpm; `reviewer-core/` and `e2e/` use npm.**
+Node >= 22. **`server/` and `client/` use pnpm; `reviewer-core/`, `e2e/` and `mcp/` use npm.**
 Only Postgres runs in Docker — the API and the web app run on the host.
 
 ## Commands
@@ -19,13 +20,17 @@ Only Postgres runs in Docker — the API and the web app run on the host.
 - Whole stack: `./scripts/dev.sh` (Postgres + API :3001 + web :3000, seeded)
 - Migrations: `cd server && pnpm db:migrate` — **never applied on boot**
 - Browser e2e: `./scripts/e2e.sh` — isolated stack on alternate ports
+- MCP server: registered with the MCP client (`mcp/README.md`), **never started by
+  `./scripts/dev.sh` or `./scripts/e2e.sh`**
 - Per-package test / typecheck commands: see that package's `AGENTS.md`
 
 ## Read when
 
 - Starting work inside a package → read its `AGENTS.md` first (`server/`, `client/`,
-  `reviewer-core/`, `e2e/`). Per-directory autoload is unreliable in some editors,
+  `reviewer-core/`, `e2e/`, `mcp/`). Per-directory autoload is unreliable in some editors,
   so open it explicitly rather than assuming it loaded.
+- Starting, registering or changing the MCP server (tools, descriptions, errors) →
+  `mcp/AGENTS.md`, then `mcp/README.md`.
 - You need the end-to-end picture or the architecture diagrams → `README.md`.
 - Anything about test suites, the unit/integration split, or CI lanes → `TESTING.md`.
 - Writing or editing a reviewer agent's system prompt → `docs/agent-prompts/`.
@@ -85,7 +90,7 @@ Only Postgres runs in Docker — the API and the web app run on the host.
 ## Do not touch
 
 - **Lock-files** — `pnpm-lock.yaml` (`server/`, `client/`) and `package-lock.json`
-  (`reviewer-core/`, `e2e/`) are never hand-edited: change a dependency through the
+  (`reviewer-core/`, `e2e/`, `mcp/`) are never hand-edited: change a dependency through the
   package manager in that package and commit the lockfile it writes. There is no
   root lockfile, because this is not a workspace.
 - `server/clones/**` — runtime data (git-ignored): checkouts of imported repos.

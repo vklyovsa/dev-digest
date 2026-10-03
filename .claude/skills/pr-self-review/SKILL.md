@@ -43,7 +43,7 @@ opens it.
 Not run by default: they are slow and share the test database. Default gates are static
 (`typecheck`, `arch:check`). With `--tests`, run the unit lanes of the affected packages
 only — `client`: `pnpm test`, `server`: `pnpm exec vitest run --exclude '**/*.it.test.ts'`,
-`reviewer-core`: `npm test`. Never the `*.it.test.ts` lane, never `e2e`.
+`reviewer-core`: `npm test`, `mcp`: `npm test`. Never the `*.it.test.ts` lane, never `e2e`.
 
 ## The run
 
@@ -81,7 +81,7 @@ package appears in the diff:
 
 | Gate | Command / check | Severity when it fails |
 |---|---|---|
-| typecheck | `cd client && pnpm typecheck` · `cd server && pnpm typecheck` · `cd reviewer-core && npm run typecheck` | CRITICAL |
+| typecheck | `cd client && pnpm typecheck` · `cd server && pnpm typecheck` · `cd reviewer-core && npm run typecheck` · `cd mcp && npm run typecheck` | CRITICAL |
 | architecture | `cd server && pnpm exec depcruise src --config .dependency-cruiser.cjs` | CRITICAL |
 | contract copies | a file under `*/vendor/shared/` changed in one copy only (`diff -r server/src/vendor/shared client/src/vendor/shared`) | CRITICAL |
 | secrets | a key/token/`.env` value added by the diff | CRITICAL |

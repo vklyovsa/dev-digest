@@ -105,6 +105,11 @@ for f in "${FILES[@]}"; do
     add onion-architecture "$f"; add typescript-expert "$f"; add zod "$f"; matched=1
   fi
 
+  # ---- mcp -------------------------------------------------------------------
+  if [[ "$f" =~ ^mcp/src/ ]]; then
+    add typescript-expert "$f"; add zod "$f"; add security "$f"; matched=1
+  fi
+
   # ---- content triggers ------------------------------------------------------
   if [[ "$f" =~ \.(ts|tsx|js|jsx|mjs|cjs)$ ]]; then
     body="$(added_lines "$f")"

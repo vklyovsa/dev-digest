@@ -40,6 +40,9 @@ Work contained in a single package gets a spec in that package's `specs/` instea
   L03 Intent layer: derive a PR's intent from its title, linked docs/issues or
   indirect data, cache it, and carry it into every agent's prompt as an untrusted
   block (server + reviewer-core + client).
+- [`devdigest-mcp-plan.md`](devdigest-mcp-plan.md) — L04 `devdigest-mcp`: a local stdio
+  MCP server (new package `mcp/`) with five tools over the existing API; the tool
+  contract is Appendix A (no server or client change).
 
 ## Tooling plans (`.claude/`)
 

@@ -79,6 +79,12 @@ settled enough to move into `CLAUDE.md`.
 Quirks of dependencies, versions and tooling — what a library does that its docs
 do not say.
 
+- **A `${VAR}` inside a `claude mcp add -H` header is stored literally and expanded from the environment at launch — at `--scope local` too, not only in `.mcp.json` — so a token never has to be written into `~/.claude.json`.** (2026-10-03) Proved with a throwaway listener on `127.0.0.1`: registered with `-H 'Authorization: Bearer ${ENVPROBE_TOKEN}'`, it received `Bearer expanded-ok`. It matters for the remote GitHub MCP (`https://api.githubcopilot.com/mcp/`): its auth-server metadata at `https://github.com/.well-known/oauth-authorization-server/login/oauth` carries no `registration_endpoint`, so `/mcp` has no client to authenticate with and a PAT header is the way in; with the variable unset `claude mcp get github` reports `HTTP 400 … Authorization header is badly formatted`.
+  → Register with a single-quoted `${GITHUB_PERSONAL_ACCESS_TOKEN}` header and export the variable in the shell that launches `claude`; read that 400 as "variable not exported" before suspecting the token.
+
+- **MCP TypeScript SDK v2 cannot run on the Zod this repo pins: `@modelcontextprotocol/server@2.3.0` depends on `zod ^4.2.0` (Node >=20), while `server/`, `client/` and `reviewer-core/` declare `zod ^3.24.1` (3.25.76 installed).** (2026-10-03) Checked with `npm view @modelcontextprotocol/server version dependencies.zod`; the v1 line `@modelcontextprotocol/sdk@1.32.0` still accepts `zod ^3.25 || ^4.0`. The v2 upgrade guide adds that Zod 3 schemas, the `zod/v4` subpath of 3.25.x included, fail to type-check in `registerTool` (TS2769). No MCP SDK is in any lockfile yet.
+  → For `devdigest-mcp` choose deliberately: SDK 1.x on Zod 3.25, or SDK 2.x with its own `zod ^4.2` in a separate package; either way do not pass the `vendor/shared` Zod 3 contracts into a v2 tool schema.
+
 - **pnpm 12.4.2 exits non-zero with `ERR_PNPM_IGNORED_BUILDS` (esbuild, sharp) AFTER doing the work — on `pnpm add`, and on `pnpm <script>` in `client/` too.** (2026-09-28) `pnpm add pretty-ms` in a fresh fork clone printed the error yet wrote `package.json` and `pnpm-lock.yaml`; `pnpm typecheck` / `pnpm build` in `client/` failed the same way before running anything, while `./node_modules/.bin/tsc --noEmit` was green. `--config.strict-dep-builds=false` did not help, and pnpm also drops an `allowBuilds:` stub into `client/pnpm-workspace.yaml`.
   → Judge `pnpm add` by the lockfile (`grep <pkg> pnpm-lock.yaml`), run checks via `node_modules/.bin/<tool>`, and revert the `pnpm-workspace.yaml` stub; do not answer the `approve-builds` prompt on the user's behalf.
 
@@ -101,6 +107,10 @@ do not say.
 
 Error or symptom → cause → fix, one entry each, so the next occurrence is a lookup
 instead of an investigation.
+
+- **`route-skills.sh` aborts with `line 134: LANE: unbound variable` (exit 1) when no changed file adds a skill lane — i.e. on a docs-only or config-only diff.**
+  (2026-10-03) `declare -A LANE` (`.claude/skills/pr-self-review/scripts/route-skills.sh:56`) never assigns, and under `set -u` bash 5.2.21 treats `${#LANE[@]}` on a never-assigned associative array as unbound (`bash -c 'set -u; declare -A L; echo ${#L[@]}'` → exit 1; `declare -A L=()` → 0). Mixing in one path that does route (e.g. `mcp/src/server.ts`) makes the same script exit 0, which is how the failure hides in mixed diffs.
+  → Initialise it as `declare -A LANE=()` (one-line fix, not yet applied). Until then, read a crash on a docs-only file list as "no skill lane matched", not as a routing bug in the files, and route a docs-only change with a sentinel path to see the lanes.
 
 - **API (and web) "drop after 5–20 minutes idle" when an agent session started the stack — it is killed, not crashed.** (2026-09-23)
   `./scripts/dev.sh` run as a Claude Code background Bash task belongs to that session; when the session ends (closed, or unloaded while idle) the whole dev.sh tree dies. Evidence: a session started it at 21:41 and its transcript got `<status>killed</status>` for the task at 21:50 with no user activity between. Ruled out: no OOM in kernel or systemd-oomd logs, no idle timers in the API, postgres.js survives idle disconnects, `tsx watch` SIGKILLs a stuck old process after 5s.
@@ -127,6 +137,10 @@ instead of an investigation.
 
 Dated summaries as `### YYYY-MM-DD — topic`: what was worked on and what state it
 was left in. Prune an entry once its content has moved into a section above.
+
+### 2026-10-03 — devdigest-mcp: local stdio MCP server (L04)
+Research, plan (`specs/devdigest-mcp-plan.md`, Appendix A is the tool contract) and Stages 1–7: new package `mcp/` (`@devdigest/mcp`, npm, SDK 1.32.0 + Zod 3.25.76) with `list_agents`, `run_agent_on_pr`, `get_findings`, `get_conventions` and the `get_blast_radius` stub over the existing HTTP API; own depcruise config, `.github/workflows/mcp.yml`, pr-self-review routing for `mcp/src/**`. No change in `server/`, `client/`, `reviewer-core/`, `e2e/`.
+Green in `mcp/`: typecheck, 275 tests in 15 files, `arch:check`; `tools/list` is 4,793 of 5,000 chars. Nothing committed. Left to the user: Stage 8 (Inspector, `/mcp`, `/context` token audit, the two lesson scenarios) — the server has not yet been run against the live API or from Claude Code. Open: `route-skills.sh` still crashes on a docs-only diff (§ Recurring Errors).
 
 ### 2026-09-27 — six project subagents + guards
 Added `brainstorm`, `test-writer`, `plan-verifier`, `architecture-reviewer`, `security-reviewer` (renamed from `appsec-reviewer` by the user) and `doc-writer` per `specs/project-subagents-plan.md`; the guards share `guard-lib.sh`, `check-guards.sh` 157/157, `check-agents.sh` 9/9. Project policy now: tests may be run without asking (`AGENTS.md`); agents must not depend on personal `~/.claude` settings. plan-verifier (run twice) found nothing missing; `awk` is left off the read-only allowlist on purpose. Nothing committed.
