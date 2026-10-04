@@ -11,6 +11,7 @@ import { createServer, type ServerOptions } from './server.js';
 import {
   FakeDevDigestApi,
   fakeAgent,
+  fakeBlast,
   fakeFinding,
   fakePull,
   fakeRepo,
@@ -25,9 +26,9 @@ const EXPECTED_LENGTHS = {
   run_agent_on_pr: 588,
   get_findings: 520,
   get_conventions: 406,
-  get_blast_radius: 228,
+  get_blast_radius: 384,
 } as const;
-const EXPECTED_INSTRUCTIONS_LENGTH = 418;
+const EXPECTED_INSTRUCTIONS_LENGTH = 524;
 
 const silent: Logger = { info: () => undefined, warn: () => undefined, error: () => undefined };
 
@@ -60,6 +61,7 @@ function world(): FakeDevDigestApi {
         ],
       },
     },
+    blast: { 'pr-1': fakeBlast() },
     startFindings: [fakeFinding({ severity: 'WARNING', title: 'Weak hash' })],
   });
 }
@@ -119,7 +121,7 @@ describe('tools/list', () => {
     }
   });
 
-  it('serves the instructions as written, 418 characters and under the 600 ceiling', async () => {
+  it('serves the instructions as written, 524 characters and under the 600 ceiling', async () => {
     const { client } = await connect();
     const instructions = client.getInstructions();
 
@@ -209,7 +211,7 @@ describe('tools/list', () => {
       'Run agent on PR',
       'Get findings',
       'Get conventions',
-      'Get blast radius (not implemented)',
+      'Get blast radius',
     ]);
   });
 });
@@ -234,6 +236,7 @@ describe('tools/call results', () => {
       ['run_agent_on_pr', { repo: 'acme/payments-api', pr: 482, agent: 'a-sec' }],
       ['get_findings', { repo: 'acme/payments-api', pr: 482, run_id: 'run-1' }],
       ['get_conventions', { repo: 'acme/payments-api' }],
+      ['get_blast_radius', { repo: 'acme/payments-api', pr: 482 }],
     ];
 
     for (const [name, args] of calls) {
@@ -291,14 +294,45 @@ describe('tools/call results', () => {
     expect(payload).toMatchObject({ total: 1, conventions: [{ category: 'naming', rule: 'Files are kebab-case' }] });
   });
 
-  it('get_blast_radius is an error saying not to retry, and never reaches the API (AC7)', async () => {
+  it('get_blast_radius returns the impact map of the PR with its totals', async () => {
     const { client, api } = await connect();
     const result = await call(client, 'get_blast_radius', { repo: 'acme/payments-api', pr: 482 });
 
+    expect(result.isError).toBeFalsy();
+    expect(JSON.parse(textOf(result))).toMatchObject({
+      repo: 'acme/payments-api',
+      pr: 482,
+      totals: { symbols: 1, callers: 2, endpoints: 1, crons: 0 },
+      symbols: [{ symbol: 'rateLimit', callers: ['src/api/routes.ts:23', 'src/jobs/sync.ts:8'], endpoints: ['GET /payments'] }],
+    });
+    expect(api.callsTo('getBlastRadius')).toEqual([{ method: 'getBlastRadius', args: ['pr-1'] }]);
+  });
+
+  it('get_blast_radius on an unknown PR is an isError result that names the cause and the next step', async () => {
+    const { client, api } = await connect();
+    const result = await call(client, 'get_blast_radius', { repo: 'acme/payments-api', pr: 999 });
+
     expect(result.isError).toBe(true);
     expect(textOf(result)).toBe(
-      'get_blast_radius is not implemented yet in this DevDigest build. Do not retry. No other tool on this server returns impact data; tell the user it is unavailable.',
+      'PR #999 not found in acme/payments-api. DevDigest knows PRs: #482. Check the number (gh pr list); only PRs imported into DevDigest can be reviewed, and importing needs a GitHub token in Settings.',
     );
+    expect(api.callsTo('getBlastRadius')).toEqual([]);
+  });
+
+  it('get_blast_radius on an unknown repo is an isError result that lists the known repositories', async () => {
+    const { client } = await connect();
+    const result = await call(client, 'get_blast_radius', { repo: 'other/repo', pr: 482 });
+
+    expect(result.isError).toBe(true);
+    expect(textOf(result)).toContain('Repository "other/repo" is not in DevDigest. Known repositories: acme/payments-api.');
+  });
+
+  it('get_blast_radius with a missing pr is an error result that names the field and calls nothing', async () => {
+    const { client, api } = await connect();
+    const result = await call(client, 'get_blast_radius', { repo: 'acme/payments-api' });
+
+    expect(result.isError).toBe(true);
+    expect(textOf(result)).toMatch(/\bpr\b/);
     expect(api.calls).toEqual([]);
   });
 

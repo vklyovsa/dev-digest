@@ -177,6 +177,29 @@ const wireConvention = {
   updated_at: '2026-10-03T09:00:00.000Z',
 };
 
+const wireBlast = {
+  changed_symbols: [{ name: 'getContext', file: 'server/src/modules/_shared/context.ts', kind: 'function' }],
+  downstream: [
+    {
+      symbol: 'getContext',
+      callers: [
+        { name: 'listRuns', file: 'server/src/modules/reviews/routes.ts', line: 41 },
+        { name: 'listPulls', file: 'server/src/modules/pulls/routes.ts', line: 17 },
+      ],
+      endpoints_affected: ['GET /pulls/:id/runs'],
+      crons_affected: ['0 * * * *'],
+    },
+  ],
+  summary: '1 changed symbol reaches 2 callers, 1 endpoint and 1 cron/job.',
+  totals: { symbols: 1, callers: 2, endpoints: 1, crons: 1 },
+  degraded: true,
+  reason: 'index_partial',
+  max_callers_per_symbol: 20,
+  indexed_sha: 'abc123',
+  changed_files_count: 3,
+  caller_file_facts: [{ file: 'server/src/modules/reviews/routes.ts', endpoints: ['GET /pulls/:id/runs'], crons: [] }],
+};
+
 const allRoutes: Record<string, Handler> = {
   'GET /agents': () => json([wireAgent]),
   'GET /repos': () => json([{ id: ID.repo, full_name: 'acme/payments-api', owner: 'acme' }]),
@@ -194,6 +217,8 @@ const allRoutes: Record<string, Handler> = {
   [`POST /runs/${ID.run}/cancel`]: () => json({ ok: true }),
   [`GET /repos/${ID.repo}/conventions`]: () =>
     json({ scan: { started_at: 'a', finished_at: 'b' }, candidates: [wireConvention] }),
+  [`GET /pulls/${ID.pr}/blast`]: () => json(wireBlast),
+  [`GET /pulls/${ID.pr}`]: () => json({ id: ID.pr, number: 482, title: 'Add rate limiting', files: [] }),
 };
 
 describe('HttpDevDigestApi: wire to domain mapping', () => {
@@ -338,6 +363,74 @@ describe('HttpDevDigestApi: wire to domain mapping', () => {
     expect(await never.api.getConventions(ID.repo)).toEqual({ scannedAt: null, conventions: [] });
   });
 
+  it('maps the blast radius to the port slice and drops what the tool does not read', async () => {
+    const { api } = apiFor(allRoutes);
+
+    const blast = await api.getBlastRadius(ID.pr);
+
+    expect(blast).toEqual({
+      summary: '1 changed symbol reaches 2 callers, 1 endpoint and 1 cron/job.',
+      totals: { symbols: 1, callers: 2, endpoints: 1, crons: 1 },
+      degraded: true,
+      reason: 'index_partial',
+      callerCap: 20,
+      changedFiles: 3,
+      symbols: [
+        {
+          symbol: 'getContext',
+          callers: [
+            { file: 'server/src/modules/reviews/routes.ts', line: 41 },
+            { file: 'server/src/modules/pulls/routes.ts', line: 17 },
+          ],
+          endpoints: ['GET /pulls/:id/runs'],
+          crons: ['0 * * * *'],
+        },
+      ],
+    });
+    expect(JSON.stringify(blast)).not.toContain('caller_file_facts');
+    expect(JSON.stringify(blast)).not.toContain('listRuns');
+  });
+
+  it('accepts a degraded reason the contract does not list and a null one', async () => {
+    const { api } = apiFor({
+      [`GET /pulls/${ID.pr}/blast`]: () => json({ ...wireBlast, reason: 'a_future_reason' }),
+    });
+    const quiet = apiFor({
+      [`GET /pulls/${ID.pr}/blast`]: () => json({ ...wireBlast, degraded: false, reason: null }),
+    });
+
+    expect((await api.getBlastRadius(ID.pr)).reason).toBe('a_future_reason');
+    expect(await quiet.api.getBlastRadius(ID.pr)).toMatchObject({ degraded: false, reason: null });
+  });
+
+  it('maps a blast body that lost a field to shape and names it', async () => {
+    const { downstream: _dropped, ...withoutDownstream } = wireBlast;
+    const { api } = apiFor({ [`GET /pulls/${ID.pr}/blast`]: () => json(withoutDownstream) });
+
+    await expect(api.getBlastRadius(ID.pr)).rejects.toMatchObject({
+      kind: 'shape',
+      path: `/pulls/${ID.pr}/blast`,
+      message: expect.stringContaining('downstream'),
+    });
+  });
+
+  it('loads the PR detail with a plain GET and ignores the body', async () => {
+    const { api, calls } = apiFor({ [`GET /pulls/${ID.pr}`]: () => new Response('not even json', { status: 200 }) });
+
+    await expect(api.loadPullDetail(ID.pr)).resolves.toBeUndefined();
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({ method: 'GET', path: `/pulls/${ID.pr}`, body: undefined, hasSignal: true });
+  });
+
+  it('turns a 404 from the blast route into an http ApiError', async () => {
+    const { api } = apiFor({
+      [`GET /pulls/${ID.pr}/blast`]: () => json({ error: { code: 'not_found', message: 'Pull request not found' } }, 404),
+    });
+
+    await expect(api.getBlastRadius(ID.pr)).rejects.toMatchObject({ kind: 'http', status: 404, code: 'not_found' });
+  });
+
   it('returns the id of the started run', async () => {
     const { api } = apiFor(allRoutes);
 
@@ -398,8 +491,10 @@ describe('HttpDevDigestApi: request shape', () => {
     await api.listReviews(ID.pr);
     await api.cancelRun(ID.run);
     await api.getConventions(ID.repo);
+    await api.getBlastRadius(ID.pr);
+    await api.loadPullDetail(ID.pr);
 
-    expect(calls).toHaveLength(10);
+    expect(calls).toHaveLength(12);
     const normalized = (c: Recorded) =>
       `${c.method} ${c.path.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, ':id')}`;
     const mutating = calls.filter((c) => c.method !== 'GET').map(normalized).sort();

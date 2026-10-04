@@ -80,6 +80,28 @@ export interface ConventionsInfo {
   conventions: ConventionInfo[];
 }
 
+export interface BlastCallerInfo {
+  file: string;
+  line: number;
+}
+
+export interface BlastSymbolInfo {
+  symbol: string;
+  callers: BlastCallerInfo[];
+  endpoints: string[];
+  crons: string[];
+}
+
+export interface BlastInfo {
+  summary: string;
+  totals: { symbols: number; callers: number; endpoints: number; crons: number };
+  degraded: boolean;
+  reason: string | null;
+  callerCap: number;
+  changedFiles: number;
+  symbols: BlastSymbolInfo[];
+}
+
 export interface DevDigestApi {
   listAgents(signal?: AbortSignal): Promise<AgentInfo[]>;
   listRepos(signal?: AbortSignal): Promise<RepoInfo[]>;
@@ -91,6 +113,8 @@ export interface DevDigestApi {
   listReviews(prId: string, signal?: AbortSignal): Promise<ReviewInfo[]>;
   cancelRun(runId: string, signal?: AbortSignal): Promise<void>;
   getConventions(repoId: string, signal?: AbortSignal): Promise<ConventionsInfo>;
+  getBlastRadius(prId: string, signal?: AbortSignal): Promise<BlastInfo>;
+  loadPullDetail(prId: string, signal?: AbortSignal): Promise<void>;
 }
 
 export type LogFields = Readonly<Record<string, unknown>>;

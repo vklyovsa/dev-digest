@@ -11,8 +11,15 @@ import type {
   OpenPrPayload,
   CommitFilesPayload,
   IssueMeta,
+  MergedPullWithFiles,
 } from '@devdigest/shared';
 import { withRetry, withTimeout } from '../../platform/resilience.js';
+import {
+  MERGED_PULLS_MAX,
+  MERGED_PULLS_QUERY,
+  MERGED_PULL_FILES_PAGE,
+  toMergedPulls,
+} from './merged-pulls.js';
 
 const TIMEOUT = 30_000;
 
@@ -362,6 +369,23 @@ export class OctokitGitHubClient implements GitHubClient {
       body: res.data.body,
       state: res.data.state,
     };
+  }
+
+  async listMergedPullsWithFiles(repo: RepoRef, limit: number): Promise<MergedPullWithFiles[]> {
+    return withRetry(() =>
+      withTimeout(
+        (async () => {
+          const raw = await this.octokit.graphql(MERGED_PULLS_QUERY, {
+            owner: repo.owner,
+            name: repo.name,
+            first: Math.min(Math.max(1, limit), MERGED_PULLS_MAX),
+            files: MERGED_PULL_FILES_PAGE,
+          });
+          return toMergedPulls(raw);
+        })(),
+        TIMEOUT,
+      ),
+    );
   }
 
   async currentLogin(): Promise<string> {

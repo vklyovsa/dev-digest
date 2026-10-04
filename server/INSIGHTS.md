@@ -31,6 +31,9 @@ Dead ends and anti-patterns: what was tried, why it failed, what to do instead.
 Conventions and architectural decisions found while working here, before they are
 settled enough to move into `CLAUDE.md`.
 
+- **`RepoIntel.getBlastRadius` returns DIRECT callers only, and an endpoint is attributed only when the caller's own file declares it — so a helper reached through a service maps to zero endpoints.** (2026-10-04) `BFS_DEPTH` is read only by `getCriticalPaths` (`src/modules/repo-intel/service.ts`), although the L04 homework text describes a depth-2 traversal. Measured through `GET /pulls/:id/blast` on the dev index: PR #1 (90 files) → 77 symbols, 17 callers, 0 endpoints, because its callers are `service.ts` files; `server/src/platform/errors.ts` → 5 symbols, 17 callers, 19 endpoints, because four `routes.ts` files throw `NotFoundError` themselves.
+  → To demo or test endpoint attribution pick a file that route files import directly (`platform/errors.ts`, `modules/_shared/context.ts`), not a module helper; an empty endpoint list is the facade's reach, not a mapper bug in `src/modules/blast/helpers.ts`. A transitive walk would be a facade change, not a blast change.
+
 - **`MockGitHubClient.getPullRequest()`s base fixture carries no `labels` key, so `PrDetail.labels` reads back `undefined` (→ `[]` after the pulls-module `?? []`) unless a test overrides it.** (2026-09-27) `server/src/adapters/mocks.ts` — the fixture object built for the Intent Layer (`server/src/modules/intent/`) has no default entry for the new `PrDetail.labels` field, so any test asserting a `labels`-derived confidence path needs `new MockGitHubClient({ detail: { labels: [...] } })` explicitly.
   → Set `detail.labels` in the mock when writing the deferred `intent.it.test.ts` / `reviews-intent.it.test.ts` (Stage 6/7 of `specs/intent-layer-plan.md`) — otherwise the labels source silently stays empty and no assertion catches it.
 

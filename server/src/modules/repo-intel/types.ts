@@ -103,7 +103,7 @@ export interface BlastResult {
   /**
    * Per-caller-file precomputed facts, so consumers (blast) can attribute
    * endpoints/crons to the changed symbol whose callers live in that file.
-   * Present on the persistent (non-degraded) path; absent otherwise.
+   * Present whenever callers were found, on both paths.
    */
   factsByFile?: Record<string, { endpoints: string[]; crons: string[] }>;
   degraded?: boolean;

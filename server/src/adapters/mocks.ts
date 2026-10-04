@@ -17,6 +17,7 @@ import type {
   OpenPrPayload,
   CommitFilesPayload,
   IssueMeta,
+  MergedPullWithFiles,
   GitClient,
   CloneOptions,
   UnifiedDiff,
@@ -125,6 +126,8 @@ export interface MockGitHubOptions {
   login?: string;
   /** Existing inline review comments returned by listReviewComments. */
   comments?: PrReviewComment[];
+  /** Merged PRs returned by listMergedPullsWithFiles. */
+  mergedPulls?: MergedPullWithFiles[];
 }
 
 export class MockGitHubClient implements GitHubClient {
@@ -232,6 +235,10 @@ export class MockGitHubClient implements GitHubClient {
 
   async getIssue(_repo: RepoRef, n: number): Promise<IssueMeta> {
     return { number: n, title: `Issue #${n}`, body: 'mock issue', state: 'open' };
+  }
+
+  async listMergedPullsWithFiles(_repo: RepoRef, limit: number): Promise<MergedPullWithFiles[]> {
+    return (this.opts.mergedPulls ?? []).slice(0, limit);
   }
 
   async currentLogin(): Promise<string> {

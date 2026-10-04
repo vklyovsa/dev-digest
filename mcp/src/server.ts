@@ -106,7 +106,8 @@ export function createServer(opts: ServerOptions): McpServer {
   server.registerTool(
     GET_BLAST_RADIUS.name,
     { ...spec(GET_BLAST_RADIUS), inputSchema: getBlastRadiusShape() },
-    () => result(GET_BLAST_RADIUS.name, async () => getBlastRadius()),
+    ({ repo, pr }, extra) =>
+      result(GET_BLAST_RADIUS.name, () => getBlastRadius(api, { repo, pr }, extra.signal)),
   );
 
   return server;

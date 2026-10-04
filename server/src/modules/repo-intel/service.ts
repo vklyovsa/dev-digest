@@ -18,7 +18,7 @@
  * deps are imported here — those land later and plug into this same shell.
  */
 import type { CodeSymbol, RepoRef } from '@devdigest/shared';
-import { extractEndpoints } from '../../adapters/codeindex/extract.js';
+import { extractCrons, extractEndpoints } from '../../adapters/codeindex/extract.js';
 import {
   parseImports,
   parseInvocationHeads,
@@ -33,6 +33,7 @@ import type {
   BlastChangedSymbol,
   BlastResult,
   ConventionFacts,
+  DegradedReason,
   FileRankRow,
   IndexResult,
   IndexState,
@@ -232,12 +233,13 @@ export class RepoIntelService implements RepoIntel {
       if (persistent) return persistent;
     }
 
+    const reason: DegradedReason = this.deps.config.repoIntelEnabled ? 'no_data' : 'flag_off';
     const empty: BlastResult = {
       changedSymbols: [],
       callers: [],
       impactedEndpoints: [],
       degraded: true,
-      reason: 'no_data',
+      reason,
     };
 
     const repo = await this.repo.getRepoBasics(repoId);
@@ -265,7 +267,6 @@ export class RepoIntelService implements RepoIntel {
     }
 
     const callerRows: BlastCallerRow[] = [];
-    const endpoints = new Set<string>();
     const callerSeen = new Set<string>();
 
     for (const sym of changedSymbols) {
@@ -275,7 +276,6 @@ export class RepoIntelService implements RepoIntel {
       } catch {
         continue;
       }
-      const callerFiles = new Set<string>();
       for (const r of refs) {
         if (r.fromPath === sym.file) continue; // skip the decl's own file
         const callerName = enclosingSymbolName(allSymbols, r.fromPath, r.line);
@@ -289,24 +289,33 @@ export class RepoIntelService implements RepoIntel {
           line: r.line,
           rank: 0, // ripgrep/degraded path has no persistent rank
         });
-        callerFiles.add(r.fromPath);
       }
+    }
 
-      // Detect HTTP routes reachable from any caller file (best-effort, just
-      // like the legacy blast service).
-      for (const file of callerFiles) {
-        const content = await readClone(repo.clonePath, file);
-        if (!content) continue;
-        for (const e of extractEndpoints(content)) endpoints.add(e);
+    const kept = capCallersPerSymbol(callerRows, MAX_CALLERS_PER_SYMBOL);
+
+    // Endpoints / crons of the surviving caller files only (best-effort, just
+    // like the legacy blast service), read once per file.
+    const endpoints = new Set<string>();
+    const facts = new Map<string, { endpoints: string[]; crons: string[] }>();
+    for (const file of new Set(kept.map((c) => c.file))) {
+      const content = await readClone(repo.clonePath, file);
+      if (!content) continue;
+      const fileEndpoints = extractEndpoints(content);
+      const fileCrons = extractCrons(content);
+      for (const e of fileEndpoints) endpoints.add(e);
+      if (fileEndpoints.length > 0 || fileCrons.length > 0) {
+        facts.set(file, { endpoints: fileEndpoints, crons: fileCrons });
       }
     }
 
     return {
       changedSymbols,
-      callers: callerRows,
+      callers: kept,
       impactedEndpoints: [...endpoints],
+      factsByFile: Object.fromEntries(facts),
       degraded: true,
-      reason: 'no_data',
+      reason,
     };
   }
 
@@ -376,11 +385,11 @@ export class RepoIntelService implements RepoIntel {
         rank: c.rank,
       });
     }
-    callers.sort((a, b) => b.rank - a.rank);
+    const kept = capCallersPerSymbol(callers, MAX_CALLERS_PER_SYMBOL);
 
     // Precomputed facts per caller file (endpoints + crons), so consumers can
     // attribute them to the changed symbol whose callers live in that file.
-    const facts = await this.repo.getFileFacts(repoId, callerFiles);
+    const facts = await this.repo.getFileFacts(repoId, [...new Set(kept.map((c) => c.file))]);
     const endpoints = new Set<string>();
     const factsByFile: Record<string, { endpoints: string[]; crons: string[] }> = {};
     for (const f of facts) {
@@ -390,7 +399,7 @@ export class RepoIntelService implements RepoIntel {
 
     return {
       changedSymbols,
-      callers: callers.slice(0, MAX_CALLERS_PER_SYMBOL),
+      callers: kept,
       impactedEndpoints: [...endpoints],
       factsByFile,
       degraded: false,
@@ -793,6 +802,22 @@ const JUNK_PATH_PATTERNS = [
 function isJunkPath(path: string): boolean {
   const lower = path.toLowerCase();
   return JUNK_PATH_PATTERNS.some((p) => lower.includes(p));
+}
+
+/**
+ * Keeps the `cap` highest-ranked callers of each changed symbol. Sorting is
+ * stable, so equal ranks keep the order the rows arrived in.
+ */
+function capCallersPerSymbol(callers: BlastCallerRow[], cap: number): BlastCallerRow[] {
+  const perSymbol = new Map<string, number>();
+  const out: BlastCallerRow[] = [];
+  for (const c of [...callers].sort((a, b) => b.rank - a.rank)) {
+    const n = perSymbol.get(c.viaSymbol) ?? 0;
+    if (n >= cap) continue;
+    perSymbol.set(c.viaSymbol, n + 1);
+    out.push(c);
+  }
+  return out;
 }
 
 /** Enclosing top-level (bare-name) symbol for a line, from persistent rows. */

@@ -3,6 +3,7 @@ import { ApiError } from '../errors.js';
 import {
   FakeDevDigestApi,
   fakeAgent,
+  fakeBlast,
   fakeFinding,
   fakePull,
   fakeRepo,
@@ -40,6 +41,31 @@ describe('FakeDevDigestApi', () => {
       'getConventions',
     ]);
     expect(api.callsTo('listPulls').map((c) => c.args)).toEqual([['repo-1'], ['other']]);
+  });
+
+  it('serves the scripted blast map, switching to the after-detail one once the PR was loaded', async () => {
+    const before = fakeBlast({ changedFiles: 0, symbols: [] });
+    const after = fakeBlast();
+    const api = new FakeDevDigestApi({
+      blast: { 'pr-1': before, 'pr-2': after },
+      blastAfterDetail: { 'pr-1': after },
+    });
+
+    expect(await api.getBlastRadius('pr-1')).toBe(before);
+    await api.loadPullDetail('pr-1');
+    expect(await api.getBlastRadius('pr-1')).toBe(after);
+    expect(await api.getBlastRadius('pr-2')).toBe(after);
+    await api.loadPullDetail('pr-2');
+    expect(await api.getBlastRadius('pr-2')).toBe(after);
+
+    expect(api.callsTo('loadPullDetail').map((c) => c.args)).toEqual([['pr-1'], ['pr-2']]);
+    expect(api.callsTo('getBlastRadius')).toHaveLength(4);
+  });
+
+  it('answers an unscripted PR with an empty map that has no stored files', async () => {
+    const api = new FakeDevDigestApi();
+
+    expect(await api.getBlastRadius('nobody')).toMatchObject({ changedFiles: 0, symbols: [], degraded: true });
   });
 
   it('completes a started run at once by default, newest run first', async () => {

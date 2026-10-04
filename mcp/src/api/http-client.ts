@@ -4,6 +4,7 @@ import { ApiError } from '../errors.js';
 import type {
   ActiveRun,
   AgentInfo,
+  BlastInfo,
   ConventionsInfo,
   DevDigestApi,
   FindingInfo,
@@ -15,6 +16,7 @@ import type {
 import {
   ApiActiveRun,
   ApiAgent,
+  ApiBlastRadius,
   ApiConventionsPage,
   ApiErrorBody,
   ApiPull,
@@ -203,6 +205,28 @@ export class HttpDevDigestApi implements DevDigestApi {
         evidenceLineEnd: c.evidence_line_end ?? null,
       })),
     };
+  }
+
+  async getBlastRadius(prId: string, signal?: AbortSignal): Promise<BlastInfo> {
+    const map = await this.getJson(`/pulls/${enc(prId)}/blast`, ApiBlastRadius, signal);
+    return {
+      summary: map.summary,
+      totals: map.totals,
+      degraded: map.degraded,
+      reason: map.reason,
+      callerCap: map.max_callers_per_symbol,
+      changedFiles: map.changed_files_count,
+      symbols: map.downstream.map((d) => ({
+        symbol: d.symbol,
+        callers: d.callers.map((c) => ({ file: c.file, line: c.line })),
+        endpoints: d.endpoints_affected,
+        crons: d.crons_affected,
+      })),
+    };
+  }
+
+  async loadPullDetail(prId: string, signal?: AbortSignal): Promise<void> {
+    await this.exchange('GET', `/pulls/${enc(prId)}`, { signal });
   }
 
   private async getJson<S extends z.ZodTypeAny>(

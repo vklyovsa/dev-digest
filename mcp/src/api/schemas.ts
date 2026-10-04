@@ -15,6 +15,7 @@ import { z } from 'zod';
  *   ApiReview           ReviewDto          modules/reviews/helpers.ts
  *   ApiFinding          ReviewDtoFinding   modules/reviews/helpers.ts (severity widened to string)
  *   ApiConventionsPage  ConventionsPage    vendor/shared/contracts/knowledge.ts
+ *   ApiBlastRadius      BlastRadiusResponse  vendor/shared/contracts/review-api.ts (reason widened to string)
  *   ApiErrorBody        error envelope     app.ts setErrorHandler
  */
 
@@ -124,6 +125,29 @@ export const ApiConventionsPage = z.object({
   candidates: z.array(ApiConvention),
 });
 export type ApiConventionsPage = z.infer<typeof ApiConventionsPage>;
+
+export const ApiBlastRadius = z.object({
+  downstream: z.array(
+    z.object({
+      symbol: z.string(),
+      callers: z.array(z.object({ file: z.string(), line: z.number().int() })),
+      endpoints_affected: z.array(z.string()),
+      crons_affected: z.array(z.string()),
+    }),
+  ),
+  summary: z.string(),
+  totals: z.object({
+    symbols: z.number(),
+    callers: z.number(),
+    endpoints: z.number(),
+    crons: z.number(),
+  }),
+  degraded: z.boolean(),
+  reason: z.string().nullable(),
+  max_callers_per_symbol: z.number().int(),
+  changed_files_count: z.number().int(),
+});
+export type ApiBlastRadius = z.infer<typeof ApiBlastRadius>;
 
 export const ApiErrorBody = z.object({
   error: z.object({

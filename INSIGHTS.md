@@ -108,6 +108,9 @@ do not say.
 Error or symptom → cause → fix, one entry each, so the next occurrence is a lookup
 instead of an investigation.
 
+- **Running `pnpm` inside the npm package `mcp/` installs instead of running the command: it leaves `mcp/pnpm-lock.yaml`, `mcp/pnpm-workspace.yaml` and a re-linked `mcp/node_modules`.** (2026-10-03) `cd mcp && pnpm exec depcruise src --config .dependency-cruiser.cjs` never reached depcruise: pnpm 12 installed first, exited 1 with `ERR_PNPM_IGNORED_BUILDS`, and turned the seven direct dependencies into symlinks into a new `.pnpm/` store. It came from `architecture-reviewer`, whose check table has a depcruise row for `server/` only (`.claude/agents/architecture-reviewer.md:98`): briefed to cover `mcp/` as well, it reused the server form. The two untracked files then enter `collect-diff.sh` as a lockfile change in an npm package.
+  → In `mcp/` run `npm run arch:check` / `npm run typecheck` / `npm test`, never `pnpm`; when briefing an agent to check `mcp/`, name those commands. To undo: `rm mcp/pnpm-lock.yaml mcp/pnpm-workspace.yaml && (cd mcp && npm ci)` — `package-lock.json` stays unchanged and the 305 tests pass again.
+
 - **`route-skills.sh` aborts with `line 134: LANE: unbound variable` (exit 1) when no changed file adds a skill lane — i.e. on a docs-only or config-only diff.**
   (2026-10-03) `declare -A LANE` (`.claude/skills/pr-self-review/scripts/route-skills.sh:56`) never assigns, and under `set -u` bash 5.2.21 treats `${#LANE[@]}` on a never-assigned associative array as unbound (`bash -c 'set -u; declare -A L; echo ${#L[@]}'` → exit 1; `declare -A L=()` → 0). Mixing in one path that does route (e.g. `mcp/src/server.ts`) makes the same script exit 0, which is how the failure hides in mixed diffs.
   → Initialise it as `declare -A LANE=()` (one-line fix, not yet applied). Until then, read a crash on a docs-only file list as "no skill lane matched", not as a routing bug in the files, and route a docs-only change with a sentinel path to see the lanes.
@@ -137,6 +140,10 @@ instead of an investigation.
 
 Dated summaries as `### YYYY-MM-DD — topic`: what was worked on and what state it
 was left in. Prune an entry once its content has moved into a section above.
+
+### 2026-10-04 — Blast Radius on the PR Overview tab and as an MCP tool (L04 homework)
+Spec, plan, criteria and decisions are `specs/blast-radius{,-plan,-acceptance,-questions}.md`. Pipeline: planner → three implementers in parallel (server, client, mcp) → plan-verifier ∥ architecture-reviewer ∥ security-reviewer → two implementers for the follow-ups (plan Stage 10). Built: `server/src/modules/blast/` (`GET /pulls/:id/blast`, `/blast/history`), three `repo-intel` facade corrections (per-symbol caller cap, `factsByFile` on the fallback, `flag_off`), `GitHubClient.listMergedPullsWithFiles` over GraphQL, `BlastRadiusCard` on Overview (tree, graph, prior PRs, degraded state with Re-index), and `get_blast_radius` in `mcp/` instead of the stub.
+Green: server unit 311 and `blast.it.test` 4, client 211, mcp 305, depcruise in `server/` and `mcp/`; reviewers found no CRITICAL or WARNING. Checked live against the dev DB, reads only (route, MCP over stdio, UI screenshots); the PR-list sync refreshed `pull_requests`, the index and `agent_runs` are untouched, and Re-index was never clicked. Nothing committed. Left to the user: the demo PR (`specs/fixtures/blast-radius-demo/make-demo-branch.sh`), the feature PR and the video (`DEMO_SCRIPT-blast-radius.md`, `PR_BODY-l04-blast-radius.md`).
 
 ### 2026-10-03 — devdigest-mcp: local stdio MCP server (L04)
 Research, plan (`specs/devdigest-mcp-plan.md`, Appendix A is the tool contract) and Stages 1–7: new package `mcp/` (`@devdigest/mcp`, npm, SDK 1.32.0 + Zod 3.25.76) with `list_agents`, `run_agent_on_pr`, `get_findings`, `get_conventions` and the `get_blast_radius` stub over the existing HTTP API; own depcruise config, `.github/workflows/mcp.yml`, pr-self-review routing for `mcp/src/**`. No change in `server/`, `client/`, `reviewer-core/`, `e2e/`.

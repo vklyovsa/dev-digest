@@ -2,6 +2,7 @@ import { ApiError } from '../errors.js';
 import type {
   ActiveRun,
   AgentInfo,
+  BlastInfo,
   ConventionsInfo,
   DevDigestApi,
   FindingInfo,
@@ -25,6 +26,8 @@ export interface FakeApiOptions {
   runs?: Record<string, RunInfo[]>;
   reviews?: Record<string, ReviewInfo[]>;
   conventions?: Record<string, ConventionsInfo>;
+  blast?: Record<string, BlastInfo>;
+  blastAfterDetail?: Record<string, BlastInfo>;
   onStart?: 'complete' | 'fail' | 'hang';
   startFindings?: FindingInfo[];
   startError?: string;
@@ -103,6 +106,39 @@ export function fakeReview(over: Partial<ReviewInfo> = {}): ReviewInfo {
   };
 }
 
+export function fakeBlast(over: Partial<BlastInfo> = {}): BlastInfo {
+  return {
+    summary: '1 changed symbol reaches 2 callers, 1 endpoint and 0 cron/jobs.',
+    totals: { symbols: 1, callers: 2, endpoints: 1, crons: 0 },
+    degraded: false,
+    reason: null,
+    callerCap: 20,
+    changedFiles: 3,
+    symbols: [
+      {
+        symbol: 'rateLimit',
+        callers: [
+          { file: 'src/api/routes.ts', line: 23 },
+          { file: 'src/jobs/sync.ts', line: 8 },
+        ],
+        endpoints: ['GET /payments'],
+        crons: [],
+      },
+    ],
+    ...over,
+  };
+}
+
+const EMPTY_BLAST: BlastInfo = {
+  summary: 'No indexed symbols are declared in the changed files.',
+  totals: { symbols: 0, callers: 0, endpoints: 0, crons: 0 },
+  degraded: true,
+  reason: 'no_data',
+  callerCap: 20,
+  changedFiles: 0,
+  symbols: [],
+};
+
 export class FakeDevDigestApi implements DevDigestApi {
   readonly calls: FakeCall[] = [];
 
@@ -110,6 +146,9 @@ export class FakeDevDigestApi implements DevDigestApi {
   private readonly repos: RepoInfo[];
   private readonly pulls: Record<string, PullInfo[]>;
   private readonly conventions: Record<string, ConventionsInfo>;
+  private readonly blast: Record<string, BlastInfo>;
+  private readonly blastAfterDetail: Record<string, BlastInfo>;
+  private readonly hydrated = new Set<string>();
   private readonly runsByPr = new Map<string, RunInfo[]>();
   private readonly reviewsByPr = new Map<string, ReviewInfo[]>();
   private readonly prOfRun = new Map<string, string>();
@@ -124,6 +163,8 @@ export class FakeDevDigestApi implements DevDigestApi {
     this.repos = options.repos ?? [];
     this.pulls = options.pulls ?? {};
     this.conventions = options.conventions ?? {};
+    this.blast = options.blast ?? {};
+    this.blastAfterDetail = options.blastAfterDetail ?? {};
     this.onStart = options.onStart ?? 'complete';
     this.startFindings = options.startFindings ?? [];
     this.startError = options.startError ?? 'provider error';
@@ -237,6 +278,17 @@ export class FakeDevDigestApi implements DevDigestApi {
   async getConventions(repoId: string): Promise<ConventionsInfo> {
     this.record('getConventions', repoId);
     return this.conventions[repoId] ?? { scannedAt: null, conventions: [] };
+  }
+
+  async getBlastRadius(prId: string): Promise<BlastInfo> {
+    this.record('getBlastRadius', prId);
+    const loaded = this.hydrated.has(prId) ? this.blastAfterDetail[prId] : undefined;
+    return loaded ?? this.blast[prId] ?? EMPTY_BLAST;
+  }
+
+  async loadPullDetail(prId: string): Promise<void> {
+    this.record('loadPullDetail', prId);
+    this.hydrated.add(prId);
   }
 
   finishRun(runId: string, status: FinishedStatus, extras: FinishExtras = {}): void {

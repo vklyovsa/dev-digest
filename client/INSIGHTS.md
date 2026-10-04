@@ -42,6 +42,9 @@ settled enough to move into `CLAUDE.md`.
 Quirks of dependencies, versions and tooling — what a library does that its docs
 do not say.
 
+- **A vitest path filter under a Next.js dynamic segment silently matches nothing: `vitest run "src/app/repos/\[repoId\]/…"` ran 0 files and printed no warning.** (2026-10-03, vitest 2.1.9) Filters are plain substrings, not regexes, so the backslash-escaped `\[repoId\]` never occurs in a path; with a second filter on the same command (`src/lib/hooks/blast.test.tsx`) the run was green on that one file alone, so the missing suite looked like a pass.
+  → Filter by a name fragment (`vitest run BlastRadiusCard`) or write the path unescaped and quoted; read the `Test Files N passed` count against the number of suites you meant to run.
+
 - **`Chip` always renders a `<button onClick={onClick}>`, even when no `onClick` is passed — a focusable, keyboard-tabbable no-op.** (2026-09-27) `client/src/vendor/ui/primitives/Chip.tsx:19` has no read-only branch; the Intent Layer plan asks for `risk_areas` as `Chip`s (`IntentCard.tsx`), so each PR with risk areas now ships several tab-stops that do nothing. Same category as the existing `MonoLink` entry above, different primitive.
   → On a genuinely read-only surface, do not reach for `Chip` — render a plain `<span>` with its padding/border styles, or pass a real `onClick` (even just `undefined` guard logic) if the tag should stay a `Chip`.
 
