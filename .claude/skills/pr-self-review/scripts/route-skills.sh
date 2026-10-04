@@ -53,7 +53,7 @@ SECURITY_RE='dangerouslySetInnerHTML|innerHTML|child_process|execSync|spawn\(|\b
 INJECT_RE='\.inject\('
 TS_RE='(^|[^A-Za-z])any([^A-Za-z]|$)|as unknown as|as [A-Z]|@ts-(ignore|expect-error)|\binfer \b|\bkeyof \b|satisfies |declare module'
 
-declare -A LANE
+declare -A LANE=()
 UNROUTED=()
 
 add() { LANE["$1"]+="$2"$'\n'; }

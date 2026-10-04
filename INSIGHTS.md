@@ -108,6 +108,9 @@ do not say.
 Error or symptom → cause → fix, one entry each, so the next occurrence is a lookup
 instead of an investigation.
 
+- **Corrected 2026-10-04: `route-skills.sh` no longer aborts on a docs-only or config-only diff — `declare -A LANE=()` is applied (`.claude/skills/pr-self-review/scripts/route-skills.sh:56`).** `printf 'README.md\nspecs/README.md\n' | route-skills.sh --files-from -` now exits 0 with `lanes: []` and both files under `unrouted`; an empty list exits 0 too, and a mixed list (`README.md` + `mcp/src/server.ts`) prints byte-identical JSON to the pre-fix run.
+  → Read `lanes: []` as "no skill lane matched, conventions lane only"; the sentinel-path workaround in the entry below is no longer needed. Under `set -u`, initialise every `declare -A` with `=()`.
+
 - **Running `pnpm` inside the npm package `mcp/` installs instead of running the command: it leaves `mcp/pnpm-lock.yaml`, `mcp/pnpm-workspace.yaml` and a re-linked `mcp/node_modules`.** (2026-10-03) `cd mcp && pnpm exec depcruise src --config .dependency-cruiser.cjs` never reached depcruise: pnpm 12 installed first, exited 1 with `ERR_PNPM_IGNORED_BUILDS`, and turned the seven direct dependencies into symlinks into a new `.pnpm/` store. It came from `architecture-reviewer`, whose check table has a depcruise row for `server/` only (`.claude/agents/architecture-reviewer.md:98`): briefed to cover `mcp/` as well, it reused the server form. The two untracked files then enter `collect-diff.sh` as a lockfile change in an npm package.
   → In `mcp/` run `npm run arch:check` / `npm run typecheck` / `npm test`, never `pnpm`; when briefing an agent to check `mcp/`, name those commands. To undo: `rm mcp/pnpm-lock.yaml mcp/pnpm-workspace.yaml && (cd mcp && npm ci)` — `package-lock.json` stays unchanged and the 305 tests pass again.
 

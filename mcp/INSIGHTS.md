@@ -16,7 +16,8 @@ and leave it here as history.
 
 Approaches and solutions that held up, with the context that made them work.
 
-_None yet._
+- **`claude -p "/context"` prints the full context table in print mode, and `--strict-mcp-config --mcp-config '<json>'` pins the MCP set for that one run — so the `devdigest` rows of README § Token audit need no interactive session and no change to the registration.** (2026-10-04, Claude Code 2.1.289) Measured from the repo root: no MCP servers 24.5k total; `devdigest` only 24.7k with `MCP tools (deferred) 1.6k` and `MCP server instructions 189`; the same with `ENABLE_TOOL_SEARCH=false` 41.9k — but `System tools` went 723 → 16.3k in that run, so the jump is the built-in tools un-deferring and the server's own share stays 1.6k (116–504 per tool).
+  → Fill the audit from these three runs and read the `MCP tools` row, not the total. `/mcp` itself stays interactive (`claude mcp list` gives the connection status), and the GitHub MCP rows need `GITHUB_PERSONAL_ACCESS_TOKEN` exported first.
 
 ## What Doesn't Work
 
