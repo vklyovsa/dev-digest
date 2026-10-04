@@ -114,6 +114,7 @@ export function fakeBlast(over: Partial<BlastInfo> = {}): BlastInfo {
     reason: null,
     callerCap: 20,
     changedFiles: 3,
+    changedSymbols: ['rateLimit'],
     symbols: [
       {
         symbol: 'rateLimit',
@@ -136,6 +137,7 @@ const EMPTY_BLAST: BlastInfo = {
   reason: 'no_data',
   callerCap: 20,
   changedFiles: 0,
+  changedSymbols: [],
   symbols: [],
 };
 

@@ -216,6 +216,7 @@ export class HttpDevDigestApi implements DevDigestApi {
       reason: map.reason,
       callerCap: map.max_callers_per_symbol,
       changedFiles: map.changed_files_count,
+      changedSymbols: map.changed_symbols.map((s) => s.name),
       symbols: map.downstream.map((d) => ({
         symbol: d.symbol,
         callers: d.callers.map((c) => ({ file: c.file, line: c.line })),

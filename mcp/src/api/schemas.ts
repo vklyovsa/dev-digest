@@ -127,6 +127,7 @@ export const ApiConventionsPage = z.object({
 export type ApiConventionsPage = z.infer<typeof ApiConventionsPage>;
 
 export const ApiBlastRadius = z.object({
+  changed_symbols: z.array(z.object({ name: z.string() })),
   downstream: z.array(
     z.object({
       symbol: z.string(),

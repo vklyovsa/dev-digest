@@ -26,7 +26,7 @@ const EXPECTED_LENGTHS = {
   run_agent_on_pr: 588,
   get_findings: 520,
   get_conventions: 406,
-  get_blast_radius: 384,
+  get_blast_radius: 395,
 } as const;
 const EXPECTED_INSTRUCTIONS_LENGTH = 524;
 

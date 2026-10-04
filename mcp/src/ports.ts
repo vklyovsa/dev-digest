@@ -99,6 +99,7 @@ export interface BlastInfo {
   reason: string | null;
   callerCap: number;
   changedFiles: number;
+  changedSymbols: string[];
   symbols: BlastSymbolInfo[];
 }
 

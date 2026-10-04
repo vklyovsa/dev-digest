@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BLAST_SYMBOLS_MAX, CLIP, MAX_RESULT_CHARS } from '../constants.js';
+import { BLAST_NO_CALLERS_MAX, BLAST_SYMBOLS_MAX, CLIP, MAX_RESULT_CHARS } from '../constants.js';
 import { ToolError } from '../errors.js';
 import type { BlastSymbolInfo } from '../ports.js';
 import { FakeDevDigestApi, fakeBlast, fakePull, fakeRepo } from '../testing/fake-api.js';
@@ -78,6 +78,47 @@ describe('getBlastRadius', () => {
     expect(symbols.map((s) => s.symbol)).toEqual(['room', 'full']);
     expect(symbols[0]).not.toHaveProperty('capped');
     expect(symbols[1]).toMatchObject({ symbol: 'full', capped: true });
+  });
+
+  it('lists changed symbols without callers in served order and omits the field when every symbol has one', async () => {
+    const api = world({
+      blast: {
+        'pr-1': fakeBlast({ changedSymbols: ['AppError', 'rateLimit', 'ValidationError', 'AppError'] }),
+      },
+    });
+
+    const result = await getBlastRadius(api, args);
+
+    expect(result.symbols.map((s) => s.symbol)).toEqual(['rateLimit']);
+    expect(result.no_callers).toEqual(['AppError', 'ValidationError', 'AppError']);
+    expect(result).not.toHaveProperty('next');
+    expect(await getBlastRadius(world({ blast: { 'pr-1': fakeBlast() } }), args)).not.toHaveProperty('no_callers');
+  });
+
+  it('keeps a symbol cut from the symbols list out of no_callers', async () => {
+    const symbols = manySymbols(25);
+    const api = world({
+      blast: { 'pr-1': fakeBlast({ symbols, changedSymbols: [...symbols.map((s) => s.symbol), 'unused'] }) },
+    });
+
+    const result = await getBlastRadius(api, args);
+
+    expect(result.symbols).toHaveLength(20);
+    expect(result.no_callers).toEqual(['unused']);
+  });
+
+  it('caps no_callers at 20 names, clips them and says how many exist', async () => {
+    const names = Array.from({ length: 23 }, (_, i) => `unused${i}\u0000${'n'.repeat(i === 0 ? 400 : 0)}`);
+    const api = world({ blast: { 'pr-1': fakeBlast({ changedSymbols: ['rateLimit', ...names] }) } });
+
+    const result = await getBlastRadius(api, args);
+
+    expect(BLAST_NO_CALLERS_MAX).toBe(20);
+    expect(result.no_callers).toHaveLength(20);
+    expect(result.no_callers?.[0]?.length).toBeLessThanOrEqual(CLIP.title);
+    expect(result.no_callers?.[1]).toBe('unused1');
+    expect(result).not.toHaveProperty('truncated');
+    expect(result.next).toBe('no_callers lists 20 of 23 changed symbols without callers.');
   });
 
   it('with no stored files loads the PR once, asks again and returns the second map', async () => {

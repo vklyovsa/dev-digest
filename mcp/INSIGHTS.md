@@ -31,6 +31,9 @@ Dead ends and anti-patterns: what was tried, why it failed, what to do instead.
 Conventions and architectural decisions found while working here, before they are
 settled enough to move into `CLAUDE.md`.
 
+- **The blast `totals` never equal the lengths of the lists beside them: `totals.symbols` counts every `changed_symbols` row, `downstream` holds only names with a caller outside the declaring file, and `totals.callers` counts unique `file#callerName` while the list shows call sites.** (2026-10-04) `server/src/modules/blast/helpers.ts:113-123`; live PR #7 gave 5 symbols / 4 groups and 18 callers / 21 `file:line` rows. `changed_symbols` can also repeat a name across files while `downstream` is keyed by name, so PR #2 was 70 symbols = 40 with callers + 26 in `no_callers` + repeats.
+  → Do not assert `symbols.length + no_callers.length === totals.symbols`, and explain a "missing" symbol from `no_callers` before suspecting the index.
+
 - **`GET /pulls/:id` never fails for a missing GitHub token: it logs a warning and serves the persisted detail, so the one-shot hydration in `get_blast_radius` is a silent no-op without a token.** (2026-10-03) `server/src/modules/pulls/service.ts:142-168` wraps `github()` and `getPullRequest` in one `try` and falls back to `listFiles(pr.id)` in the `catch`; the second `GET /pulls/:id/blast` then still reports `changed_files_count: 0`. Read from the source, not run against a live API.
   → Judge a hydration by the second map's `changedFiles`, never by `loadPullDetail` throwing; the "no stored files … needs a GitHub token in Settings" `next` text in `src/tools/get-blast-radius.ts` is the tokenless path.
 

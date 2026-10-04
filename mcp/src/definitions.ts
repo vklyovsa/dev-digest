@@ -68,7 +68,7 @@ export const GET_BLAST_RADIUS: ToolDefinition = {
   name: 'get_blast_radius',
   title: 'Get blast radius',
   description:
-    'Get a pull request\'s blast radius: the symbols declared in its changed files, their callers (file:line) and the HTTP endpoints and crons behind them. Call it before changing or reviewing shared code. Reads DevDigest\'s index: no model call, no run. Arguments: repo = "owner/name"; pr = the PR number. Returns {summary,totals,degraded,reason,symbols:[{symbol,callers,endpoints,crons}]}.',
+    'Get a pull request\'s blast radius: the symbols declared in its changed files, their callers (file:line) and the HTTP endpoints and crons behind them. Call it before changing or reviewing shared code. Reads DevDigest\'s index: no model call, no run. Arguments: repo = "owner/name"; pr = the PR number. Returns {summary,totals,degraded,reason,symbols:[{symbol,callers,endpoints,crons}],no_callers}.',
   annotations: READ_ONLY,
 };
 

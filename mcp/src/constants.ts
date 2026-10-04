@@ -12,6 +12,7 @@ export const CONVENTIONS_LIMIT_DEFAULT = 20;
 export const CONVENTIONS_LIMIT_MAX = 50;
 export const AGENTS_LIMIT = 50;
 export const BLAST_SYMBOLS_MAX = 20;
+export const BLAST_NO_CALLERS_MAX = 20;
 export const HINT_LIST_MAX = 10;
 
 export const CLIP = {

@@ -87,7 +87,9 @@ Results are one compact JSON text block, at most 20,000 characters:
   a count, rejected ones never.
 - `get_blast_radius` returns `{repo, pr, summary, totals, degraded, reason, symbols[]}`,
   each symbol with its callers as `path:line`, its endpoints and its crons. It reads the
-  index only: no model call, no run. At most 20 symbols are returned; a symbol marked
+  index only: no model call, no run. `no_callers` names the changed symbols nothing
+  calls (at most 20), so `totals.symbols` can exceed `symbols[]`; it is left out when
+  empty. At most 20 symbols are returned; a symbol marked
   `capped` hit the server's per-symbol caller cap, and `next` says what to do when the
   list was cut, when the index is `degraded`, or when the PR has no stored files.
 - Finding, convention and blast-radius text comes from pull requests, repository code and
@@ -182,7 +184,7 @@ What this server costs the client's context. Filled in by the manual verificatio
 adds a row here.
 
 Measured by `src/server.test.ts` through an in-memory client: the serialized `tools`
-array is 4,931 of the 5,000-character budget, and the server instructions are 524 of
+array is 4,942 of the 5,000-character budget, and the server instructions are 524 of
 600 characters.
 
 | State | Tools in `/mcp` | `/context`: MCP tools | `/context`: total | Notes |

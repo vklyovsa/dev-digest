@@ -375,6 +375,7 @@ describe('HttpDevDigestApi: wire to domain mapping', () => {
       reason: 'index_partial',
       callerCap: 20,
       changedFiles: 3,
+      changedSymbols: ['getContext'],
       symbols: [
         {
           symbol: 'getContext',
@@ -411,6 +412,16 @@ describe('HttpDevDigestApi: wire to domain mapping', () => {
       kind: 'shape',
       path: `/pulls/${ID.pr}/blast`,
       message: expect.stringContaining('downstream'),
+    });
+  });
+
+  it('maps a blast body without changed_symbols to shape and names it', async () => {
+    const { changed_symbols: _dropped, ...withoutChanged } = wireBlast;
+    const { api } = apiFor({ [`GET /pulls/${ID.pr}/blast`]: () => json(withoutChanged) });
+
+    await expect(api.getBlastRadius(ID.pr)).rejects.toMatchObject({
+      kind: 'shape',
+      message: expect.stringContaining('changed_symbols'),
     });
   });
 

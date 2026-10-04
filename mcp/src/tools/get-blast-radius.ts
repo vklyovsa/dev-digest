@@ -1,4 +1,4 @@
-import { BLAST_SYMBOLS_MAX, CLIP, MAX_RESULT_CHARS } from '../constants.js';
+import { BLAST_NO_CALLERS_MAX, BLAST_SYMBOLS_MAX, CLIP, MAX_RESULT_CHARS } from '../constants.js';
 import type { BlastInfo, BlastSymbolInfo, DevDigestApi } from '../ports.js';
 import { resolvePull, resolveRepo } from '../resolve.js';
 import { clip, shrinkToFit } from '../text.js';
@@ -24,6 +24,7 @@ export interface GetBlastRadiusResult {
   degraded: boolean;
   reason: string | null;
   symbols: BlastSymbolBrief[];
+  no_callers?: string[];
   truncated?: true;
   next?: string;
 }
@@ -54,7 +55,17 @@ function toBrief(symbol: BlastSymbolInfo, callerCap: number): BlastSymbolBrief {
   };
 }
 
-function nextHint(blast: BlastInfo, shown: number, total: number): string | undefined {
+function symbolsWithoutCallers(blast: BlastInfo): string[] {
+  const withCallers = new Set(blast.symbols.map((s) => s.symbol));
+  return blast.changedSymbols.filter((name) => !withCallers.has(name));
+}
+
+function nextHint(
+  blast: BlastInfo,
+  shown: number,
+  total: number,
+  withoutCallers: number,
+): string | undefined {
   if (blast.changedFiles === 0) return NO_STORED_FILES;
   const parts: string[] = [];
   if (blast.degraded) {
@@ -65,6 +76,11 @@ function nextHint(blast: BlastInfo, shown: number, total: number): string | unde
   if (shown < total) {
     parts.push(
       `Showing ${shown} of ${total} symbols with callers, highest-ranked first. The rest were left out to keep this result small; see ${BLAST_BLOCK}.`,
+    );
+  }
+  if (withoutCallers > BLAST_NO_CALLERS_MAX) {
+    parts.push(
+      `no_callers lists ${BLAST_NO_CALLERS_MAX} of ${withoutCallers} changed symbols without callers.`,
     );
   }
   return parts.length > 0 ? parts.join(' ') : undefined;
@@ -86,11 +102,15 @@ export async function getBlastRadius(
 
   const symbols = blast.symbols.map((s) => toBrief(s, blast.callerCap));
   const wanted = Math.min(BLAST_SYMBOLS_MAX, symbols.length);
+  const withoutCallers = symbolsWithoutCallers(blast);
+  const noCallers = withoutCallers
+    .slice(0, BLAST_NO_CALLERS_MAX)
+    .map((name) => clip(name, CLIP.title));
 
   const { value } = shrinkToFit<GetBlastRadiusResult>(
     wanted,
     (shown) => {
-      const next = nextHint(blast, shown, symbols.length);
+      const next = nextHint(blast, shown, symbols.length, withoutCallers.length);
       return {
         repo: repo.fullName,
         pr: pull.number,
@@ -99,6 +119,7 @@ export async function getBlastRadius(
         degraded: blast.degraded,
         reason: blast.reason,
         symbols: symbols.slice(0, shown),
+        ...(noCallers.length > 0 ? { no_callers: noCallers } : {}),
         ...(shown < symbols.length ? { truncated: true as const } : {}),
         ...(next === undefined ? {} : { next }),
       };
