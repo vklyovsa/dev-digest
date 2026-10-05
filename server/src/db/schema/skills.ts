@@ -35,3 +35,15 @@ export const skillVersions = pgTable(
   },
   (t) => ({ pk: primaryKey({ columns: [t.skillId, t.version] }) }),
 );
+
+export const skillContextDocs = pgTable(
+  'skill_context_docs',
+  {
+    skillId: uuid('skill_id')
+      .notNull()
+      .references(() => skills.id, { onDelete: 'cascade' }),
+    path: text('path').notNull(),
+    position: integer('position').notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.skillId, t.path] }) }),
+);

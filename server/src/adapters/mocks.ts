@@ -23,6 +23,7 @@ import type {
   UnifiedDiff,
   BlameLine,
   GitCommit,
+  RepoDocsReader,
   CodeIndex,
   CodeMatch,
   CodeSymbol,
@@ -310,6 +311,28 @@ export class MockGitClient implements GitClient {
   async readFileAt(repo: RepoRef, ref: string, path: string): Promise<string | null> {
     this.readsAt.push({ repo, ref, path });
     return this.opts.filesAt?.[path] ?? null;
+  }
+}
+
+// ---------- Mock RepoDocsReader ----------
+/**
+ * `Record<clonePath, Record<relPath, text>>`. `listMarkdown` returns the keys as
+ * given — filtering and typing documents is the caller's job, not the reader's.
+ */
+export class MockRepoDocsReader implements RepoDocsReader {
+  public lists: string[] = [];
+  public reads: { clonePath: string; relPath: string }[] = [];
+
+  constructor(private trees: Record<string, Record<string, string>> = {}) {}
+
+  async listMarkdown(clonePath: string): Promise<string[]> {
+    this.lists.push(clonePath);
+    return Object.keys(this.trees[clonePath] ?? {});
+  }
+
+  async readText(clonePath: string, relPath: string): Promise<string | null> {
+    this.reads.push({ clonePath, relPath });
+    return this.trees[clonePath]?.[relPath] ?? null;
   }
 }
 

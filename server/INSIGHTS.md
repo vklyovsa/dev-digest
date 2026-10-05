@@ -23,6 +23,9 @@ _None yet._
 Dead ends and anti-patterns: what was tried, why it failed, what to do instead.
 **The highest-value section and the one most often left empty. Fill it.**
 
+- **Corrected 2026-10-04: the hermetic lane is hermetic now — `vitest.config.ts` sets `test.env.DATABASE_URL` to `postgres://isolated:isolated@127.0.0.1:1/isolated`, and it wins over both `.env` and a `DATABASE_URL` exported in the shell.** `dotenv/config` in `src/platform/config.ts` never overrides a variable that is already set, so `routes-smoke.test.ts` boots against the unreachable address; `test/hermetic-env.test.ts` fails if the pin is removed. Unit lane 312 passed with no prefix, `.it` lane 89 passed — those tests pass their own testcontainers `db`.
+  → Drop the `DATABASE_URL=…isolated` prefix; a test that really needs a database gets one from `test/helpers/pg.ts`, never from the environment.
+
 - **The hermetic lane is not hermetic: `test/routes-smoke.test.ts` boots the app against your REAL dev database, and boot writes to it.** (2026-09-23) It calls `buildApp({ config })` without a `db`, so `src/app.ts` opens `DATABASE_URL` from `server/.env` and awaits `ReviewService.reapStaleRuns()` before serving — which marks every `agent_runs` row in `running` as failed. Run the unit suite while a review is in flight and that review dies; nothing in the test output says so.
   → Run the unit lane as `DATABASE_URL=postgres://isolated:isolated@127.0.0.1:1/isolated pnpm exec vitest run --exclude '**/*.it.test.ts'` — the reaper failure is non-fatal and `/health` needs no DB, so all 197 still pass. The `.it` lane is safe: every file passes its own testcontainers `db`. The durable fix (give the smoke test an unreachable `databaseUrl`, or skip the reaper under `NODE_ENV=test`) is still open.
 
@@ -68,6 +71,12 @@ do not say.
 Error or symptom → cause → fix, one entry each, so the next occurrence is a lookup
 instead of an investigation.
 
+- **Corrected 2026-10-04: the `reviews-skills.it.test.ts` flake in § Open Questions has a cause — `agent_runs.status` turns `done` BEFORE the run trace is stored, so a test that waits only for the run reads `GET /runs/:id/trace` too early.** `run-executor.ts` calls `completeAgentRun` (~line 441) and only then `saveRunTrace` (~line 492); `waitForPrRuns` polls `agent_runs` alone, so the trace route can still answer 404 and `trace.prompt_assembly` is undefined. Reproduced once on the second of two back-to-back runs of that file: `TypeError: Cannot read properties of undefined (reading 'skills')` in "linked enabled skills become labelled blocks"; it passed alone right after.
+  → After `waitForPrRuns`, poll `GET /runs/:id/trace` until it answers 200 (`waitForTrace` in `test/reviews-context.it.test.ts`, stable over repeated runs); `runAndTrace` in `test/reviews-skills.it.test.ts` still reads once and can flake until it does the same.
+
+- **`Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'` on an `app.inject()` result means the call matched no overload — typically a helper typed `payload: unknown`.** (2026-10-04) Seen in `test/context.it.test.ts` (`const put = (url, payload: unknown) => app.inject({ method: 'PUT', url, payload })`): vitest ran it green because it strips types, and `pnpm typecheck` never reads `test/**`; only a test-inclusive tsc showed it. The config can live outside the repo: `{"extends": "<abs>/server/tsconfig.json", "compilerOptions": {"noEmit": true, "rootDir": "<repo>"}, "include": ["<abs>/server/src/**/*.ts", "<abs>/server/test/<file>.ts"]}` in `/tmp`, run with `server/node_modules/.bin/tsc -p`.
+  → Type an inject helper's payload as `Record<string, unknown>` (the `InjectPayload` union rejects bare `unknown`); to check a new test when `server/` is write-scoped, use the `/tmp` config instead of the one in `server/` described above.
+
 - **A new table gets a column called `created_at` when you meant `started_at`: `now()` hardcodes the NAME, not just the type.** (2026-09-22) `src/db/schema/_shared.ts:9` is `timestamp('created_at', …)`, so `startedAt: now()` in `convention_scans` compiled, typechecked and read correctly in every query — the only symptom was `drizzle-kit generate` asking "Is created_at column in convention_scans table created or renamed from started_at?".
   → Use `now()` only for a column that is genuinely `created_at`; write any other timestamp out as `timestamp('<name>', { withTimezone: true }).defaultNow().notNull()`. The migration diff is the only place this disagreement surfaces, so read the generated SQL for column NAMES before trusting a new table.
 
@@ -82,6 +91,9 @@ _None yet._
 
 Unresolved behaviour, undecided design, unverified assumptions. Delete an entry when
 it is answered — the answer belongs in another section.
+
+- **Unverified: `POST /repos` may delete a directory next to `clones/` — `GITHUB_URL_REGEX` accepts `..` as the owner.** (2026-10-04) `src/modules/repos/constants.ts:18` captures the owner with `[^/]+`, `clonePathFor` joins it onto the clone dir (`src/adapters/git/simple-git.ts:55-57`), and `clone()` removes an existing destination that has no `.git` with `rm(dest, { recursive: true, force: true })` (`:82`), so `https://github.com/../src` would resolve to `server/src`. Read from code by the security review of SPEC-01, never executed; whether a GitHub lookup rejects the URL before `clone()` runs was not traced.
+  → Before touching repo import, trace `src/modules/repos/service.ts` from the URL to `git.clone`; if nothing rejects it first, restrict the owner capture to GitHub's login alphabet and assert that `dest` stays inside `cloneDir`.
 
 - **Unverified: `test/reviews-skills.it.test.ts` "without linked skills the prompt carries no skills block" failed once in the full `.it` lane and passed alone and on a second full run.** (2026-09-28) Failure was `trace.prompt_assembly` undefined at `test/reviews-skills.it.test.ts:175` (`runAndTrace` read the trace before it existed); unrelated to the code under change, seen while 12 `.it` files ran in parallel.
   → If it recurs, check whether `runAndTrace` waits for the run to settle before fetching the trace; re-run the file alone before blaming a change.

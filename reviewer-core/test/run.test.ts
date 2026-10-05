@@ -104,6 +104,55 @@ describe('reviewPullRequest (engine)', () => {
     ).rejects.toThrow('cancelled');
   });
 
+  it('map-reduce: every per-file prompt carries the ## Project context section', async () => {
+    const calls: string[] = [];
+    const recorder: LLMProvider = {
+      id: 'openrouter',
+      async completeStructured<T>(req): Promise<StructuredResult<T>> {
+        calls.push(req.messages.map((m) => m.content).join('\n'));
+        return {
+          data: { verdict: 'approve', summary: 'ok', score: 100, findings: [] } as unknown as T,
+          model: req.model,
+          tokensIn: 0,
+          tokensOut: 0,
+          costUsd: 0,
+          raw: '',
+          attempts: 1,
+        };
+      },
+      async listModels() {
+        return [];
+      },
+      async complete() {
+        throw new Error('not used');
+      },
+      async embed() {
+        return [];
+      },
+    };
+    const raw =
+      'diff --git a/src/a.ts b/src/a.ts\n--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1,1 +1,2 @@\n x\n+a1\n' +
+      'diff --git a/src/b.ts b/src/b.ts\n--- a/src/b.ts\n+++ b/src/b.ts\n@@ -1,1 +1,2 @@\n y\n+b1';
+    const diff = await new MockGitClient({ diff: raw }).diff();
+
+    const outcome = await reviewPullRequest({
+      systemPrompt: 's',
+      model: 'm',
+      diff,
+      llm: recorder,
+      strategy: 'map-reduce',
+      specs: [{ path: 'specs/security-baseline.md', text: 'No secrets in code.' }],
+    });
+
+    expect(outcome.mode).toBe('map-reduce');
+    expect(calls).toHaveLength(2);
+    for (const prompt of calls) {
+      expect(prompt).toContain('## Project context');
+      expect(prompt).toContain('<untrusted source="specs/security-baseline.md">');
+    }
+    expect(outcome.assembly.specs).toContain('specs/security-baseline.md');
+  });
+
   it('forwards sessionId to every LLM call (OpenRouter session grouping)', async () => {
     const seen: (string | undefined)[] = [];
     const recorder: LLMProvider = {

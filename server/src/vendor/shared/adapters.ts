@@ -247,6 +247,20 @@ export interface GitClient {
   clonePathFor(repo: RepoRef): string;
 }
 
+// ---------- RepoDocsReader (Markdown documents in a clone's working tree) ----------
+export interface RepoDocsReader {
+  /**
+   * Repository-relative paths (forward slashes) of the Markdown files under
+   * `clonePath`; an empty array when the directory is missing.
+   */
+  listMarkdown(clonePath: string): Promise<string[]>;
+  /**
+   * The text of `relPath` inside `clonePath`; null when the file is missing,
+   * unreadable, or resolves outside the clone.
+   */
+  readText(clonePath: string, relPath: string): Promise<string | null>;
+}
+
 // ---------- CodeIndex (ripgrep + tree-sitter) ----------
 export interface CodeMatch {
   path: string;

@@ -222,6 +222,51 @@ p {
   font-variant-numeric: tabular-nums;
 }
 
+/* Markdown document body (Project Context): the Tailwind preflight flattens
+   headings to body size and strips list markers, so a document restores them. */
+.dd-doc .dd-md h1,
+.dd-doc .dd-md h2,
+.dd-doc .dd-md h3,
+.dd-doc .dd-md h4 {
+  margin: 1.4em 0 0.5em;
+  color: var(--text-primary);
+  font-weight: 650;
+  line-height: 1.3;
+}
+.dd-doc .dd-md > :first-child {
+  margin-top: 0;
+}
+.dd-doc .dd-md h1 {
+  font-size: 1.7em;
+  font-weight: 700;
+}
+.dd-doc .dd-md h2 {
+  font-size: 1.35em;
+}
+.dd-doc .dd-md h3 {
+  font-size: 1.15em;
+}
+.dd-doc .dd-md h4 {
+  font-size: 1.05em;
+}
+.dd-doc .dd-md ul,
+.dd-doc .dd-md ol {
+  margin: 0 0 10px;
+  padding-left: 1.5em;
+}
+.dd-doc .dd-md ul {
+  list-style: disc;
+}
+.dd-doc .dd-md ol {
+  list-style: decimal;
+}
+.dd-doc .dd-md ul ul {
+  list-style: circle;
+}
+.dd-doc .dd-md li {
+  margin: 0 0 4px;
+}
+
 @keyframes ddspin {
   to {
     transform: rotate(360deg);

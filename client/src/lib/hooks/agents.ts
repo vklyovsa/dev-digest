@@ -3,7 +3,14 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
-import type { Agent, AgentSkillLink, ModelInfo, Provider, ReviewStrategy } from "@devdigest/shared";
+import type {
+  Agent,
+  AgentSkillLink,
+  ContextAttachments,
+  ModelInfo,
+  Provider,
+  ReviewStrategy,
+} from "@devdigest/shared";
 
 export function useAgents() {
   return useQuery({
@@ -113,6 +120,29 @@ export function useSetAgentSkills() {
       qc.invalidateQueries({ queryKey: ["agent-skills", agentId] });
       // agent_count on the Skills screen is derived from these links.
       qc.invalidateQueries({ queryKey: ["skills"] });
+    },
+  });
+}
+
+/** Documents attached to an agent, in prompt order, plus the ones its skills bring (`inherited`). */
+export function useAgentContext(agentId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["agent-context", agentId],
+    queryFn: () => api.get<ContextAttachments>(`/agents/${agentId}/context`),
+    enabled: !!agentId,
+  });
+}
+
+/** Replace an agent's whole ordered attachment list; the reply is the new GET shape. */
+export function useSetAgentContext() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ agentId, paths }: { agentId: string; paths: string[] }) =>
+      api.put<ContextAttachments>(`/agents/${agentId}/context`, { paths }),
+    onSuccess: (data, { agentId }) => {
+      qc.setQueryData(["agent-context", agentId], data);
+      // agent_count on the Project Context page is derived from these attachments.
+      qc.invalidateQueries({ queryKey: ["context"] });
     },
   });
 }

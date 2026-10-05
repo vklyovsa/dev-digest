@@ -42,6 +42,7 @@ Layers, inside out; `.dependency-cruiser.cjs` holds the same map as rules.
   `src/definitions.ts`.
 - Adding a tool → add its row to `README.md` § Token audit.
 - Working from the plan → `../specs/devdigest-mcp-plan.md`, before the first edit.
+- Working from a spec → `specs/<feature>.md`, before the first edit.
 - Deciding where code belongs → `../.claude/skills/onion-architecture` (a design
   reference here; its enforced scope is `server/` and `reviewer-core/`).
 - Something behaves inexplicably → `INSIGHTS.md` (§ What Doesn't Work, § Recurring Errors).

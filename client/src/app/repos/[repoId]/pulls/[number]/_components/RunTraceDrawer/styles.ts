@@ -94,9 +94,11 @@ export const s = {
   configList: { display: "flex", flexDirection: "column", gap: 10, fontSize: 13 } satisfies CSSProperties,
   configModel: { color: "var(--accent-text)" } satisfies CSSProperties,
   configProvider: { color: "var(--text-secondary)" } satisfies CSSProperties,
-  specsWrap: { display: "flex", gap: 6, flexWrap: "wrap" } satisfies CSSProperties,
+  specsWrap: { display: "flex", flexDirection: "column", gap: 4, minWidth: 0 } satisfies CSSProperties,
   specsNone: { color: "var(--text-muted)" } satisfies CSSProperties,
-  spec: { fontSize: 12, color: "var(--text-secondary)" } satisfies CSSProperties,
+  specEntry: { display: "flex", alignItems: "baseline", flexWrap: "wrap", gap: 8 } satisfies CSSProperties,
+  spec: { fontSize: 12, color: "var(--text-secondary)", overflowWrap: "anywhere" } satisfies CSSProperties,
+  specMeta: { fontSize: 12, color: "var(--text-muted)" } satisfies CSSProperties,
   statsRow: { display: "flex", gap: 10 } satisfies CSSProperties,
   rawPre: {
     margin: 0,

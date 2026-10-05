@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 # PreToolUse(Bash|Edit|MultiEdit|Write|NotebookEdit) gate for the agents that write only one
-# kind of file: test-writer (--profile tests) and doc-writer (--profile docs).
+# kind of file: test-writer (--profile tests), doc-writer (--profile docs) and spec-creator
+# (--profile specs).
 # Edit/Write: a path ALLOWLIST per profile. Bash: the shared denylist (git history, PRs,
 # dev-DB writes, the Docker volume) plus installs, the dev/e2e stacks, project-wide
-# formatting and file-mutating commands.
+# formatting and file-mutating commands. The specs profile is stricter on Bash: it hands
+# every command to readonly-guard.sh --bash-only, an allowlist. On files it admits a dated
+# spec in a spec folder — a new one, or an existing one whose header says `Status: draft`
+# — and that folder's README.md.
 #
-#   write-scope-guard.sh --profile tests|docs                    # hook mode, payload on stdin
-#   write-scope-guard.sh --profile tests|docs --check "<cmd>"
-#   write-scope-guard.sh --profile tests|docs --check-path "<p>"
-#   write-scope-guard.sh --profile tests|docs --check-tool <Tool>
+#   write-scope-guard.sh --profile tests|docs|specs                    # hook mode, payload on stdin
+#   write-scope-guard.sh --profile tests|docs|specs --check "<cmd>"
+#   write-scope-guard.sh --profile tests|docs|specs --check-path "<p>"
+#   write-scope-guard.sh --profile tests|docs|specs --check-tool <Tool>
 set -uo pipefail
 trap 'rc=$?; [[ $rc == 0 || $rc == 2 ]] || { echo "BLOCKED: ${0##*/} failed (exit $rc), so it fails closed." >&2; exit 2; }' EXIT
 
@@ -25,11 +29,15 @@ source "${BASH_SOURCE[0]%/*}/guard-lib.sh" || exit 2
 
 case "$PROFILE" in
   tests|docs) ;;
-  *) block "every tool call" "write-scope-guard needs --profile tests or --profile docs." ;;
+  specs) GUARD_HINT='Say so in your report: a change outside the spec folders belongs to another agent or to the user.' ;;
+  *) block "every tool call" "write-scope-guard needs --profile tests, --profile docs or --profile specs." ;;
 esac
 
 TEST_PATHS='^(client/src/.+\.test\.tsx?|client/src/test/.+|server/test/.+|server/src/.+\.test\.ts|reviewer-core/test/.+|reviewer-core/src/.+\.test\.ts|(server|reviewer-core)/tsconfig\.test-check\.json)$'
 DOC_PATHS='^(docs/[^/]+\.md|(server|client|reviewer-core|e2e)/docs/[^/]+\.md|README\.md|(server|client|reviewer-core|e2e)/README\.md|server/src/modules/[^/]+/README\.md|TESTING\.md|AGENTS\.md|(server|client|reviewer-core|e2e)/AGENTS\.md)$'
+SPEC_DIRS='(specs|server/specs|client/specs|reviewer-core/specs|mcp/specs)'
+SPEC_FILE="^${SPEC_DIRS}/[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9]+(-[a-z0-9]+)*\.md\$"
+SPEC_INDEX="^${SPEC_DIRS}/README\.md\$"
 TEST_THROWAWAY='^(rm)([[:space:]]+-f)?[[:space:]]+(\./)?(server|reviewer-core)/tsconfig\.test-check\.json$|^rm([[:space:]]+-f)?[[:space:]]+(\./)?tsconfig\.test-check\.json$'
 RUNNERS='^((pnpm|npm|yarn)[[:space:]]+(run[[:space:]]+)?(test|e2e)([[:space:]:]|$)|(pnpm[[:space:]]+exec|npx|pnpm|yarn)[[:space:]]+(vitest|jest|playwright)([[:space:]]|$)|vitest([[:space:]]|$))'
 
@@ -48,6 +56,10 @@ check_segment() {
   fi
   if grep -Eq '^([^[:space:]]*/)?prettier[[:space:]].*(--write|-w)([[:space:]]|$)|^(npx|pnpm[[:space:]]+exec)[[:space:]]+prettier[[:space:]].*(--write|-w)([[:space:]]|$)|^(pnpm|npm|yarn)[[:space:]]+(run[[:space:]]+)?[A-Za-z0-9_-]*:fix([[:space:]]|$)' <<<"$s"; then
     block "$s" "project-wide formatting rewrites files outside this agent's scope."
+  fi
+  if grep -Eq '^([^[:space:]]*/)?\.claude/agents/scripts/check-code\.sh([[:space:]]|$)' <<<"$s"; then
+    [[ "$PROFILE" == docs ]] && block "$s" "doc-writer does not run tests."
+    return 0
   fi
   if grep -Eq "$RUNNERS" <<<"$s"; then
     [[ "$PROFILE" == docs ]] && block "$s" "doc-writer does not run tests."
@@ -77,6 +89,10 @@ check_segment() {
 check_command() {
   local cmd="$1" seg
   [[ -z "$cmd" ]] && return 0
+  if [[ "$PROFILE" == specs ]]; then
+    "${BASH_SOURCE[0]%/*}/readonly-guard.sh" --bash-only --check "$cmd" || exit 2
+    return 0
+  fi
   lib_check_psql "$cmd"
   lib_has_file_redirect "$cmd" && block "$cmd" "redirecting output into a file bypasses the path check; use the Write tool."
   while IFS= read -r seg; do
@@ -94,6 +110,19 @@ check_path() {
   fi
   if grep -Eq '(^|/)INSIGHTS\.md$' <<<"$rel"; then
     block "$rel" "INSIGHTS.md is append-only through .claude/skills/engineering-insights/scripts/append-insight.sh."
+  fi
+  if [[ "$PROFILE" == specs ]]; then
+    grep -Eq "$SPEC_INDEX" <<<"$rel" && return 0
+    grep -Eq "$SPEC_FILE" <<<"$rel" \
+      || block "$rel" "spec-creator writes specs only: <YYYY-MM-DD>-<feature-slug>.md in specs/, server/specs/, client/specs/, reviewer-core/specs/ or mcp/specs/, plus that folder's README.md (the Open specs list)."
+    grep -Eq -- '-plan\.md$' <<<"$rel" \
+      && block "$rel" "an Implementation Plan is saved from implementation-planner's output; spec-creator does not write it."
+    # The header is everything above the first `## ` heading; only its Status line counts.
+    if [[ -e "$ROOT/$rel" ]] \
+      && [[ "$(sed -n '/^## /q;p' "$ROOT/$rel" | grep -m1 -E '^Status:' | sed -E 's/[[:space:]]+$//')" != "Status: draft" ]]; then
+      block "$rel" "only a spec whose header says \`Status: draft\` is changed; an approved or implemented one is replaced by a new spec with Supersedes."
+    fi
+    return 0
   fi
   if grep -Eq '^(specs/|[^/]+/specs/|\.claude/|client/src/vendor/|server/src/vendor/)' <<<"$rel"; then
     block "$rel" "specs hold intent, .claude holds the tooling, vendor/ holds the shared contracts — none of them is this agent's to write."

@@ -1,24 +1,45 @@
 {
   "title": "Project Context",
-  "chunks": "{count} chunks",
-  "reindex": "Re-index",
-  "indexing": "Indexing…",
-  "resync": "Resync",
-  "resyncing": "Resyncing…",
-  "indexStatus": "Index status: {status}",
-  "loadError": "Couldn’t load specs",
-  "kb": "{kb}kb",
-  "empty": {
-    "title": "No spec files yet",
-    "body": "Drop your PRDs, tech specs, and acceptance criteria under .devdigest/specs/. Every agent and the PR brief read them as grounding context."
+  "page": {
+    "caption": "PROJECT CONTEXT",
+    "search": "Search documents…",
+    "fileCount": "{count, plural, one {# file} other {# files}}",
+    "usedBy": "Used by {count, plural, one {# agent} other {# agents}}",
+    "loadError": "Couldn’t load the documents",
+    "documentError": "Couldn’t load this document",
+    "emptyTitle": "No documents found",
+    "emptyBody": "No Markdown files under {roots} in this repository.",
+    "refresh": "Refresh from GitHub",
+    "refreshing": "Syncing…",
+    "refreshError": "The sync could not be started. The list is unchanged.",
+    "refreshSlow": "The sync is taking longer than expected. The list may be out of date."
   },
-  "mode": {
-    "preview": "preview",
-    "edit": "edit"
+  "attach": {
+    "filter": "Filter documents…",
+    "toggle": "Attach {path}",
+    "preview": "Preview",
+    "previewOf": "Preview {path}",
+    "moveEarlier": "Move {path} earlier in the prompt",
+    "moveLater": "Move {path} later in the prompt",
+    "notFound": "not found in this repository",
+    "via": "via {skill}",
+    "tokens": "≈ {count, number} tokens",
+    "saveError": "Could not save the attached documents. Nothing was changed.",
+    "loadError": "Couldn’t load the documents",
+    "noRepo": "Add or select a repository to list its documents.",
+    "empty": "No Markdown files under {roots} in this repository."
   },
-  "editor": {
-    "loadError": "Couldn’t load spec",
-    "save": "Save",
-    "saving": "Saving…"
+  "agentTab": {
+    "title": "Project context",
+    "count": "{attached, number} of {total, number} attached",
+    "hint": "Order matters — earlier documents appear earlier in the ## Project context block. Drag a row, or use ↑ / ↓.",
+    "note": "Injected as an untrusted block (## Project context) into every run."
+  },
+  "skillTab": {
+    "title": "Project context to use",
+    "count": "{count, number} attached",
+    "inherit": "Any agent using this skill inherits these documents.",
+    "serializesAs": "SERIALIZES AS",
+    "serializedHeading": "## Project specifications"
   }
 }

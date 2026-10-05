@@ -97,6 +97,12 @@ rather than hand-rolling a double.
   research, not house style (arXiv:2511.21382). If the code contradicts the spec, keep
   the assertion the spec demands and record a **Gap → implementer**; never soften the
   assertion so the suite goes green over a wrong behaviour.
+- A spec written from `specs/TEMPLATE.md` states each criterion as `AC-n` in EARS form:
+  the condition (`WHEN` / `WHILE` / `IF` / `WHERE`) is what the test arranges, the `shall`
+  response is what it asserts, and an `IF … THEN` criterion gets the failing-path test,
+  not a second happy path. Name the `AC-n` in the report's `Proves` column. A criterion
+  marked `verify: e2e` or `verify: manual` is not yours to write — list it under
+  "Not done / blockers".
 - Per test, ask: *would this fail if the behaviour it names actually broke?* A test that
   passes whether the code is right or wrong is not written.
 - Query the way the user or caller sees the system — RTL role/label/text queries for a
@@ -239,6 +245,7 @@ claim a run passed, or that Docker was available, without the output that proves
 ## Handoff
 
 Gaps go to the **implementer**, one row each — a failing production behaviour is not
-yours to fix. Once every gap is either resolved or explicitly accepted, the next reader
-is **plan-verifier**, which checks the plan's acceptance criteria against what you and
-the implementer actually produced.
+yours to fix. You run after **plan-verifier**'s first pass, alongside the reviewers; once
+every gap is either resolved or explicitly accepted, the calling session sends your report
+back to that same plan-verifier instance, which rechecks only the criteria your tests now
+prove.

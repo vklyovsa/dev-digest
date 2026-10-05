@@ -67,6 +67,32 @@ export interface IntentResolver {
   ): Promise<ReviewIntentOutcome>;
 }
 
+/**
+ * Restates `context/types.ts`'s `RunContext` structurally, for the same reason
+ * as `ReviewIntentOutcome`: a review never imports `modules/context/*`.
+ * `skipped` entries carry the reason a document stayed out of the prompt.
+ */
+export interface ProjectContextOutcome {
+  documents: {
+    path: string;
+    text: string;
+    tokens: number;
+    source: 'agent' | 'skill';
+    skillName: string | null;
+  }[];
+  skipped: { path: string; reason: string }[];
+}
+
+/** The one thing a run needs from the context module: the documents attached to
+ * the agent and to its linked, enabled skills, read from the reviewed repository. */
+export interface ProjectContextResolver {
+  resolveForRun(
+    workspaceId: string,
+    repoId: string,
+    agentId: string,
+  ): Promise<ProjectContextOutcome>;
+}
+
 export interface ReviewsDeps {
   readonly db: Db;
   readonly git: GitClient;
@@ -75,6 +101,7 @@ export interface ReviewsDeps {
   readonly agentsRepo: AgentsReader;
   readonly skillsRepo: SkillsReader;
   readonly intentService: IntentResolver;
+  readonly contextService: ProjectContextResolver;
   readonly promptLog: PromptLog;
   llm(id: 'openai' | 'anthropic' | 'openrouter'): Promise<LLMProvider>;
 }

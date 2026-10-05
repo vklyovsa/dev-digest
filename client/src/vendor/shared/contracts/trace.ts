@@ -71,6 +71,15 @@ export const RunStats = z.object({
 });
 export type RunStats = z.infer<typeof RunStats>;
 
+/** One project-context document placed in the prompt of a run. */
+export const SpecDocRead = z.object({
+  path: z.string(),
+  tokens: z.number().int().nonnegative(),
+  source: z.enum(['agent', 'skill']).optional(),
+  skill_name: z.string().nullish(),
+});
+export type SpecDocRead = z.infer<typeof SpecDocRead>;
+
 /** The single-document trace stored in `run_traces.trace`. */
 export const RunTrace = z.object({
   config: z.object({
@@ -87,6 +96,8 @@ export const RunTrace = z.object({
   raw_output: z.string(),
   memory_pulled: z.array(MemoryPulled),
   specs_read: z.array(z.string()),
+  /** Optional: traces stored before project context carry no such key. */
+  specs_docs: z.array(SpecDocRead).optional(),
   log: z.array(RunLogLine),
 });
 export type RunTrace = z.infer<typeof RunTrace>;

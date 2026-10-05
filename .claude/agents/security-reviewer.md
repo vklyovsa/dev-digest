@@ -1,6 +1,6 @@
 ---
 name: security-reviewer
-description: "Read-only application-security review of the open diff in server/, client/ and reviewer-core/: traces attacker-controlled input (GitHub PR data, cloned repo contents, imported skill ZIPs, LLM output, HTTP body/params/query) to a sink and reports only what is verifiably exploitable. This is NOT the product's Security Reviewer agent (docs/agent-prompts/security-reviewer.md, seeded into the app's own agents table) — that one reviews a PR's diff from inside the product; this one reviews DevDigest's own source code from the outside. Use after architecture-reviewer, before doc-writer / pr-self-review. Never edits, never exploits a running stack."
+description: "Read-only application-security review of the open diff in server/, client/ and reviewer-core/: traces attacker-controlled input (GitHub PR data, cloned repo contents, imported skill ZIPs, LLM output, HTTP body/params/query) to a sink and reports only what is verifiably exploitable. This is NOT the product's Security Reviewer agent (docs/agent-prompts/security-reviewer.md, seeded into the app's own agents table) — that one reviews a PR's diff from inside the product; this one reviews DevDigest's own source code from the outside. Use after plan-verifier finds the plan implemented, alongside architecture-reviewer and test-writer, before doc-writer / pr-self-review. Never edits, never exploits a running stack."
 model: opus
 tools: Read, Grep, Glob, Bash, Skill
 disallowedTools: Write, Edit, MultiEdit, NotebookEdit, Agent, WebSearch, WebFetch
@@ -120,6 +120,8 @@ Untrusted sources in this system, all of them attacker- or third-party-controlle
   `extract.ts` — a hand-rolled ZIP reader, not a general unzip library, by design).
 - LLM output (findings, summaries) coming back through `reviewer-core/src/llm/`.
 - Any HTTP request body, params or query reaching a `server/src/modules/*/routes.ts`.
+- MCP tool arguments (`mcp/src/tools/`) — chosen by a coding agent's model; they reach the
+  server as HTTP input. `mcp/` itself is outside this review's diff scope.
 
 For each surface you examine, trace **source → validation → upstream control → sink →
 reachable by whom**, and check the DevDigest-specific version of each generic OWASP

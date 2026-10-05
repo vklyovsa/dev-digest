@@ -261,11 +261,59 @@ export type PrCommentInput = z.infer<typeof PrCommentInput>;
 // ---- Project Context ----
 export const SpecFile = z.object({
   path: z.string(),
+  /** Name of the configured root folder that comes first in the path. */
+  type: z.string(),
+  tokens: z.number().int().nonnegative(),
+  agent_count: z.number().int().nonnegative().default(0),
   content: z.string().nullish(),
   size: z.number().int().nullish(),
   updated_at: z.string().nullish(),
 });
 export type SpecFile = z.infer<typeof SpecFile>;
+
+export const SpecDocument = SpecFile.pick({ path: true, type: true, tokens: true }).extend({
+  content: z.string(),
+});
+export type SpecDocument = z.infer<typeof SpecDocument>;
+
+export const ContextDocumentList = z.object({
+  roots: z.array(z.string()),
+  documents: z.array(SpecFile),
+});
+export type ContextDocumentList = z.infer<typeof ContextDocumentList>;
+
+/** A repository-relative document path: never empty, absolute, or able to leave the repo. */
+export const ContextPath = z
+  .string()
+  .min(1)
+  .refine((p) => !p.startsWith('/') && !p.split('/').includes('..') && !/[\\\0]/.test(p), {
+    message: 'Path must be repository-relative, without "..", backslash or NUL',
+  });
+export type ContextPath = z.infer<typeof ContextPath>;
+
+/** Body of PUT /agents/:id/context and PUT /skills/:id/context: the whole ordered list. */
+export const ContextAttachmentsInput = z.object({
+  paths: z
+    .array(ContextPath)
+    .refine((paths) => new Set(paths).size === paths.length, {
+      message: 'A path may be attached only once',
+    }),
+});
+export type ContextAttachmentsInput = z.infer<typeof ContextAttachmentsInput>;
+
+export const ContextInheritedDoc = z.object({
+  path: z.string(),
+  skill_id: z.string(),
+  skill_name: z.string(),
+});
+export type ContextInheritedDoc = z.infer<typeof ContextInheritedDoc>;
+
+/** `inherited` is filled for agents only. */
+export const ContextAttachments = z.object({
+  paths: z.array(z.string()),
+  inherited: z.array(ContextInheritedDoc).optional(),
+});
+export type ContextAttachments = z.infer<typeof ContextAttachments>;
 
 export const IndexStatus = z.object({
   status: z.enum(['idle', 'cloning', 'parsing', 'embedding', 'done', 'error']),

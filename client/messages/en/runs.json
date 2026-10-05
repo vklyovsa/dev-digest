@@ -34,7 +34,10 @@
       "memoryPulled": "Memory pulled",
       "specsRead": "Specs read",
       "items": "{count, plural, one {# item} other {# items}}",
-      "none": "none"
+      "none": "none",
+      "specTokens": "≈ {count, number} tok",
+      "specFromAgent": "agent",
+      "specViaSkill": "via {skill}"
     },
     "stat": {
       "duration": "DURATION",
@@ -48,7 +51,7 @@
       "memory": "Memory (dynamic)",
       "repoMap": "Repo skeleton — repo-intel (dynamic)",
       "intent": "PR intent — derived (dynamic)",
-      "specs": "Project context (dynamic)",
+      "specs": "Project context — attached specs (untrusted)",
       "callers": "Callers of changed symbols — repo-intel (dynamic)",
       "user": "User / diff (dynamic)",
       "copy": "Copy",

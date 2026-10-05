@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
 # PreToolUse(Bash|Edit|MultiEdit|Write|NotebookEdit) gate for the read-only agents
-# (architecture-reviewer, security-reviewer, plan-verifier, brainstorm). Any file-writing tool is
+# (architecture-reviewer, security-reviewer, plan-verifier, brainstorm, implementation-planner). Any file-writing tool is
 # refused; Bash is an ALLOWLIST checked per segment — read-only git, text tools, static checks
-# the pr-self-review scope scripts and the agent/guard validators. It errs towards blocking.
+# the pr-self-review scope scripts and the agent/guard/spec validators. It errs towards blocking.
 #
 #   readonly-guard.sh [--allow-tests]                     # hook mode, payload on stdin
 #   readonly-guard.sh [--allow-tests] --check "<cmd>"
 #   readonly-guard.sh [--allow-tests] --check-tool <Tool>
 #   readonly-guard.sh [--allow-tests] --check-path "<p>"  # always blocks: nothing is writable
 #
-# --allow-tests also admits vitest runs (plan-verifier proves acceptance criteria with them).
+# --allow-tests also admits vitest runs and check-code.sh (plan-verifier proves acceptance
+# criteria with them); without it check-code.sh passes only as `--no-tests`, the static half.
+# --bash-only judges commands only and lets every tool and path through: write-scope-guard
+# --profile specs hands its Bash calls here and decides the file writes itself.
 set -uo pipefail
 trap 'rc=$?; [[ $rc == 0 || $rc == 2 ]] || { echo "BLOCKED: ${0##*/} failed (exit $rc), so it fails closed." >&2; exit 2; }' EXIT
 
@@ -19,15 +22,20 @@ GUARD_HINT='This agent is read-only; list what you could not check under "Not ch
 source "${BASH_SOURCE[0]%/*}/guard-lib.sh" || exit 2
 
 ALLOW_TESTS=0
-if [[ "${1:-}" == "--allow-tests" ]]; then
-  ALLOW_TESTS=1
+BASH_ONLY=0
+while [[ "${1:-}" == "--allow-tests" || "${1:-}" == "--bash-only" ]]; do
+  if [[ "$1" == "--allow-tests" ]]; then ALLOW_TESTS=1; else BASH_ONLY=1; fi
   shift
-fi
+done
+[[ "$BASH_ONLY" == 1 ]] \
+  && GUARD_HINT='Bash is read-only for this agent: use Read / Grep / Glob instead, or name what you could not check in your report.'
 
 GIT_RO="${GIT}(--no-pager[[:space:]]+)?(status|diff|log|show|blame|grep|ls-files|ls-tree|rev-parse|rev-list|merge-base|cat-file|describe|shortlog|name-rev|for-each-ref)([[:space:]]|$)"
 TEXT_TOOLS='^(ls|cat|head|tail|wc|grep|egrep|rg|find|sort|uniq|cut|tr|sed|diff|cmp|comm|nl|jq|realpath|readlink|dirname|basename|stat|file|du|tree|date|echo|printf|test|\[|true|false|cd|pwd|which|type|read|column|paste|tac|rev)([[:space:]]|$)'
 STATIC='^(pnpm[[:space:]]+(run[[:space:]]+)?(typecheck|arch:check)|npm[[:space:]]+run[[:space:]]+typecheck|pnpm[[:space:]]+exec[[:space:]]+(depcruise|tsc[[:space:]].*--noEmit)|npx[[:space:]]+(depcruise|tsc[[:space:]].*--noEmit))([[:space:]]|$)'
-SCOPE_SCRIPTS='^([^[:space:]]*/)?\.claude/(skills/pr-self-review/scripts/(collect-diff|route-skills)|agents/scripts/check-(agents|guards))\.sh([[:space:]]|$)|^bash[[:space:]]+-n[[:space:]]'
+SCOPE_SCRIPTS='^([^[:space:]]*/)?\.claude/(skills/pr-self-review/scripts/(collect-diff|route-skills)|agents/scripts/check-(agents|guards|spec))\.sh([[:space:]]|$)|^bash[[:space:]]+-n[[:space:]]'
+CODE_CHECK='^([^[:space:]]*/)?\.claude/agents/scripts/check-code\.sh([[:space:]]|$)'
+CODE_CHECK_STATIC='check-code\.sh([[:space:]]+(--it|server|client|reviewer-core|mcp))*[[:space:]]+--no-tests([[:space:]]|$)'
 TESTS='^(pnpm[[:space:]]+(run[[:space:]]+)?test|npm[[:space:]]+(run[[:space:]]+)?test|(pnpm[[:space:]]+exec|npx|pnpm)[[:space:]]+vitest[[:space:]]+run)([[:space:]]|$)'
 
 allowed_git() {
@@ -65,13 +73,18 @@ check_segment() {
   fi
   grep -Eq "$STATIC" <<<"$s" && return 0
   grep -Eq "$SCOPE_SCRIPTS" <<<"$s" && return 0
+  if grep -Eq "$CODE_CHECK" <<<"$s"; then
+    [[ "$ALLOW_TESTS" == 1 ]] || grep -Eq "$CODE_CHECK_STATIC" <<<"$s" \
+      || block "$s" "this agent does not run tests; run check-code.sh --no-tests <package>, or name the command under \"Needs a test run\" / \"Not checked\"."
+    return 0
+  fi
   if grep -Eq "$TESTS" <<<"$s"; then
     [[ "$ALLOW_TESTS" == 1 ]] || block "$s" "this agent does not run tests; name the command under \"Needs a test run\" / \"Not checked\"."
     grep -Eq '(^|[[:space:]])(-u|--update|--watch|-w)([[:space:]]|$)' <<<"$s" \
       && block "$s" "tests run once and never rewrite snapshots."
     return 0
   fi
-  block "$s" "not on the read-only allowlist (read-only git, text tools, typecheck/depcruise, collect-diff.sh, route-skills.sh, check-agents.sh, check-guards.sh, bash -n$([[ "$ALLOW_TESTS" == 1 ]] && echo ', vitest run'))."
+  block "$s" "not on the read-only allowlist (read-only git, text tools, typecheck/depcruise, collect-diff.sh, route-skills.sh, check-agents.sh, check-guards.sh, check-spec.sh, check-code.sh --no-tests, bash -n$([[ "$ALLOW_TESTS" == 1 ]] && echo ', check-code.sh, vitest run'))."
 }
 
 check_command() {
@@ -86,10 +99,12 @@ check_command() {
 }
 
 check_tool() {
+  [[ "$BASH_ONLY" == 1 ]] && return 0
   block "$1" "this agent is read-only: no file-writing tools."
 }
 
 check_path() {
+  [[ "$BASH_ONLY" == 1 ]] && return 0
   block "${1:-<no path>}" "this agent is read-only: nothing is writable."
 }
 
