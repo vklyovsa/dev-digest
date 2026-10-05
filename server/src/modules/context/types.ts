@@ -54,6 +54,11 @@ export interface RunContextDocument {
   skillName: string | null;
 }
 
+export interface WorkspaceDocument {
+  path: string;
+  text: string;
+}
+
 export interface RunContextSkip {
   path: string;
   reason: SkipReason;

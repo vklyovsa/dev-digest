@@ -1,5 +1,6 @@
-import type { SmartDiff } from '@devdigest/shared';
+import type { SmartDiff, SmartDiffRole } from '@devdigest/shared';
 import { NotFoundError } from '../../platform/errors.js';
+import { classifyFile } from './classify.js';
 import { buildSmartDiff, currentFindingLines } from './helpers.js';
 import type { SmartDiffPullsReader, SmartDiffReviewsReader } from './types.js';
 
@@ -17,5 +18,9 @@ export class SmartDiffService {
       this.reviews.reviewsForPull(prId),
     ]);
     return buildSmartDiff(files, currentFindingLines(reviews));
+  }
+
+  classify(path: string): SmartDiffRole {
+    return classifyFile(path);
   }
 }

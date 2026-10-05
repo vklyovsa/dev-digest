@@ -148,10 +148,27 @@ export const SmartDiff = z.object({
 export type SmartDiff = z.infer<typeof SmartDiff>;
 
 // ---- Composed PR Brief (pr_brief.json) ----
+export const ReviewFocusItem = z.object({
+  file: z.string(),
+  line: z.number().int().min(1),
+  reason: z.string(),
+});
+export type ReviewFocusItem = z.infer<typeof ReviewFocusItem>;
+
 export const PrBrief = z.object({
-  intent: Intent,
-  blast: BlastRadius,
+  summary: z.string().trim().min(1),
+  review_focus: z.array(ReviewFocusItem),
   risks: Risks,
-  history: PrHistory,
+  intent: Intent.nullable(),
+  blast: BlastRadius.nullable(),
+  history: PrHistory.optional(),
 });
 export type PrBrief = z.infer<typeof PrBrief>;
+
+/** The schema of the brief's one model call: the model writes only these three. */
+export const PrBriefAnswer = z.object({
+  summary: PrBrief.shape.summary,
+  risks: z.array(Risk),
+  review_focus: PrBrief.shape.review_focus,
+});
+export type PrBriefAnswer = z.infer<typeof PrBriefAnswer>;

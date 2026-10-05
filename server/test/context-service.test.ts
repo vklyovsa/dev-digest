@@ -197,6 +197,76 @@ describe('ContextService.resolveForRun', () => {
   });
 });
 
+describe('ContextService.resolveForWorkspace', () => {
+  it('returns the documents attached by any agent, in document-list order, each once', async () => {
+    const { service, store } = setup({
+      tree: { 'specs/a.md': 'alpha', 'docs/b.md': 'beta', 'insights/c.md': 'unattached' },
+    });
+    store.usageRows = [
+      { path: 'docs/b.md', agentId: 'agent-2' },
+      { path: 'specs/a.md', agentId: 'agent-1' },
+      { path: 'specs/a.md', agentId: 'agent-2' },
+    ];
+
+    const out = await service.resolveForWorkspace('ws-1', 'repo-1');
+
+    expect(out).toEqual([
+      { path: 'specs/a.md', text: 'alpha' },
+      { path: 'docs/b.md', text: 'beta' },
+    ]);
+  });
+
+  it('leaves out a path absent from the tree, an unreadable file and an empty one', async () => {
+    const { service, store, docs } = setup({
+      tree: {
+        'specs/ok.md': 'twelve chars',
+        'docs/locked.md': 'text the reader cannot return',
+        'docs/blank.md': '',
+        'src/secret.md': 'outside every root',
+      },
+      unreadable: ['docs/locked.md'],
+    });
+    store.usageRows = [
+      { path: 'docs/gone.md', agentId: 'agent-1' },
+      { path: 'specs/ok.md', agentId: 'agent-1' },
+      { path: 'docs/locked.md', agentId: 'agent-1' },
+      { path: 'docs/blank.md', agentId: 'agent-1' },
+      { path: 'src/secret.md', agentId: 'agent-1' },
+      { path: '../outside.md', agentId: 'agent-1' },
+    ];
+
+    const out = await service.resolveForWorkspace('ws-1', 'repo-1');
+
+    expect(out).toEqual([{ path: 'specs/ok.md', text: 'twelve chars' }]);
+    const read = docs.reads.map((r) => r.relPath);
+    expect(read).not.toContain('docs/gone.md');
+    expect(read).not.toContain('src/secret.md');
+    expect(read).not.toContain('../outside.md');
+  });
+
+  it('lists nothing and reads nothing when no document is attached', async () => {
+    const { service, docs } = setup({ tree: { 'specs/a.md': 'alpha' } });
+
+    expect(await service.resolveForWorkspace('ws-1', 'repo-1')).toEqual([]);
+    expect(docs.lists).toEqual([]);
+    expect(docs.reads).toEqual([]);
+  });
+
+  it('returns nothing for a repository without a clone', async () => {
+    const { service, store, docs } = setup({ clonePath: null, tree: { 'specs/a.md': 'alpha' } });
+    store.usageRows = [{ path: 'specs/a.md', agentId: 'agent-1' }];
+
+    expect(await service.resolveForWorkspace('ws-1', 'repo-1')).toEqual([]);
+    expect(docs.lists).toEqual([]);
+  });
+
+  it('answers NotFound for a repository outside the workspace', async () => {
+    await expect(
+      setup({ repo: false }).service.resolveForWorkspace('ws-1', 'repo-1'),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+});
+
 describe('ContextService.listDocuments', () => {
   it('lists nothing and walks nothing for a repository without a clone', async () => {
     const { service, docs } = setup({ clonePath: null, tree: { 'specs/a.md': 'alpha' } });

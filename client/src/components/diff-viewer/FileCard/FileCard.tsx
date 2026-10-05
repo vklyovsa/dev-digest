@@ -16,6 +16,7 @@ import {
   type DiffCommentApi,
 } from "../comments";
 import { partitionFindings, fs, type DiffFindingsApi } from "../findings";
+import type { DiffTarget } from "../target";
 import { s, chevronFor } from "../styles";
 import { CodeLine } from "../CodeLine";
 import { OutdatedComments } from "../OutdatedComments";
@@ -42,16 +43,32 @@ export function FileCard({
   file,
   commenting,
   findings,
+  target,
 }: {
   file: PrFile;
   commenting?: DiffCommentApi;
   findings?: DiffFindingsApi;
+  target?: DiffTarget;
 }) {
   const t = useTranslations("shell");
-  const [open, setOpen] = React.useState(
-    (file.additions ?? 0) + (file.deletions ?? 0) <= AUTO_EXPAND_MAX_LINES
-  );
+  const isTarget = !!target;
+  const autoOpen = (file.additions ?? 0) + (file.deletions ?? 0) <= AUTO_EXPAND_MAX_LINES;
+  const [toggled, setToggled] = React.useState<boolean | null>(null);
+  const open = toggled ?? (isTarget || autoOpen);
   const lines = React.useMemo(() => parsePatch(file.patch), [file.patch]);
+
+  const targetLine = target?.line ?? null;
+  const targetIndex =
+    targetLine === null
+      ? -1
+      : lines.findIndex((ln) => (ln.kind === "add" || ln.kind === "ctx") && String(ln.newNo) === targetLine);
+  const cardRef = React.useRef<HTMLDivElement>(null);
+  const targetRowRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!isTarget) return;
+    (targetRowRef.current ?? cardRef.current)?.scrollIntoView({ block: "center" });
+  }, [isTarget, targetLine]);
 
   const renderedKeys = React.useMemo(() => {
     const keys = new Set<string>();
@@ -80,8 +97,12 @@ export function FileCard({
     : 0;
 
   return (
-    <div style={s.fileCard}>
-      <div onClick={() => setOpen((o) => !o)} style={s.fileHeader}>
+    <div
+      ref={cardRef}
+      aria-current={isTarget ? "true" : undefined}
+      style={isTarget ? { ...s.fileCard, ...s.fileCardTarget } : s.fileCard}
+    >
+      <div onClick={() => setToggled(!open)} style={s.fileHeader}>
         <Icon.ChevronRight size={13} style={chevronFor(open)} />
         <Icon.FileText size={14} style={s.fileIcon} />
         <span style={fs.pathWrap}>
@@ -119,6 +140,7 @@ export function FileCard({
                 commenting={commenting}
                 lineFindings={findingsForLine(ln, matchedFindings)}
                 findings={findings}
+                rowRef={i === targetIndex ? targetRowRef : undefined}
               />
             ))
           )}

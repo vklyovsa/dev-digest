@@ -668,7 +668,7 @@ No [blocking] question is open.
 
 Settled by the user's answers of 2026-10-05, relayed by the calling session:
 - Execution mode — multi-agent.
-- OQ-13 — `deepseek/deepseek-v4-flash` is the `risk_brief` default.
+- OQ-13 — `minimax/minimax-m2.5` is the `risk_brief` default. The user changed this answer on 2026-10-05 after the live check: with `deepseek/deepseek-v4-flash`, the value Stage 1 step 5 and its tests name, a generation for a 100-file pull request timed out twice out of two. AC-66 is unchanged.
 - OQ-14 — a Review focus item on a file without a changed line range is discarded.
 - The Stage 7 strings, the severity colours (high `var(--crit)`, medium `var(--warn)`, low `var(--info)`) and the block order Brief → Intent and Blast radius → Risk areas → Review focus → Description.
 - A failed generation writes no brief line.

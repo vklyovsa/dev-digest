@@ -4,7 +4,12 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { Icon } from "@devdigest/ui";
 import type { PrFile, SmartDiffRole } from "@devdigest/shared";
-import { DiffViewer, type DiffCommentApi, type DiffFindingsApi } from "@/components/diff-viewer";
+import {
+  DiffViewer,
+  type DiffCommentApi,
+  type DiffFindingsApi,
+  type DiffTarget,
+} from "@/components/diff-viewer";
 import { ROLE_META } from "../../constants";
 import { s, groupChevron } from "../../styles";
 
@@ -15,6 +20,7 @@ export function RoleGroup({
   showCounter,
   commenting,
   findings,
+  target,
 }: {
   role: SmartDiffRole;
   files: PrFile[];
@@ -22,15 +28,17 @@ export function RoleGroup({
   showCounter: boolean;
   commenting: DiffCommentApi;
   findings: DiffFindingsApi;
+  target?: DiffTarget;
 }) {
   const t = useTranslations("prReview");
   const meta = ROLE_META[role];
-  const [open, setOpen] = React.useState(meta.defaultOpen);
+  const [toggled, setToggled] = React.useState<boolean | null>(null);
+  const open = toggled ?? (files.some((f) => f.path === target?.path) || meta.defaultOpen);
 
   return (
     <section>
       <div style={s.groupHeaderWrap}>
-        <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} style={s.groupHeader}>
+        <button type="button" aria-expanded={open} onClick={() => setToggled(!open)} style={s.groupHeader}>
           <Icon.ChevronRight size={13} style={groupChevron(open)} />
           <span aria-hidden style={{ ...s.swatch, background: meta.swatch }} />
           <span style={s.groupLabel}>{t(`smartDiff.${meta.labelKey}`)}</span>
@@ -46,7 +54,7 @@ export function RoleGroup({
       </div>
       {open && (
         <div style={s.groupBody}>
-          <DiffViewer files={files} commenting={commenting} findings={findings} />
+          <DiffViewer files={files} commenting={commenting} findings={findings} target={target} />
         </div>
       )}
     </section>

@@ -21,6 +21,7 @@ import type {
   RunContext,
   RunContextDocument,
   RunContextSkip,
+  WorkspaceDocument,
 } from './types.js';
 
 /**
@@ -142,6 +143,27 @@ export class ContextService {
       }
     });
     return { documents, skipped };
+  }
+
+  async resolveForWorkspace(workspaceId: string, repoId: string): Promise<WorkspaceDocument[]> {
+    const repo = await this.requireRepo(workspaceId, repoId);
+    const clonePath = repo.clonePath;
+    if (clonePath === null) return [];
+
+    const attached = new Set((await this.deps.store.usage(workspaceId)).map((row) => row.path));
+    if (attached.size === 0) return [];
+
+    const listed = (await this.classified(clonePath)).filter((doc) => attached.has(doc.path));
+    const texts = await mapInBatches(listed, READ_CONCURRENCY, (doc) =>
+      this.deps.docs.readText(clonePath, doc.path),
+    );
+
+    const documents: WorkspaceDocument[] = [];
+    listed.forEach((doc, index) => {
+      const text = texts[index];
+      if (text) documents.push({ path: doc.path, text });
+    });
+    return documents;
   }
 
   private async agentContext(agentId: string): Promise<ContextAttachments> {

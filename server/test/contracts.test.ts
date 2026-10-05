@@ -18,6 +18,9 @@ import {
   SpecFile,
   ContextDocumentList,
   ContextAttachmentsInput,
+  PrBrief,
+  PrBriefAnswer,
+  PrBriefRecord,
 } from '@devdigest/shared';
 
 /**
@@ -223,6 +226,72 @@ describe('project context contracts', () => {
       ContextDocumentList.parse({ roots: ['docs'], documents: [{ path: 'docs/a.md', type: 'docs', tokens: 3 }] })
         .documents,
     ).toHaveLength(1);
+  });
+});
+
+describe('PR brief contracts', () => {
+  const answer = {
+    summary: 'Adds a rate limiter to the public router.',
+    risks: [
+      {
+        kind: 'security',
+        title: 'Limiter bypass',
+        explanation: 'The limiter skips authenticated callers.',
+        severity: 'high',
+        file_refs: ['src/limiter.ts'],
+      },
+    ],
+    review_focus: [{ file: 'src/limiter.ts', line: 12, reason: 'The skip condition lives here.' }],
+  };
+
+  it('PrBriefAnswer accepts a full sample and rejects a missing or empty summary and a line of 0', () => {
+    expect(PrBriefAnswer.safeParse(answer).success).toBe(true);
+
+    const { summary: _summary, ...withoutSummary } = answer;
+    expect(PrBriefAnswer.safeParse(withoutSummary).success).toBe(false);
+    expect(PrBriefAnswer.safeParse({ ...answer, summary: '' }).success).toBe(false);
+    expect(
+      PrBriefAnswer.safeParse({
+        ...answer,
+        review_focus: [{ file: 'src/limiter.ts', line: 0, reason: 'r' }],
+      }).success,
+    ).toBe(false);
+  });
+
+  it('PrBriefAnswer rejects a blank summary and trims a padded one', () => {
+    expect(PrBriefAnswer.safeParse({ ...answer, summary: '   ' }).success).toBe(false);
+    expect(PrBriefAnswer.parse({ ...answer, summary: ' ok ' }).summary).toBe('ok');
+  });
+
+  it('PrBrief accepts intent: null, blast: null and no history; PrBriefRecord takes cost_usd: null and needs head_sha', () => {
+    const brief = {
+      summary: answer.summary,
+      review_focus: answer.review_focus,
+      risks: { risks: answer.risks },
+      intent: null,
+      blast: null,
+    };
+    const parsed = PrBrief.parse(brief);
+    expect(parsed.intent).toBeNull();
+    expect(parsed.blast).toBeNull();
+    expect(parsed.history).toBeUndefined();
+
+    const record = {
+      ...brief,
+      pr_id: 'p1',
+      head_sha: 'abc123',
+      stale: false,
+      provider: 'openrouter',
+      model: 'deepseek/deepseek-v4-flash',
+      tokens_in: 1200,
+      tokens_out: 340,
+      cost_usd: null,
+      documents_read: [],
+    };
+    expect(PrBriefRecord.safeParse(record).success).toBe(true);
+
+    const { head_sha: _headSha, ...withoutHeadSha } = record;
+    expect(PrBriefRecord.safeParse(withoutHeadSha).success).toBe(false);
   });
 });
 

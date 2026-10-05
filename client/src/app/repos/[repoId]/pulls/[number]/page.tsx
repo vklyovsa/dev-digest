@@ -29,7 +29,7 @@ import {
 import { useActiveRepo, useRepoNotFound } from "@/lib/repo-context";
 import { ApiError } from "@/lib/api";
 import { githubPrUrl } from "@/lib/github-urls";
-import { collectFindings, lethalTrifectaFindings } from "./helpers";
+import { collectFindings, lethalTrifectaFindings, readDiffTarget, tabQuery } from "./helpers";
 
 export default function PRDetailPage() {
   const params = useParams<{ repoId: string; number: string }>();
@@ -74,7 +74,8 @@ export default function PRDetailPage() {
     else sp.set(key, val);
     router.replace(`/repos/${repoId}/pulls/${number}${sp.toString() ? `?${sp.toString()}` : ""}`);
   };
-  const setTab = (t: string) => setParam("tab", t);
+  const setTab = (t: string) => router.replace(`/repos/${repoId}/pulls/${number}${tabQuery(search, t)}`);
+  const diffTarget = tab === "diff" ? readDiffTarget(search) : undefined;
 
   // Reviews come newest-first; each is its own run (grouped into accordions).
   const runs = reviews ?? [];
@@ -182,6 +183,7 @@ export default function PRDetailPage() {
             canComment={pr.status === "open"}
             repoFullName={repoFullName}
             headSha={pr.head_sha}
+            target={diffTarget}
           />
         )}
       </div>

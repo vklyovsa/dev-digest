@@ -1,7 +1,9 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
-import { NextIntlClientProvider } from "next-intl";
+import { NextIntlClientProvider, type AbstractIntlMessages } from "next-intl";
 import type { FindingRecord, PrFile, PrReviewComment, ReviewRecord, SmartDiff } from "@devdigest/shared";
+import { markCatalog, unmarkedStrings } from "@/test/catalog-probe";
+import brief from "../../../../../../../../messages/en/brief.json";
 import prReview from "../../../../../../../../messages/en/prReview.json";
 import shell from "../../../../../../../../messages/en/shell.json";
 
@@ -9,6 +11,7 @@ const mutate = vi.fn();
 let reviews: ReviewRecord[] | undefined;
 let comments: PrReviewComment[];
 let smartDiff: SmartDiff;
+let smartDiffFailed = false;
 
 vi.mock("@/lib/hooks/reviews", () => ({
   usePrReviews: () => ({ data: reviews }),
@@ -18,7 +21,11 @@ vi.mock("@/lib/hooks/reviews", () => ({
 }));
 
 vi.mock("@/lib/hooks/smart-diff", () => ({
-  useSmartDiff: () => ({ data: smartDiff, isLoading: false, isError: false }),
+  useSmartDiff: () => ({
+    data: smartDiffFailed ? undefined : smartDiff,
+    isLoading: false,
+    isError: smartDiffFailed,
+  }),
 }));
 
 import { DiffTab } from "./DiffTab";
@@ -103,10 +110,26 @@ const COMMENT: PrReviewComment = {
   is_outdated: false,
 };
 
-function renderTab() {
+const DOCS_PATCH = "@@ -1,2 +1,3 @@\n # Title\n+Docs line one\n text";
+const BIG_README = file("README.md", DOCS_PATCH, 250);
+const FILES_WITH_BIG_README = FILES.map((f) => (f.path === "README.md" ? BIG_README : f));
+
+type Target = { file: string | null; line: string | null };
+
+function renderTab(
+  opts: { target?: Target; files?: PrFile[]; catalog?: AbstractIntlMessages } = {},
+) {
+  const { target, files = FILES, catalog = { prReview, shell, brief } } = opts;
   return render(
-    <NextIntlClientProvider locale="en" messages={{ prReview, shell }}>
-      <DiffTab prId="pr1" files={FILES} canComment repoFullName="acme/payments-api" headSha="abc1234" />
+    <NextIntlClientProvider locale="en" messages={catalog}>
+      <DiffTab
+        prId="pr1"
+        files={files}
+        canComment
+        repoFullName="acme/payments-api"
+        headSha="abc1234"
+        target={target}
+      />
     </NextIntlClientProvider>,
   );
 }
@@ -114,11 +137,20 @@ function renderTab() {
 const groupHeaders = () =>
   screen.queryAllByRole("button").filter((b) => b.hasAttribute("aria-expanded"));
 
+const scrolled: Element[] = [];
+const scrollIntoView = vi.fn(function (this: Element) {
+  scrolled.push(this);
+});
+
 beforeEach(() => {
   mutate.mockReset();
+  scrollIntoView.mockClear();
+  scrolled.length = 0;
+  Element.prototype.scrollIntoView = scrollIntoView;
   reviews = [REVIEW];
   comments = [COMMENT];
   smartDiff = SMART;
+  smartDiffFailed = false;
 });
 
 afterEach(cleanup);
@@ -253,5 +285,105 @@ describe("DiffTab — smart diff", () => {
     ).toBeInTheDocument();
     expect(screen.queryByLabelText(/files with findings/)).not.toBeInTheDocument();
     expect(screen.queryByRole("img", { name: "Has findings" })).not.toBeInTheDocument();
+  });
+});
+
+describe("DiffTab — navigation target", () => {
+  const docsHeader = () => groupHeaders().find((h) => /^Docs/.test(h.textContent ?? ""))!;
+  const marked = () => document.querySelectorAll('[aria-current="true"]');
+
+  it("opens the docs group and a card of more than 200 lines for the target, and scrolls to the card", () => {
+    renderTab({ files: FILES_WITH_BIG_README });
+    expect(docsHeader()).toHaveAttribute("aria-expanded", "false");
+    expect(scrollIntoView).not.toHaveBeenCalled();
+    cleanup();
+
+    renderTab({ files: FILES_WITH_BIG_README, target: { file: "README.md", line: null } });
+
+    expect(docsHeader()).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Docs line one")).toBeInTheDocument();
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    expect(scrolled[0]).toHaveTextContent("README.md");
+  });
+
+  it("does the same in the flat list when the grouping failed", () => {
+    smartDiffFailed = true;
+    renderTab({ files: FILES_WITH_BIG_README });
+    expect(groupHeaders()).toHaveLength(0);
+    expect(screen.queryByText("Docs line one")).not.toBeInTheDocument();
+    cleanup();
+
+    renderTab({ files: FILES_WITH_BIG_README, target: { file: "README.md", line: null } });
+
+    expect(groupHeaders()).toHaveLength(0);
+    expect(screen.getByText("Docs line one")).toBeInTheDocument();
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    expect(scrolled[0]).toHaveTextContent("README.md");
+  });
+
+  it("marks only the target's card as the navigation target", () => {
+    renderTab({ target: { file: "src/api.ts", line: null } });
+
+    expect(marked()).toHaveLength(1);
+    expect(marked()[0]).toHaveTextContent("src/api.ts");
+    expect(marked()[0]).not.toHaveTextContent("src/config.ts");
+    expect((marked()[0] as HTMLElement).style.outline).toContain("2px solid");
+  });
+
+  it("marks nothing when there is no target", () => {
+    renderTab();
+    expect(marked()).toHaveLength(0);
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it("scrolls the rendered line into view and not the file header", () => {
+    renderTab({ target: { file: "src/api.ts", line: "2" } });
+
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    expect(scrolled[0]).toHaveTextContent("const b = 2;");
+    expect(scrolled[0]).not.toHaveTextContent("src/api.ts");
+  });
+
+  it("scrolls the card when the line is not rendered in the file's diff", () => {
+    renderTab({ target: { file: "src/api.ts", line: "99" } });
+
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    expect(scrolled[0]).toHaveTextContent("src/api.ts");
+    expect(scrolled[0]).toHaveTextContent("const a = 1;");
+    expect(marked()).toHaveLength(1);
+  });
+
+  it("lets the reviewer collapse the target card by its header", () => {
+    renderTab({ files: FILES_WITH_BIG_README, target: { file: "README.md", line: null } });
+    expect(screen.getByText("Docs line one")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("README.md"));
+
+    expect(screen.queryByText("Docs line one")).not.toBeInTheDocument();
+    expect(docsHeader()).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("shows the catalog notice above the list for a file that is not in the diff, and marks no card", () => {
+    const catalog = { prReview, shell, brief: markCatalog(brief) };
+    renderTab({ catalog, target: { file: "src/gone.ts", line: "3" } });
+
+    const notice = screen.getByRole("status");
+    expect(notice.textContent).toBe(catalog.brief.notInDiff);
+    expect(unmarkedStrings(notice, [])).toEqual([]);
+    expect(
+      notice.compareDocumentPosition(screen.getByText("src/config.ts")) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(marked()).toHaveLength(0);
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it("shows no notice for a file that is in the diff, or when no file was asked for", () => {
+    renderTab({ target: { file: "src/api.ts", line: null } });
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    cleanup();
+
+    renderTab({ target: { file: null, line: null } });
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(marked()).toHaveLength(0);
   });
 });

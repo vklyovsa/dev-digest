@@ -26,7 +26,7 @@ export type PromptLogSection = Omit<PromptSectionMeta, 'name'> & {
 };
 
 export interface PromptLogContext {
-  purpose: 'review' | 'intent';
+  purpose: 'review' | 'intent' | 'brief';
   /** Shared by every prompt of one review click (intent + each agent), or the request id of a Derive. */
   correlationId: string;
   prId: string;

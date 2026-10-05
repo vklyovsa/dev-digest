@@ -42,6 +42,9 @@ settled enough to move into `CLAUDE.md`.
 Quirks of dependencies, versions and tooling — what a library does that its docs
 do not say.
 
+- **A vitest name-fragment filter also matches DIRECTORY names, so a fragment equal to a component folder pulls in every suite beneath it.** (2026-10-05, vitest 2.1.9) `check-code.sh client -- PrBriefSummary BriefRiskAreas BriefReviewFocus OverviewTab` reported `Test Files 6 passed`, not the 4 the plan expected: `OverviewTab` also matched the two `BlastRadiusCard` suites under `…/OverviewTab/_components/`; `vitest run … OverviewTab.test` ran exactly 4.
+  → Filter a parent component by its file name (`OverviewTab.test`), not its folder name, and compare `Test Files N` with the suites you meant to run before reading a count as proof.
+
 - **Two vendored UI pieces break the obvious Testing Library query: `Tabs` renders plain `<button>`s (no `role="tab"`), and `PromptBlock`'s full-screen `Modal` renders INLINE inside the `Drawer`, so `getByRole("dialog")` finds two.** (2026-10-04) `src/vendor/ui/kit/Tabs.tsx:5` emits `<button onClick>` per tab; `RunTraceDrawer` test failed with `Found multiple elements with the role "dialog"` because the Drawer's own `role="dialog"` wraps the Modal's (no portal).
   → Read tab order from the children of `getByRole("button", { name: "Config" }).parentElement`; scope a modal query by its content (`getByText(…).closest('[role="dialog"]')`) or take `getAllByRole("dialog").at(-1)`, never a bare `getByRole("dialog")` inside the drawer.
 

@@ -17,7 +17,7 @@ function deriveErrorMessage(err: unknown): string {
   return err instanceof ApiError ? err.message : "the request failed";
 }
 
-export function IntentCard({ prId }: { prId: string | null }) {
+export function IntentCard({ prId, hideRiskAreas = false }: { prId: string | null; hideRiskAreas?: boolean }) {
   const t = useTranslations("brief");
   const { data, isLoading } = usePrIntent(prId);
   const derive = useDeriveIntent(prId);
@@ -123,7 +123,7 @@ export function IntentCard({ prId }: { prId: string | null }) {
           </div>
         </div>
 
-        {hasRiskAreas && (
+        {hasRiskAreas && !hideRiskAreas && (
           <div style={s.risks}>
             <div style={s.risksLabel}>{t("intent.riskAreas")}</div>
             <div style={s.chipRow}>
