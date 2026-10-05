@@ -67,6 +67,7 @@ spec in that package's `specs/` instead (`server/`, `client/`, `reviewer-core/`,
   from the repo-intel index, on the Overview tab and through `get_blast_radius`
   (server + client + mcp).
 - [`2026-10-04-project-context.md`](2026-10-04-project-context.md) — SPEC-01: Project Context — find a repository's specs / docs / insights documents, attach them by hand to agents and skills, send them to the model as one untrusted block and show them in the run trace (server, client, reviewer-core).
+- [`2026-10-05-pr-brief.md`](2026-10-05-pr-brief.md) / [`2026-10-05-pr-brief-plan.md`](2026-10-05-pr-brief-plan.md) — SPEC-02: PR Brief — one model call turns a pull request's computed facts (intent, blast radius, diff statistics, description, attached documents) into a summary, file-anchored risk areas and a review focus list on the Overview tab, cached per head commit, with a jump to the file on Files changed (server, client); homework criteria in [`pr-brief-acceptance.md`](pr-brief-acceptance.md).
 
 ## Tooling plans (`.claude/`)
 
