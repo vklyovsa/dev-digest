@@ -17,6 +17,7 @@ export {
   wrapUntrusted,
   promptFingerprint,
   type PromptParts,
+  type ProjectContextDoc,
   type AssembledPrompt,
   type PromptSectionMeta,
   type PromptSectionName,

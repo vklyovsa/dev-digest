@@ -1,5 +1,5 @@
 /* SkillDetail — the right-hand pane of /skills: the selected skill's header and
-   its four tabs. Tab state is owned by the route (?tab=), so a link into a
+   its five tabs. Tab state is owned by the route (?tab=), so a link into a
    specific tab is shareable and survives a reload. */
 "use client";
 
@@ -12,6 +12,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { typeColor } from "../../helpers";
 import { SKILL_TABS } from "../../constants";
 import { ConfigTab } from "./_components/ConfigTab";
+import { ContextTab } from "./_components/ContextTab";
 import { PreviewTab } from "./_components/PreviewTab";
 import { StatsTab } from "./_components/StatsTab";
 import { VersionsTab } from "./_components/VersionsTab";
@@ -92,6 +93,7 @@ export function SkillDetail({
             at mount, so a different skill — or the same skill restored to an
             older version — has to remount rather than be synced by an effect. */}
         {tab === "config" && <ConfigTab key={`${skill.id}:${skill.version}`} skill={skill} />}
+        {tab === "context" && <ContextTab key={skill.id} skill={skill} />}
         {tab === "preview" && <PreviewTab skill={skill} />}
         {tab === "stats" && <StatsTab skill={skill} />}
         {tab === "versions" && <VersionsTab skill={skill} />}

@@ -8,6 +8,9 @@ explains **why** something is built the way it is.
 - [`agent-prompts/`](agent-prompts/) — system prompts for the built-in reviewer
   agents, plus [choosing a model](agent-prompts/choosing-a-model.md).
 - `design/` — UI prototypes and visual references.
+- [`retro/`](retro/README.md) — retrospectives of multi-agent runs: what each run cost,
+  where agents struggled, what was proposed (`retro/ledger/`, written only by the
+  user-started `/workflow-retro`).
 
 ## Rules
 

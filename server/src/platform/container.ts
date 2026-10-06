@@ -6,6 +6,7 @@ import type {
   CodeIndex,
   Embedder,
   LLMProvider,
+  RepoDocsReader,
 } from '@devdigest/shared';
 import type { AppConfig } from './config.js';
 import type { PromptLog } from './prompt-log.js';
@@ -17,6 +18,7 @@ import { LocalNoAuthProvider } from '../adapters/auth/local.js';
 import { OctokitGitHubClient } from '../adapters/github/octokit.js';
 import { SimpleGitClient } from '../adapters/git/simple-git.js';
 import { RipgrepCodeIndex } from '../adapters/codeindex/ripgrep.js';
+import { FsRepoDocsReader } from '../adapters/docs/fs.js';
 import { OpenAIProvider } from '../adapters/llm/openai.js';
 import { AnthropicProvider } from '../adapters/llm/anthropic.js';
 import { OpenAIEmbedder } from '../adapters/embedder/openai.js';
@@ -38,6 +40,10 @@ import { IntentRepository } from '../modules/intent/repository.js';
 import { IntentService } from '../modules/intent/service.js';
 import { SmartDiffService } from '../modules/smart-diff/service.js';
 import { BlastService } from '../modules/blast/service.js';
+import { ContextRepository } from '../modules/context/repository.js';
+import { ContextService } from '../modules/context/service.js';
+import { BriefRepository } from '../modules/brief/repository.js';
+import { BriefService } from '../modules/brief/service.js';
 import type { RepoIntel } from '../modules/repo-intel/types.js';
 import { RepoIntelService } from '../modules/repo-intel/service.js';
 import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph/index.js';
@@ -57,6 +63,8 @@ export interface ContainerOverrides {
   git?: GitClient;
   codeIndex?: CodeIndex;
   embedder?: Embedder;
+  /** Markdown documents of a clone's working tree (Project Context). */
+  repoDocs?: RepoDocsReader;
   /** Pre-built providers by id (skip key lookup). */
   llm?: Partial<Record<'openai' | 'anthropic' | 'openrouter', LLMProvider>>;
   /** repo-intel facade (T1.1+) — tests inject mock RepoIntel implementations. */
@@ -89,6 +97,7 @@ export class Container {
   private _github?: GitHubClient;
   private _codeIndex?: CodeIndex;
   private _embedder?: Embedder;
+  private _repoDocs?: RepoDocsReader;
   private llmCache = new Map<string, LLMProvider>();
 
   // Shared repositories for cross-cutting entities (agents, reviews/pulls,
@@ -101,6 +110,8 @@ export class Container {
   private _pullsRepo?: PullsRepository;
   private _settingsRepo?: SettingsRepository;
   private _intentRepo?: IntentRepository;
+  private _contextRepo?: ContextRepository;
+  private _briefRepo?: BriefRepository;
   private _pullsService?: PullsService;
   private _pollingService?: PollingService;
   private _settingsService?: SettingsService;
@@ -108,6 +119,8 @@ export class Container {
   private _intentService?: IntentService;
   private _smartDiffService?: SmartDiffService;
   private _blastService?: BlastService;
+  private _contextService?: ContextService;
+  private _briefService?: BriefService;
   private logger: ContainerLogger = SILENT_LOGGER;
   private _repoIntel?: RepoIntel;
   private _depgraph?: DepGraph;
@@ -138,6 +151,12 @@ export class Container {
     return this._git;
   }
 
+  get repoDocs(): RepoDocsReader {
+    if (this.overrides.repoDocs) return this.overrides.repoDocs;
+    this._repoDocs ??= new FsRepoDocsReader();
+    return this._repoDocs;
+  }
+
   get agentsRepo(): AgentsRepository {
     return (this._agentsRepo ??= new AgentsRepository(this.db));
   }
@@ -164,6 +183,14 @@ export class Container {
 
   get intentRepo(): IntentRepository {
     return (this._intentRepo ??= new IntentRepository(this.db));
+  }
+
+  get contextRepo(): ContextRepository {
+    return (this._contextRepo ??= new ContextRepository(this.db));
+  }
+
+  get briefRepo(): BriefRepository {
+    return (this._briefRepo ??= new BriefRepository(this.db));
   }
 
   // Use cases. Each takes named ports, never this container — the constructor
@@ -222,6 +249,33 @@ export class Container {
       repos: this.repoRepo,
       repoIntel: this.repoIntel,
       github: () => this.github(),
+      log: this.logger,
+    }));
+  }
+
+  get contextService(): ContextService {
+    return (this._contextService ??= new ContextService({
+      store: this.contextRepo,
+      repos: this.repoRepo,
+      agents: this.agentsRepo,
+      skills: this.skillsRepo,
+      docs: this.repoDocs,
+      roots: this.config.contextRoots,
+    }));
+  }
+
+  get briefService(): BriefService {
+    return (this._briefService ??= new BriefService({
+      store: this.briefRepo,
+      pulls: this.pullsRepo,
+      intent: this.intentService,
+      blast: this.blastService,
+      context: this.contextService,
+      roles: this.smartDiffService,
+      settingsRepo: this.settingsRepo,
+      tokenizer: this.tokenizer,
+      llm: (id) => this.llm(id),
+      promptLog: () => this.promptLog,
       log: this.logger,
     }));
   }

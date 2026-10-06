@@ -42,6 +42,18 @@ settled enough to move into `CLAUDE.md`.
 Quirks of dependencies, versions and tooling — what a library does that its docs
 do not say.
 
+- **A vitest name-fragment filter also matches DIRECTORY names, so a fragment equal to a component folder pulls in every suite beneath it.** (2026-10-05, vitest 2.1.9) `check-code.sh client -- PrBriefSummary BriefRiskAreas BriefReviewFocus OverviewTab` reported `Test Files 6 passed`, not the 4 the plan expected: `OverviewTab` also matched the two `BlastRadiusCard` suites under `…/OverviewTab/_components/`; `vitest run … OverviewTab.test` ran exactly 4.
+  → Filter a parent component by its file name (`OverviewTab.test`), not its folder name, and compare `Test Files N` with the suites you meant to run before reading a count as proof.
+
+- **Two vendored UI pieces break the obvious Testing Library query: `Tabs` renders plain `<button>`s (no `role="tab"`), and `PromptBlock`'s full-screen `Modal` renders INLINE inside the `Drawer`, so `getByRole("dialog")` finds two.** (2026-10-04) `src/vendor/ui/kit/Tabs.tsx:5` emits `<button onClick>` per tab; `RunTraceDrawer` test failed with `Found multiple elements with the role "dialog"` because the Drawer's own `role="dialog"` wraps the Modal's (no portal).
+  → Read tab order from the children of `getByRole("button", { name: "Config" }).parentElement`; scope a modal query by its content (`getByText(…).closest('[role="dialog"]')`) or take `getAllByRole("dialog").at(-1)`, never a bare `getByRole("dialog")` inside the drawer.
+
+- **`@testing-library/user-event` is not a `client/` dependency, although the `react-testing-library` skill says "always call `userEvent.setup()`" — drive events with `fireEvent`.** (2026-10-04) `client/package.json` lists only `@testing-library/jest-dom` and `@testing-library/react`, `ls client/node_modules/@testing-library` shows `jest-dom` and `react`, and no test under `client/src` imports `user-event`; adding it would break the no-new-dependency rule of a plan. A native checkbox or button therefore cannot be activated "from the keyboard" in a test: jsdom has no Enter/Space-to-click step.
+  → Use `fireEvent.click` / `.change` / `.dragStart` + `.drop` and `.keyDown(document, { key })`; prove keyboard operability by role + accessible name + a native `INPUT`/`BUTTON` that takes `.focus()`, not by simulated key presses.
+
+- **`client/` typecheck DOES cover `*.test.tsx`, unlike `server/`: `tsconfig.json` includes `**/*.tsx` and sets `noUncheckedIndexedAccess`, so an unchecked `rows[0]` or `calls[0][0]` in a test fails `check-code.sh client`.** (2026-10-04) A brief said client test files are not type-checked; the first run of `ProjectContextView.test.tsx` failed with `TS2345: Argument of type 'HTMLElement | undefined'` on `within(rows[i])` and `TS2532` on `push.mock.calls[0][0]`.
+  → Write fixtures to the real contract types and index test arrays with `!` (or destructure a typed tuple); do not assume a test file escapes `tsc` here — the server entry about `test/**` is the opposite case.
+
 - **A vitest path filter under a Next.js dynamic segment silently matches nothing: `vitest run "src/app/repos/\[repoId\]/…"` ran 0 files and printed no warning.** (2026-10-03, vitest 2.1.9) Filters are plain substrings, not regexes, so the backslash-escaped `\[repoId\]` never occurs in a path; with a second filter on the same command (`src/lib/hooks/blast.test.tsx`) the run was green on that one file alone, so the missing suite looked like a pass.
   → Filter by a name fragment (`vitest run BlastRadiusCard`) or write the path unescaped and quoted; read the `Test Files N passed` count against the number of suites you meant to run.
 
@@ -93,6 +105,9 @@ _None yet._
 
 Unresolved behaviour, undecided design, unverified assumptions. Delete an entry when
 it is answered — the answer belongs in another section.
+
+- **Unverified in a browser: with two run accordions open on the PR page, `a` / `d` / `j` / `k` act in both findings lists at once.** (2026-10-04) Every mounted `FindingsPanel` adds its own `window` keydown listener (`src/app/repos/[repoId]/pulls/[number]/_components/FindingsPanel/FindingsPanel.tsx:56-68`) and each `ReviewRunAccordion` renders one (`ReviewRunAccordion.tsx:150`), so one `a` would accept the focused finding of every open run. Read from the code, not reproduced.
+  → Open two runs, press `a`, and count the findings that change; if both do, scope the listener to one panel before building anything on finding focus (deep links, shortcuts).
 
 - **Unverified in a browser: `<Markdown>` headings and lists probably render as plain body text.** (2026-09-23) `src/vendor/ui/styles.css:1` is `@import "tailwindcss"`, whose v4 preflight resets `h1`–`h6` to inherited size/weight and strips list bullets, and `src/vendor/ui/primitives/Markdown.tsx` styles only `p`, `strong`, `code` and `a`; nothing targets `.dd-md`. This is the surface behind the skill Preview tab (hw2 criterion 26: "rendered, not raw markdown").
   → Open a skill with `##` headings and `-` lists in Preview; if they look like paragraphs, add heading/list styles under `.dd-md` (or component overrides) and move this entry to Tool & Library Notes.

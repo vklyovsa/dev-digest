@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import type {
   CommunitySkill,
+  ContextAttachments,
   Skill,
   SkillImportPreview,
   SkillType,
@@ -157,5 +158,29 @@ export function useImportSkill() {
   return useMutation({
     mutationFn: (input: ImportCommitInput) => api.post<Skill>("/skills/import", input),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["skills"] }),
+  });
+}
+
+/** Documents attached to a skill, in order. Every agent that uses the skill inherits them. */
+export function useSkillContext(skillId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["skill-context", skillId],
+    queryFn: () => api.get<ContextAttachments>(`/skills/${skillId}/context`),
+    enabled: !!skillId,
+  });
+}
+
+/** Replace a skill's whole ordered attachment list; the reply is the new GET shape. */
+export function useSetSkillContext() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ skillId, paths }: { skillId: string; paths: string[] }) =>
+      api.put<ContextAttachments>(`/skills/${skillId}/context`, { paths }),
+    onSuccess: (data, { skillId }) => {
+      qc.setQueryData(["skill-context", skillId], data);
+      // Agents inherit these documents, and agent_count on the page counts them.
+      qc.invalidateQueries({ queryKey: ["agent-context"] });
+      qc.invalidateQueries({ queryKey: ["context"] });
+    },
   });
 }

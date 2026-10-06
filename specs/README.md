@@ -1,18 +1,39 @@
 # Specs — repository
 
-Cross-cutting specs: work that spans more than one package (a course lesson that
-adds a server module *and* a screen, a contract change, a new pipeline stage).
-Work contained in a single package gets a spec in that package's `specs/` instead.
+**Only specs that touch two or more packages live here** — a course lesson that adds a
+server module *and* a screen, a contract change, a new pipeline stage — together with
+the plans and fixtures that belong to them. Work contained in a single package gets its
+spec in that package's `specs/` instead (`server/`, `client/`, `reviewer-core/`, `mcp/`).
+`e2e/specs/` holds flows and journey specs in a format of its own.
 
-- Name a spec `<feature-slug>.md`. Keep it while the work is open; when it lands,
-  either delete it or fold what it taught into `../docs/`.
-- Suggested sections: **Goal · Non-goals · Behaviour and acceptance criteria ·
-  Affected packages and files · Open questions**.
-- A spec states intent, not implementation steps, and is never a changelog.
+- One file per feature, `<YYYY-MM-DD>-<feature-slug>.md` — the date the draft was
+  created, then the feature's name, so specs are told apart at a glance — in one place:
+  here or in one package, never a root spec plus package halves.
+- Shape: [`TEMPLATE.md`](TEMPLATE.md) — the header (`Spec ID`, `Status`, `Supersedes`),
+  twelve sections, acceptance criteria in EARS. The `spec-creator` agent
+  (`../.claude/agents/spec-creator.md`) writes specs from it: it asks its blocking
+  questions first, then writes a `draft` and returns the rest. What is still unanswered is
+  marked `[NEEDS CLARIFICATION: … → OQ-n]` in the text, never filled in.
+- `Status` goes `draft` → `approved` → `implemented`. `approved` is set only after the
+  user says so, with no `[blocking]` question open and with
+  `.claude/agents/scripts/check-spec.sh --for-approval` passing; `implementation-planner`
+  does not plan a `draft`. An approved spec is not edited to change a decision — a new spec with
+  `Supersedes:` replaces it. When the work lands the spec stays, as `implemented`.
+- A spec states intent and is never a changelog. It may carry workflow and communication
+  diagrams and the contracts between the sides, and usually no implementation detail
+  ([`TEMPLATE.md`](TEMPLATE.md) § What belongs in a spec).
+- The chain: `spec-creator` writes the spec, then `implementation-planner` takes the
+  approved spec as its input and writes the Implementation Plan, saved beside it under
+  the same name with `-plan` before `.md`.
 - Read the spec before the first edit, not after. If the code contradicts the spec,
   stop and resolve the contradiction — do not silently follow the code.
-- Name every package the work touches: the packages are independent, and a contract
-  change has to land in each copy in the same commit.
+- Name every package the work touches (`Packages:` under Module interactions): the
+  packages are independent, and a contract change has to land in each copy in the same
+  commit.
+- Specs without a `Spec ID` were written before the template. They keep their sections
+  (Goal · Non-goals · Behaviour and acceptance criteria · Affected packages and files ·
+  Open questions), some have package halves, and they are not migrated; when such a spec
+  lands, delete it or fold what it taught into `../docs/`.
 
 ## Open specs
 
@@ -46,6 +67,8 @@ Work contained in a single package gets a spec in that package's `specs/` instea
 - [`blast-radius.md`](blast-radius.md) — Blast Radius: what a PR's changed symbols reach, read
   from the repo-intel index, on the Overview tab and through `get_blast_radius`
   (server + client + mcp).
+- [`2026-10-04-project-context.md`](2026-10-04-project-context.md) — SPEC-01: Project Context — find a repository's specs / docs / insights documents, attach them by hand to agents and skills, send them to the model as one untrusted block and show them in the run trace (server, client, reviewer-core).
+- [`2026-10-05-pr-brief.md`](2026-10-05-pr-brief.md) / [`2026-10-05-pr-brief-plan.md`](2026-10-05-pr-brief-plan.md) — SPEC-02: PR Brief — one model call turns a pull request's computed facts (intent, blast radius, diff statistics, description, attached documents) into a summary, file-anchored risk areas and a review focus list on the Overview tab, cached per head commit, with a jump to the file on Files changed (server, client); homework criteria in [`pr-brief-acceptance.md`](pr-brief-acceptance.md).
 
 ## Tooling plans (`.claude/`)
 

@@ -37,6 +37,14 @@ const file = (path: string, additions = 1, deletions = 0): SmartDiffFileRow => (
 const linesOf = (d: SmartDiff, path: string) =>
   d.groups.flatMap((g) => g.files).find((f) => f.path === path)?.finding_lines;
 
+describe('SmartDiffService.classify', () => {
+  it('gives the role forPull assigns to a path', () => {
+    const s = service([], []);
+    expect(s.classify('src/a.test.ts')).toBe('tests');
+    expect(s.classify('pnpm-lock.yaml')).toBe('boilerplate');
+  });
+});
+
 describe('SmartDiffService.forPull', () => {
   it('takes the newest review per agent and ignores an older run of the same agent', async () => {
     const d = await service(

@@ -5,6 +5,7 @@ import { loadConfig } from '../src/platform/config.js';
 import { seed } from '../src/db/seed.js';
 import * as t from '../src/db/schema.js';
 import type { SecretsProvider } from '@devdigest/shared';
+import { estimateCost } from '../src/adapters/llm/pricing.js';
 import {
   resolveFeatureModel,
   getFeatureModelOverride,
@@ -51,10 +52,12 @@ d('Settings: feature models + secrets status (Testcontainers pg)', () => {
       model: 'z-ai/glm-4.7-flash',
     });
     // An unset feature still resolves to its own registry default.
-    expect(await resolveFeatureModel(app.container, workspaceId, 'risk_brief')).toEqual({
-      provider: 'openai',
-      model: 'gpt-4.1',
+    const riskBrief = await resolveFeatureModel(app.container, workspaceId, 'risk_brief');
+    expect(riskBrief).toEqual({
+      provider: 'openrouter',
+      model: 'minimax/minimax-m2.5',
     });
+    expect(estimateCost(riskBrief.model, 1000, 1000)).not.toBeNull();
 
     await app.close();
   });

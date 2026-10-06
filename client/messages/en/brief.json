@@ -1,15 +1,40 @@
 {
+  "title": "PR Brief",
   "block": {
     "intent": "Intent",
     "blast": "Blast radius",
-    "risks": "Risks",
+    "risks": "Risk areas",
+    "reviewFocus": "Review focus",
     "history": "PR history"
   },
+  "generate": "Generate brief",
+  "refresh": "Regenerate brief",
+  "loading": "Loading brief…",
+  "generating": "Generating brief…",
+  "loadFailed": "Couldn't load the brief.",
+  "retry": "Retry",
+  "generateFailed": "Couldn't generate the brief: {message}",
+  "requestFailed": "the request failed",
+  "staleNotice": "The pull request changed after this brief was generated — regenerate it for the current head.",
+  "missingFacts": "Generated without: {facts}.",
+  "meta": "{model} · {tokensIn, number} in → {tokensOut, number} out",
+  "documentsRead": "Documents read",
+  "notInDiff": "File not in this PR's diff",
   "noRisks": "No notable risks flagged.",
+  "noReviewFocus": "No review focus items.",
   "noHistory": "No prior PRs overlap these files.",
   "overlap": "{count} overlap",
   "unavailable": "Brief not available yet.",
-  "unavailableHint": "Run a review or open the PR to compute it.",
+  "unavailableHint": "Use Generate brief to create one.",
+  "risk": {
+    "severity": {
+      "high": "High severity",
+      "medium": "Medium severity",
+      "low": "Low severity"
+    },
+    "expand": "Show explanation: {title}",
+    "collapse": "Hide explanation: {title}"
+  },
   "why": {
     "title": "git-why",
     "blame": "blame",

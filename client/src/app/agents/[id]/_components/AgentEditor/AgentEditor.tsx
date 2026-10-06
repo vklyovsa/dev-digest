@@ -1,6 +1,7 @@
-/* AgentEditor — the agent's config (model + system prompt) and the skills it
-   loads. Evals/Stats/CI arrive with their own lessons. Tab state lives in ?tab=
-   so a link to a specific tab survives a reload. */
+/* AgentEditor — the agent's config (model + system prompt), the skills it
+   loads and the project documents it receives. Evals/Stats/CI arrive with their
+   own lessons. Tab state lives in ?tab= so a link to a specific tab survives a
+   reload. */
 "use client";
 
 import React from "react";
@@ -8,6 +9,7 @@ import { useTranslations } from "next-intl";
 import { Tabs } from "@devdigest/ui";
 import type { Agent } from "@devdigest/shared";
 import { ConfigTab } from "./_components/ConfigTab";
+import { ContextTab } from "./_components/ContextTab";
 import { SkillsTab } from "./_components/SkillsTab";
 import { TABS } from "./constants";
 import { s } from "./styles";
@@ -21,11 +23,13 @@ export function AgentEditor({ agent, tab, onTab }: { agent: Agent; tab: string; 
         <Tabs tabs={tabs} value={tab} onChange={onTab} pad="0 24px" />
       </div>
       <div style={s.body}>
+        {/* Keyed per agent: switching agents keeps this editor mounted, and a
+            stale optimistic selection would otherwise be written to the agent
+            you just switched TO. */}
         {tab === "skills" ? (
-          // Keyed per agent: switching agents keeps this editor mounted, and a
-          // stale optimistic selection would otherwise be written to the agent
-          // you just switched TO.
           <SkillsTab key={agent.id} agent={agent} />
+        ) : tab === "context" ? (
+          <ContextTab key={agent.id} agent={agent} />
         ) : (
           <ConfigTab key={agent.id} agent={agent} />
         )}

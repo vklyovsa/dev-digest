@@ -11,6 +11,7 @@ export const s = {
     overflow: "hidden",
     background: "var(--bg-elevated)",
   } satisfies CSSProperties,
+  fileCardTarget: { outline: "2px solid var(--accent)" } satisfies CSSProperties,
   fileHeader: {
     display: "flex",
     alignItems: "center",

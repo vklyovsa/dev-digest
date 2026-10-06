@@ -15,6 +15,12 @@ import {
   Settings,
   Repo,
   PrDetail,
+  SpecFile,
+  ContextDocumentList,
+  ContextAttachmentsInput,
+  PrBrief,
+  PrBriefAnswer,
+  PrBriefRecord,
 } from '@devdigest/shared';
 
 /**
@@ -175,6 +181,117 @@ describe('AI contracts parse fixtures', () => {
       log: [{ t: '00.00', kind: 'info', msg: 'started' }],
     });
     expect(trace.tool_calls).toHaveLength(1);
+  });
+
+  it('RunTrace parses with and without specs_docs', () => {
+    const base = {
+      config: { agent: 'Security Reviewer', model: 'gpt-4.1' },
+      stats: { duration_ms: 1, tokens_in: 1, tokens_out: 1, findings: 0, grounding: '0/0' },
+      prompt_assembly: { system: 's', user: 'u' },
+      tool_calls: [],
+      raw_output: '{}',
+      memory_pulled: [],
+      specs_read: ['docs/a.md', 'docs/b.md'],
+      log: [],
+    };
+    expect(RunTrace.parse(base).specs_docs).toBeUndefined();
+    const withDocs = RunTrace.parse({
+      ...base,
+      specs_docs: [
+        { path: 'docs/a.md', tokens: 12, source: 'agent', skill_name: null },
+        { path: 'docs/b.md', tokens: 7, source: 'skill', skill_name: 'Auth rules' },
+        { path: 'docs/c.md', tokens: 0 },
+      ],
+    });
+    expect(withDocs.specs_docs).toHaveLength(3);
+    expect(withDocs.specs_docs![1]!.skill_name).toBe('Auth rules');
+  });
+});
+
+describe('project context contracts', () => {
+  it('ContextAttachmentsInput rejects unsafe or repeated paths and accepts a plain one', () => {
+    for (const bad of ['', '/abs.md', 'a/../b.md', '../b.md', 'a\\b.md', 'a\0.md']) {
+      expect(ContextAttachmentsInput.safeParse({ paths: [bad] }).success, JSON.stringify(bad)).toBe(false);
+    }
+    expect(ContextAttachmentsInput.safeParse({ paths: ['docs/a.md', 'docs/a.md'] }).success).toBe(false);
+    expect(ContextAttachmentsInput.safeParse({ paths: ['docs/a.md'] }).success).toBe(true);
+    expect(ContextAttachmentsInput.safeParse({ paths: [] }).success).toBe(true);
+  });
+
+  it('SpecFile list entry parses without content and defaults agent_count', () => {
+    const entry = SpecFile.parse({ path: 'docs/a.md', type: 'docs', tokens: 12 });
+    expect(entry.content).toBeUndefined();
+    expect(entry.agent_count).toBe(0);
+    expect(
+      ContextDocumentList.parse({ roots: ['docs'], documents: [{ path: 'docs/a.md', type: 'docs', tokens: 3 }] })
+        .documents,
+    ).toHaveLength(1);
+  });
+});
+
+describe('PR brief contracts', () => {
+  const answer = {
+    summary: 'Adds a rate limiter to the public router.',
+    risks: [
+      {
+        kind: 'security',
+        title: 'Limiter bypass',
+        explanation: 'The limiter skips authenticated callers.',
+        severity: 'high',
+        file_refs: ['src/limiter.ts'],
+      },
+    ],
+    review_focus: [{ file: 'src/limiter.ts', line: 12, reason: 'The skip condition lives here.' }],
+  };
+
+  it('PrBriefAnswer accepts a full sample and rejects a missing or empty summary and a line of 0', () => {
+    expect(PrBriefAnswer.safeParse(answer).success).toBe(true);
+
+    const { summary: _summary, ...withoutSummary } = answer;
+    expect(PrBriefAnswer.safeParse(withoutSummary).success).toBe(false);
+    expect(PrBriefAnswer.safeParse({ ...answer, summary: '' }).success).toBe(false);
+    expect(
+      PrBriefAnswer.safeParse({
+        ...answer,
+        review_focus: [{ file: 'src/limiter.ts', line: 0, reason: 'r' }],
+      }).success,
+    ).toBe(false);
+  });
+
+  it('PrBriefAnswer rejects a blank summary and trims a padded one', () => {
+    expect(PrBriefAnswer.safeParse({ ...answer, summary: '   ' }).success).toBe(false);
+    expect(PrBriefAnswer.parse({ ...answer, summary: ' ok ' }).summary).toBe('ok');
+  });
+
+  it('PrBrief accepts intent: null, blast: null and no history; PrBriefRecord takes cost_usd: null and needs head_sha', () => {
+    const brief = {
+      summary: answer.summary,
+      review_focus: answer.review_focus,
+      risks: { risks: answer.risks },
+      intent: null,
+      blast: null,
+    };
+    const parsed = PrBrief.parse(brief);
+    expect(parsed.intent).toBeNull();
+    expect(parsed.blast).toBeNull();
+    expect(parsed.history).toBeUndefined();
+
+    const record = {
+      ...brief,
+      pr_id: 'p1',
+      head_sha: 'abc123',
+      stale: false,
+      provider: 'openrouter',
+      model: 'deepseek/deepseek-v4-flash',
+      tokens_in: 1200,
+      tokens_out: 340,
+      cost_usd: null,
+      documents_read: [],
+    };
+    expect(PrBriefRecord.safeParse(record).success).toBe(true);
+
+    const { head_sha: _headSha, ...withoutHeadSha } = record;
+    expect(PrBriefRecord.safeParse(withoutHeadSha).success).toBe(false);
   });
 });
 

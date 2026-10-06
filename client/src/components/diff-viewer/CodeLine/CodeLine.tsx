@@ -19,6 +19,7 @@ export function CodeLine({
   commenting,
   lineFindings,
   findings,
+  rowRef,
 }: {
   ln: Line;
   path: string;
@@ -26,6 +27,7 @@ export function CodeLine({
   commenting?: DiffCommentApi;
   lineFindings: FindingRecord[];
   findings?: DiffFindingsApi;
+  rowRef?: React.Ref<HTMLDivElement>;
 }) {
   const [hover, setHover] = React.useState(false);
   const [composing, setComposing] = React.useState(false);
@@ -49,6 +51,7 @@ export function CodeLine({
 
   return (
     <div
+      ref={rowRef}
       style={cs.rowWrap}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}

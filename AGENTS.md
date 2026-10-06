@@ -34,10 +34,17 @@ Only Postgres runs in Docker — the API and the web app run on the host.
 - You need the end-to-end picture or the architecture diagrams → `README.md`.
 - Anything about test suites, the unit/integration split, or CI lanes → `TESTING.md`.
 - Writing or editing a reviewer agent's system prompt → `docs/agent-prompts/`.
-- Delegating to a project subagent (options, plan, implement, tests, verification,
+- Delegating to a project subagent (options, spec, plan, implement, tests, verification,
   architecture / security review, docs) → `.claude/agents/README.md`.
-- The task comes from a written spec or a course lesson → `specs/`, and the
-  package-level `*/specs/` for the half that lives in one package.
+- Building an approved plan end to end (implementers, verification, architecture review
+  with fix rounds) → `/implement` (`.claude/commands/implement.md`).
+- Changing a project agent, a command or the pipeline, or asking how a multi-agent run
+  went → `docs/retro/README.md` and the newest entries in `docs/retro/ledger/`. An entry is
+  written only by `/workflow-retro`, which the user types — never start it yourself.
+- The task comes from a written spec or a course lesson → `specs/` when it spans
+  packages, `<package>/specs/` when it lives in one.
+- Writing a spec → `specs/TEMPLATE.md` and `specs/README.md`; the `spec-creator` agent
+  writes it (`.claude/agents/README.md`).
 - Tooling or the environment behaves inexplicably → `INSIGHTS.md` (§ Recurring Errors).
 - You learned something non-obvious → append it to the matching `INSIGHTS.md` section.
 - Domain rules (Fastify, Drizzle, Postgres, Zod, React, Next, security) live in
@@ -61,9 +68,10 @@ Only Postgres runs in Docker — the API and the web app run on the host.
 - CI is path-filtered per package: `.github/workflows/<package>.yml`.
 - Course lessons add features as self-contained modules; the DB schema already
   contains every table, the unused ones simply sit empty.
-- **Tests may be run without asking** — any suite a change needs. They must not touch
-  the dev DB: the server unit lane runs with
-  `DATABASE_URL=postgres://isolated:isolated@127.0.0.1:1/isolated` (`server/INSIGHTS.md`).
+- **Tests may be run without asking** — any suite a change needs. They cannot reach the
+  dev DB: `server/vitest.config.ts` pins `DATABASE_URL` to an address nothing listens on
+  (`server/test/hermetic-env.test.ts` holds it there). One call per package —
+  typecheck, layering, tests: `.claude/agents/scripts/check-code.sh <package>`.
 - Project agents and hooks carry their own rules; they must work the same for every
   developer, whatever their personal `~/.claude` settings (`.claude/agents/README.md`).
 
@@ -82,7 +90,8 @@ Only Postgres runs in Docker — the API and the web app run on the host.
   name (`export const PrMeta` + `export type PrMeta`).
 - **Wire vs code** — JSON on the wire is snake_case (`head_sha`, `cost_usd`), TS is
   camelCase, Drizzle columns are snake_case in SQL and camelCase in TS.
-- **Docs** — `specs/<feature-slug>.md`, `docs/<topic>.md`, both kebab-case.
+- **Docs** — `specs/<YYYY-MM-DD>-<feature-slug>.md` (specs written before
+  `specs/TEMPLATE.md` carry no date), `docs/<topic>.md`, both kebab-case.
   Migrations keep the generated `NNNN_<name>.sql` name — never renamed by hand.
 - **i18n** — `client/messages/<locale>/<namespace>.json`; keys are camelCase and
   read as a dotted path (`list.columns.findings`).

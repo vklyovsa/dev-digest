@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Finding, Verdict } from './findings.js';
-import { BlastRadius, Intent, IntentConfidence, IntentSource, PrHistory, SmartDiff } from './brief.js';
+import { BlastRadius, Intent, IntentConfidence, IntentSource, PrBrief, PrHistory, SmartDiff } from './brief.js';
 
 /**
  * A2 — Review-Core API surface contracts. These extend the core
@@ -78,6 +78,25 @@ export type PrIntentRecord = z.infer<typeof PrIntentRecord>;
 /** Response of GET/POST .../intent (derive) — null before the first derivation. */
 export const PrIntentResponse = z.object({ intent: PrIntentRecord.nullable() });
 export type PrIntentResponse = z.infer<typeof PrIntentResponse>;
+
+/** A stored PR Brief with its generation metadata. `stale` is computed on every
+    read and not stored; `cost_usd` is null for a model without a price. */
+export const PrBriefRecord = PrBrief.extend({
+  pr_id: z.string(),
+  head_sha: z.string(),
+  stale: z.boolean(),
+  provider: z.string(),
+  model: z.string(),
+  tokens_in: z.number().int(),
+  tokens_out: z.number().int(),
+  cost_usd: z.number().nullable(),
+  documents_read: z.array(z.string()),
+});
+export type PrBriefRecord = z.infer<typeof PrBriefRecord>;
+
+/** Response of GET/POST .../brief — null on GET when no brief is stored. */
+export const PrBriefResponse = z.object({ brief: PrBriefRecord.nullable() });
+export type PrBriefResponse = z.infer<typeof PrBriefResponse>;
 
 /** Smart-diff response for a PR (the SmartDiff). */
 export const SmartDiffResponse = SmartDiff;

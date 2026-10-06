@@ -3,7 +3,12 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { SectionLabel, Button, Skeleton } from "@devdigest/ui";
-import { DiffViewer, type DiffCommentApi, type DiffFindingsApi } from "@/components/diff-viewer";
+import {
+  DiffViewer,
+  type DiffCommentApi,
+  type DiffFindingsApi,
+  type DiffTarget,
+} from "@/components/diff-viewer";
 import {
   usePrComments,
   useCreatePrComment,
@@ -27,10 +32,13 @@ interface DiffTabProps {
   canComment?: boolean;
   repoFullName?: string | null;
   headSha?: string | null;
+  /** The `file` / `line` of the URL, as text; set only when a link sent the reviewer here. */
+  target?: { file: string | null; line: string | null };
 }
 
-export function DiffTab({ prId, files, canComment, repoFullName, headSha }: DiffTabProps) {
+export function DiffTab({ prId, files, canComment, repoFullName, headSha, target }: DiffTabProps) {
   const t = useTranslations("prReview");
+  const tBrief = useTranslations("brief");
   const { data: comments } = usePrComments(prId);
   const { data: reviews } = usePrReviews(prId);
   const smartDiff = useSmartDiff(prId);
@@ -85,7 +93,13 @@ export function DiffTab({ prId, files, canComment, repoFullName, headSha }: Diff
     },
   };
 
-  const flat = <DiffViewer files={files} commenting={commenting} findings={findingsApi} />;
+  const diffTarget: DiffTarget | undefined =
+    target?.file && files.some((f) => f.path === target.file)
+      ? { path: target.file, line: target.line }
+      : undefined;
+  const targetMissing = !!target?.file && !diffTarget;
+
+  const flat = <DiffViewer files={files} commenting={commenting} findings={findingsApi} target={diffTarget} />;
   const groups = smartDiff.data ? joinGroupFiles(smartDiff.data.groups, files) : [];
 
   let body: React.ReactNode;
@@ -114,6 +128,7 @@ export function DiffTab({ prId, files, canComment, repoFullName, headSha }: Diff
             showCounter={!noReview}
             commenting={commenting}
             findings={findingsApi}
+            target={diffTarget}
           />
         ))}
       </div>
@@ -143,6 +158,11 @@ export function DiffTab({ prId, files, canComment, repoFullName, headSha }: Diff
         <OrderToggle value={order} onChange={setOrder} />
       </div>
       {noReview && <div style={s.hint}>{t("smartDiff.noReviewHint")}</div>}
+      {targetMissing && (
+        <div role="status" style={s.hint}>
+          {tBrief("notInDiff")}
+        </div>
+      )}
       {body}
     </section>
   );

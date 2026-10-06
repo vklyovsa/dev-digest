@@ -40,9 +40,22 @@ const EnvSchema = z.object({
     (v) => (v === '' ? undefined : v),
     z.enum(['off', 'summary', 'verbose']).optional(),
   ),
+  // Comma-separated folder names that mark a Markdown file as a Project Context
+  // document. Empty or unset → DEFAULT_CONTEXT_ROOTS.
+  PROJECT_CONTEXT_ROOTS: z.string().optional(),
 });
 
 export type PromptLogMode = 'off' | 'summary' | 'verbose';
+
+export const DEFAULT_CONTEXT_ROOTS: readonly string[] = ['specs', 'docs', 'insights'];
+
+function parseContextRoots(raw: string | undefined): string[] {
+  const roots = (raw ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  return roots.length > 0 ? roots : [...DEFAULT_CONTEXT_ROOTS];
+}
 
 export type AppConfig = {
   databaseUrl: string;
@@ -69,6 +82,8 @@ export type AppConfig = {
   promptLog: PromptLogMode;
   /** PROMPT_LOG=verbose was asked for outside development and downgraded to summary. */
   promptLogVerboseDenied: boolean;
+  /** Folder names under which Markdown files count as Project Context documents, in display order. */
+  contextRoots: string[];
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -92,5 +107,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     repoIntelEnabled: parsed.REPO_INTEL_ENABLED !== 'false',
     promptLog: promptLogVerboseDenied ? 'summary' : promptLogRequested,
     promptLogVerboseDenied,
+    contextRoots: parseContextRoots(parsed.PROJECT_CONTEXT_ROOTS),
   };
 }

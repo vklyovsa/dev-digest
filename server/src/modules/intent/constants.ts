@@ -47,7 +47,9 @@ export const INTENT_MODEL_TIMEOUT_MS = 45_000;
 /** Hard ceiling around the whole model call — OpenRouter ignores `timeoutMs`
  * and retries a slow generation itself, so this is the real backstop. */
 export const INTENT_MODEL_DEADLINE_MS = 60_000;
-export const INTENT_MAX_TOKENS = 1200;
+/** Sized for hidden reasoning plus the whole answer: a reasoning model that
+ * hits the ceiling returns cut-off JSON, which reads as a schema failure. */
+export const INTENT_MAX_TOKENS = 3000;
 /** Timeout for the one-shot `fetchPullHead` retry on a doc-read miss. */
 export const GIT_FETCH_TIMEOUT_MS = 20_000;
 

@@ -79,6 +79,9 @@ No `chat`, no model key.
 ## Running locally
 
 ```sh
+# typecheck + layering + tests of a package, one line per step (--it adds server integration)
+.claude/agents/scripts/check-code.sh server client reviewer-core mcp
+
 # per package
 cd client        && pnpm test           # + pnpm typecheck
 cd reviewer-core && npm test
@@ -106,7 +109,9 @@ cd e2e && npm install && npm test
   `pnpm exec vitest run …` rather than relying on committed `test:unit` /
   `test:integration` scripts.
 - **Hermetic by default.** Reach for `src/adapters/mocks.ts` (MockLLMProvider,
-  MockGitClient) rather than real network/keys.
+  MockGitClient) rather than real network/keys. `server/vitest.config.ts` pins
+  `DATABASE_URL` to an address nothing listens on, so a test that boots the app without
+  its own `db` cannot open the dev database (`test/hermetic-env.test.ts`).
 - **E2E specs are deterministic batch JSON** (`e2e/specs/*.flow.json`) using
   only `--url` / `--text` / `find` locators — never the AI `chat` command.
 - **CI is path-filtered per package.** Cross-package source aliases are encoded

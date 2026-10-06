@@ -169,3 +169,53 @@ readonly-guard	-	cmd	.claude/agents/scripts/implementer-guard.sh --check x	2
 readonly-guard	-	cmd	bash .claude/agents/scripts/x.sh	2
 # awk is not on the read-only allowlist: its quoted program can write files
 readonly-guard	-	cmd	awk '{print $1}' server/src/app.ts	2
+# readonly-guard — the spec checker is a read-only validator
+readonly-guard	-	cmd	.claude/agents/scripts/check-spec.sh --for-approval specs/2026-10-04-x.md	0
+readonly-guard	-	cmd	.claude/agents/scripts/check-spec.sh specs/2026-10-04-x.md > report.txt	2
+# write-scope-guard --profile specs — spec-creator: dated specs in the spec folders, Bash read-only
+write-scope-guard	--profile specs	path	specs/2026-10-04-new-feature.md	0
+write-scope-guard	--profile specs	path	client/specs/2026-10-04-new-feature.md	0
+write-scope-guard	--profile specs	path	mcp/specs/2026-10-04-new-feature.md	0
+write-scope-guard	--profile specs	path	specs/README.md	0
+write-scope-guard	--profile specs	path	server/specs/README.md	0
+write-scope-guard	--profile specs	cmd	.claude/agents/scripts/check-spec.sh client/specs/2026-10-04-new-feature.md	0
+write-scope-guard	--profile specs	cmd	.claude/agents/scripts/check-spec.sh --next-id	0
+write-scope-guard	--profile specs	cmd	date +%F	0
+write-scope-guard	--profile specs	cmd	git rev-parse --short HEAD	0
+write-scope-guard	--profile specs	cmd	git status --short	0
+write-scope-guard	--profile specs	cmd	grep -rn "Spec ID" specs server/specs | wc -l	0
+write-scope-guard	--profile specs	cmd	find client/src/app -name '*.tsx' | head -20	0
+write-scope-guard	--profile specs	cmd	sed -n '1,40p' client/src/lib/api.ts	0
+write-scope-guard	--profile specs	path	specs/blast-radius.md	2
+write-scope-guard	--profile specs	path	specs/TEMPLATE.md	2
+write-scope-guard	--profile specs	path	specs/2026-10-04-new-feature-plan.md	2
+write-scope-guard	--profile specs	path	specs/fixtures/2026-10-04-x.md	2
+write-scope-guard	--profile specs	path	e2e/specs/2026-10-04-x.md	2
+write-scope-guard	--profile specs	path	docs/2026-10-04-x.md	2
+write-scope-guard	--profile specs	path	client/src/app/page.tsx	2
+write-scope-guard	--profile specs	path	INSIGHTS.md	2
+write-scope-guard	--profile specs	path	.claude/agents/spec-creator.md	2
+write-scope-guard	--profile specs	path	/tmp/2026-10-04-x.md	2
+write-scope-guard	--profile specs	cmd	curl -s https://example.com	2
+write-scope-guard	--profile specs	cmd	rm specs/blast-radius.md	2
+write-scope-guard	--profile specs	cmd	echo x > specs/2026-10-04-x.md	2
+write-scope-guard	--profile specs	cmd	git commit -am x	2
+write-scope-guard	--profile specs	cmd	pnpm test	2
+write-scope-guard	--profile specs	cmd	node -e 'require("fs").writeFileSync("x","")'	2
+write-scope-guard	--profile specs	cmd	echo "it's" ; rm specs/README.md ; echo 'y'	2
+write-scope-guard	--profile specs	tool	NotebookEdit	2
+readonly-guard	--bash-only	cmd	date +%F	0
+readonly-guard	--bash-only	cmd	rm x	2
+readonly-guard	--bash-only	tool	Write	0
+readonly-guard	--bash-only	path	specs/2026-10-04-x.md	0
+# check-code.sh — one-turn verification: tests need --allow-tests, the static half does not
+implementer-guard	-	cmd	.claude/agents/scripts/check-code.sh --it server	0
+readonly-guard	-	cmd	.claude/agents/scripts/check-code.sh server	2
+readonly-guard	-	cmd	.claude/agents/scripts/check-code.sh --no-tests server client	0
+readonly-guard	-	cmd	.claude/agents/scripts/check-code.sh server -- --no-tests	2
+readonly-guard	--allow-tests	cmd	.claude/agents/scripts/check-code.sh --it server	0
+readonly-guard	--allow-tests	cmd	.claude/agents/scripts/check-code.sh server -- test/x.test.ts	0
+readonly-guard	--allow-tests	cmd	.claude/agents/scripts/check-code.sh server > out.txt	2
+write-scope-guard	--profile tests	cmd	.claude/agents/scripts/check-code.sh server -- test/x.test.ts	0
+write-scope-guard	--profile docs	cmd	.claude/agents/scripts/check-code.sh server	2
+write-scope-guard	--profile specs	cmd	.claude/agents/scripts/check-code.sh server	2

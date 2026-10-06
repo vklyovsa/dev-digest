@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { ReviewsDeps, ReviewIntentOutcome } from './deps.js';
+import type { ReviewsDeps, ReviewIntentOutcome, ProjectContextOutcome } from './deps.js';
 import type { Provider, RepoRef, Review, RunTrace, UnifiedDiff } from '@devdigest/shared';
 import { reviewPullRequest, countBlockers } from '@devdigest/reviewer-core';
 import { RunLogger } from '../../platform/run-logger.js';
@@ -234,6 +234,45 @@ export class ReviewRunExecutor {
     return outcome;
   }
 
+  /**
+   * Resolve this agent's project-context documents against the reviewed
+   * repository. Like `resolveIntent`, deliberately NOT `runLog.step`/`error`: a
+   * failure or a skipped document degrades the prompt (`info`), it never trips
+   * the `error` kind. Logs names and sizes only, never document text.
+   */
+  private async resolveProjectContext(
+    workspaceId: string,
+    pull: PullRow,
+    agent: AgentRow,
+    runLog: RunLogger,
+  ): Promise<ProjectContextOutcome['documents']> {
+    runLog.tool('Loading project context…');
+
+    let outcome: ProjectContextOutcome;
+    try {
+      outcome = await this.deps.contextService.resolveForRun(workspaceId, pull.repoId, agent.id);
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'project context step failed';
+      runLog.info(`Project context unavailable — reviewing without it: ${reason}`);
+      outcome = { documents: [], skipped: [] };
+    }
+
+    for (const { path, reason } of outcome.skipped) {
+      runLog.info(`Project context: skipped ${path} — ${reason}`);
+    }
+
+    if (outcome.documents.length > 0) {
+      const tokens = outcome.documents.reduce((sum, doc) => sum + doc.tokens, 0);
+      runLog.info(
+        `Project context in prompt (${outcome.documents.length} document(s), ≈ ${tokens} tok)`,
+      );
+    } else {
+      runLog.info('No project context — the prompt carries no project context section');
+    }
+
+    return outcome.documents;
+  }
+
   /** Execute a single agent's review against a PR, streaming progress. */
   private async runOneAgent(
     workspaceId: string,
@@ -279,6 +318,11 @@ export class ReviewRunExecutor {
           : 'No enabled skills linked to this agent — the prompt carries no skills block',
       );
 
+      // Project context — documents attached to the agent and to its linked,
+      // enabled skills, read from the reviewed repository's clone as it stands
+      // now. Never fails the run: a missing or unreadable document is left out.
+      const projectDocs = await this.resolveProjectContext(workspaceId, pull, agent, runLog);
+
       // Per-agent repo-intel toggle (Agent editor). When an agent opts out we
       // skip all enrichment entirely so its prompt is identical to the
       // repo-intel-off baseline — independent of the global REPO_INTEL_ENABLED
@@ -322,6 +366,11 @@ export class ReviewRunExecutor {
         // Skills block — omitted entirely when the agent loads none, so the
         // prompt is byte-identical to the pre-skills shape.
         ...(skillBlocks.length > 0 ? { skills: skillBlocks } : {}),
+        // Project context — path + text per document, omitted when there is none
+        // so the prompt carries no `## Project context` section.
+        ...(projectDocs.length > 0
+          ? { specs: projectDocs.map(({ path, text }) => ({ path, text })) }
+          : {}),
         // T1.3 — pass the callers digest only when we built one. assemblePrompt
         // omits the section when this is empty/undefined.
         ...(callersDigest ? { callers: callersDigest } : {}),
@@ -428,7 +477,13 @@ export class ReviewRunExecutor {
         })),
         raw_output: outcome.raw,
         memory_pulled: [],
-        specs_read: [],
+        specs_read: projectDocs.map((doc) => doc.path),
+        specs_docs: projectDocs.map((doc) => ({
+          path: doc.path,
+          tokens: doc.tokens,
+          source: doc.source,
+          skill_name: doc.skillName,
+        })),
         // Persisted log = the run's FULL event buffer (incl. shared pre-work:
         // diff load + intent), not just events recorded inside this method.
         log: runLog.logFor(runId),
