@@ -1,6 +1,6 @@
 # Testing & CI strategy
 
-DevDigest is four independent packages (no workspace), so testing is organised
+DevDigest is five independent packages (no workspace), so testing is organised
 as **one suite per package**, each with its own CI workflow, runner, and path
 filter. A package's suite runs only when that package (or a package it depends
 on at type-check time) changes.
@@ -30,6 +30,7 @@ If a test wouldn't catch a class of regression we care about, we don't write it.
 | server-unit | `server/` | unit (hermetic) | vitest | `server-unit.yml` | no |
 | server-integration | `server/` | integration (real Postgres) | vitest | `server-integration.yml` | **yes** |
 | reviewer-core | `reviewer-core/` | unit (engine) | vitest | `reviewer-core.yml` | no |
+| mcp | `mcp/` | unit + in-memory MCP + stdio spawn | vitest | `mcp.yml` | no |
 | e2e web | `e2e/` | browser e2e (deterministic) | agent-browser + `run.ts` | `e2e-web.yml` | yes (stack) |
 
 ## What each suite covers
@@ -60,6 +61,16 @@ Docker is unavailable.
 **reviewer-core** — the pure engine: `toReview` selection, prompt construction,
 and a `run` with a stubbed model → grounded findings. No DB / GitHub / FS.
 
+**mcp** — the local MCP server, with no API, DB or key. A fake `fetch` drives the
+HTTP adapter (wire → domain mapping, error kinds, the only two non-GET calls);
+findings shaping, resolvers and text clipping are tested as pure functions, and each
+tool against an in-memory fake API, including the wait budget, the duplicate-run
+guard and cancellation; the MCP surface is exercised through the SDK client over an
+in-memory transport (tool list and order, descriptions, flat schemas, size ceilings,
+annotations); `stdio.test.ts` spawns the real entry over stdio against an unreachable API
+port. `npm run arch:check` holds the layer map. Nothing here starts the stack or a
+paid run.
+
 **e2e web** — see `e2e/README.md`. Deterministic agent-browser flows over the
 main journeys (boot → PR list → PR detail; agents; skills) against a real seeded
 stack.
@@ -71,6 +82,7 @@ No `chat`, no model key.
 # per package
 cd client        && pnpm test           # + pnpm typecheck
 cd reviewer-core && npm test
+cd mcp           && npm test           # + npm run typecheck, npm run arch:check
 
 # server — the unit/integration split (see note below)
 cd server && pnpm exec vitest run --exclude '**/*.it.test.ts'   # unit, no Docker

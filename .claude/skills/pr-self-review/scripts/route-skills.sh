@@ -53,7 +53,7 @@ SECURITY_RE='dangerouslySetInnerHTML|innerHTML|child_process|execSync|spawn\(|\b
 INJECT_RE='\.inject\('
 TS_RE='(^|[^A-Za-z])any([^A-Za-z]|$)|as unknown as|as [A-Z]|@ts-(ignore|expect-error)|\binfer \b|\bkeyof \b|satisfies |declare module'
 
-declare -A LANE
+declare -A LANE=()
 UNROUTED=()
 
 add() { LANE["$1"]+="$2"$'\n'; }
@@ -103,6 +103,11 @@ for f in "${FILES[@]}"; do
   # ---- reviewer-core ---------------------------------------------------------
   if [[ "$f" =~ ^reviewer-core/src/ ]]; then
     add onion-architecture "$f"; add typescript-expert "$f"; add zod "$f"; matched=1
+  fi
+
+  # ---- mcp -------------------------------------------------------------------
+  if [[ "$f" =~ ^mcp/src/ ]]; then
+    add typescript-expert "$f"; add zod "$f"; add security "$f"; matched=1
   fi
 
   # ---- content triggers ------------------------------------------------------

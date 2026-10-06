@@ -21,7 +21,9 @@ and in neither column here is a routing bug.
 | `server/src/db/{schema,rows}.ts`, `server/src/db/migrations/**` | `drizzle-orm-patterns`, `postgresql-table-design` |
 | `{server,client}/src/vendor/shared/**` | `zod`, `onion-architecture` + the dual-copy check |
 | `reviewer-core/src/**` | `onion-architecture`, `typescript-expert`, `zod` |
+| `mcp/src/**` | `typescript-expert`, `zod`, `security` |
 | `e2e/**` | conventions lane only (`e2e/AGENTS.md` — no skill exists) |
+| `mcp/**` (everything outside `mcp/src/`) | conventions lane only (`mcp/AGENTS.md`) |
 | `.github/**`, `scripts/**`, `.claude/**`, root `*.md`, `docs/**`, `specs/**` | conventions lane only |
 
 `onion-architecture` is the backend architecture lane: it covers `server/` **and**

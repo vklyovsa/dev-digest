@@ -119,6 +119,17 @@ export interface OpenPrPayload {
   body: string;
 }
 
+/** A merged PR with the paths it changed (first page of files only). */
+export interface MergedPullWithFiles {
+  number: number;
+  title: string;
+  author: string;
+  mergedAt: string;
+  files: string[];
+  /** True when the PR changed more files than were fetched. */
+  filesTruncated: boolean;
+}
+
 export interface GitHubClient {
   listPullRequests(repo: RepoRef): Promise<PrMeta[]>;
   getPullRequest(repo: RepoRef, n: number): Promise<PrDetail>;
@@ -133,6 +144,8 @@ export interface GitHubClient {
   ): Promise<PrReviewComment>;
   openPullRequest(repo: RepoRef, payload: OpenPrPayload): Promise<{ url: string }>;
   getIssue(repo: RepoRef, n: number): Promise<IssueMeta>;
+  /** Most recently updated merged PRs with their changed paths, in one round trip. */
+  listMergedPullsWithFiles(repo: RepoRef, limit: number): Promise<MergedPullWithFiles[]>;
   /** GET /user — for "posting as @user". */
   currentLogin(): Promise<string>;
 }

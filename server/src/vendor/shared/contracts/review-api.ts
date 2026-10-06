@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Finding, Verdict } from './findings.js';
-import { Intent, IntentConfidence, IntentSource, SmartDiff } from './brief.js';
+import { BlastRadius, Intent, IntentConfidence, IntentSource, PrHistory, SmartDiff } from './brief.js';
 
 /**
  * A2 — Review-Core API surface contracts. These extend the core
@@ -82,3 +82,49 @@ export type PrIntentResponse = z.infer<typeof PrIntentResponse>;
 /** Smart-diff response for a PR (the SmartDiff). */
 export const SmartDiffResponse = SmartDiff;
 export type SmartDiffResponse = z.infer<typeof SmartDiffResponse>;
+
+export const BlastDegradedReason = z.enum([
+  'flag_off',
+  'index_failed',
+  'index_partial',
+  'repo_too_large',
+  'no_data',
+]);
+export type BlastDegradedReason = z.infer<typeof BlastDegradedReason>;
+
+export const BlastTotals = z.object({
+  symbols: z.number().int().nonnegative(),
+  callers: z.number().int().nonnegative(),
+  endpoints: z.number().int().nonnegative(),
+  crons: z.number().int().nonnegative(),
+});
+export type BlastTotals = z.infer<typeof BlastTotals>;
+
+export const BlastCallerFileFacts = z.object({
+  file: z.string(),
+  endpoints: z.array(z.string()),
+  crons: z.array(z.string()),
+});
+export type BlastCallerFileFacts = z.infer<typeof BlastCallerFileFacts>;
+
+/** Response of GET /pulls/:id/blast — a superset of BlastRadius. */
+export const BlastRadiusResponse = BlastRadius.extend({
+  totals: BlastTotals,
+  degraded: z.boolean(),
+  reason: BlastDegradedReason.nullable(),
+  max_callers_per_symbol: z.number().int().positive(),
+  indexed_sha: z.string().nullable(),
+  changed_files_count: z.number().int().nonnegative(),
+  caller_file_facts: z.array(BlastCallerFileFacts),
+});
+export type BlastRadiusResponse = z.infer<typeof BlastRadiusResponse>;
+
+export const BlastHistoryUnavailableReason = z.enum(['no_token', 'github_error', 'no_changed_files']);
+export type BlastHistoryUnavailableReason = z.infer<typeof BlastHistoryUnavailableReason>;
+
+/** Response of GET /pulls/:id/blast/history — a superset of PrHistory. */
+export const BlastHistoryResponse = PrHistory.extend({
+  available: z.boolean(),
+  unavailable_reason: BlastHistoryUnavailableReason.nullable(),
+});
+export type BlastHistoryResponse = z.infer<typeof BlastHistoryResponse>;

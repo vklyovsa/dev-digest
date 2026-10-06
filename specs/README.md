@@ -40,6 +40,12 @@ Work contained in a single package gets a spec in that package's `specs/` instea
   L03 Intent layer: derive a PR's intent from its title, linked docs/issues or
   indirect data, cache it, and carry it into every agent's prompt as an untrusted
   block (server + reviewer-core + client).
+- [`devdigest-mcp-plan.md`](devdigest-mcp-plan.md) — `devdigest-mcp`: a local stdio
+  MCP server (new package `mcp/`) with five tools over the existing API; the tool
+  contract is Appendix A (no server or client change).
+- [`blast-radius.md`](blast-radius.md) — Blast Radius: what a PR's changed symbols reach, read
+  from the repo-intel index, on the Overview tab and through `get_blast_radius`
+  (server + client + mcp).
 
 ## Tooling plans (`.claude/`)
 
