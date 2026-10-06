@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import { Badge } from "@devdigest/ui";
 import type { Agent } from "@devdigest/shared";
-import { AttachmentEditor, sumTokens, useAttachments } from "@/components/project-context";
+import { AttachmentEditor, TokenSum, sumTokens, useAttachments } from "@/components/project-context";
 import { s } from "./styles";
 
 export function ContextTab({ agent }: { agent: Agent }) {
@@ -27,9 +27,7 @@ export function ContextTab({ agent }: { agent: Agent }) {
       <AttachmentEditor state={state} preview="button" />
       {known && (
         <div style={s.footer}>
-          <span className="mono tnum" style={s.tokens}>
-            {t("attach.tokens", { count: sumTokens(documents, paths, inherited) })}
-          </span>
+          <TokenSum tokens={sumTokens(documents, paths, inherited)} />
           <span style={s.note}>{t("agentTab.note")}</span>
         </div>
       )}

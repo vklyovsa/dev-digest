@@ -12,7 +12,8 @@ spec in that package's `specs/` instead (`server/`, `client/`, `reviewer-core/`,
 - Shape: [`TEMPLATE.md`](TEMPLATE.md) — the header (`Spec ID`, `Status`, `Supersedes`),
   twelve sections, acceptance criteria in EARS. The `spec-creator` agent
   (`../.claude/agents/spec-creator.md`) writes specs from it: it asks its blocking
-  questions first, then writes a `draft` and returns the rest.
+  questions first, then writes a `draft` and returns the rest. What is still unanswered is
+  marked `[NEEDS CLARIFICATION: … → OQ-n]` in the text, never filled in.
 - `Status` goes `draft` → `approved` → `implemented`. `approved` is set only after the
   user says so, with no `[blocking]` question open and with
   `.claude/agents/scripts/check-spec.sh --for-approval` passing; `implementation-planner`

@@ -36,9 +36,12 @@ Arguments: $ARGUMENTS
    briefs of one or two, in order, one track.
 3. Stop and say what is missing when:
    - there is no plan file → "run `implementation-planner` on the approved spec first";
-   - the plan's `Source:` is a spec with a `Status:` line that is not `approved`.
+   - the plan's `Source:` is a spec with a `Status:` line that is not `approved`;
+   - §7 holds a `[blocking]` line tagged `[→ spec-creator]` for a stage of this run → a gap
+     in the requirements is settled in the spec, never by a question here: "send it to
+     `spec-creator`, then the plan back to `implementation-planner`".
 4. Ask the user (`AskUserQuestion`), never answer yourself, when:
-   - §7 still holds a `[blocking]` line or §9 `Mode:` is undecided. An answer that only
+   - §7 still holds another `[blocking]` line or §9 `Mode:` is undecided. An answer that only
      settles the mode or confirms the option the plan assumes is recorded in the plan (§9
      `Mode:`, §7); any other answer means the plan goes back to `implementation-planner` —
      stop;

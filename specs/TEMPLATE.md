@@ -242,8 +242,8 @@ an `INSIGHTS.md` entry) · `research` (a `researcher` report).
 Origins: `stated` — the user's own words; `design` — shown in a supplied design; `code` —
 behaviour that exists today; `research` — a value a `researcher` report established, which
 backs a requirement and does not create one; `assumed` — the author's default, always
-paired with an open question. Every `G`, `NG`, `US`, `AC`, `EC` and `NFR` appears in the
-second table exactly once.
+paired with an open question and marked `[NEEDS CLARIFICATION]` where it stands. Every `G`,
+`NG`, `US`, `AC`, `EC` and `NFR` appears in the second table exactly once.
 
 ### Untrusted inputs
 
@@ -288,11 +288,29 @@ the tests.
 - **OQ-2** [blocking] <question> — options: <a / b> — affects: US-2, AC-3
 ```
 
+What a question leaves open is marked at the place it concerns — in the text of the item
+or in the table cell — so that an open question is read where it matters, and no answer is
+made up in its place:
+
+```
+[NEEDS CLARIFICATION: <what is undecided, in a few words> → OQ-n]
+```
+
+- A `[blocking]` question has nothing to fall back on. The marker stands where the answer
+  would, and no value is written in its place:
+  `… the API shall answer [NEEDS CLARIFICATION: which status code → OQ-2]`.
+- A `[non-blocking]` question has a default. The default is written and the marker follows
+  it: `… at most 20 rows [NEEDS CLARIFICATION: the cap has no source → OQ-1]`.
+
+Every marker names a question of this section, and every question is pointed at from the
+text: by a marker, by an edge case's `open: OQ-n`, or by a Design review row's
+`open → OQ-n`. A marker is removed together with its question, never before.
+
 A spec with an open `[blocking]` question stays `draft` — `check-spec.sh --for-approval`
 fails on it and `implementation-planner` does not plan it. A fact still to be established
 is a question too: say in its options that it goes to `researcher`. An answered question
-is deleted from this section: the answer lives in the section it changed, and it is added
-to Inputs and provenance as a `user answer` or as `research`.
+is deleted from this section and its marker from the text: the answer lives in the section
+it changed, and it is added to Inputs and provenance as a `user answer` or as `research`.
 
 ## What belongs in a spec, and what does not
 
@@ -324,6 +342,8 @@ The exception is a constraint the user stated — "no new table", "reuse the exi
 Never in a spec:
 
 - A requirement nobody stated or accepted. It is an open question or an `open` proposal.
+- An answer nobody gave. The place carries `[NEEDS CLARIFICATION: … → OQ-n]` until the
+  user or a `researcher` report settles it.
 - A changelog, a task log, or the story of how the spec was written.
 
 ## Checking a spec
@@ -337,7 +357,9 @@ Never in a spec:
 The script checks what a machine can: the file name and folder, the header, the twelve
 sections, item formats, EARS form (pattern tag, capital keywords, one `shall`, a named
 system), the vague words above, every reference, and coverage — story → criterion, the
-origin table, the traceability table, `assumed` → question, untrusted input → criterion.
+origin table, the traceability table, `assumed` → question, untrusted input → criterion,
+a `[NEEDS CLARIFICATION]` marker → its question and, on a draft, every question → a place
+in the text and every `assumed` item → its marker.
 It warns about repository paths that do not exist, about `e2e` / `manual` rings, and
 counts diagrams without rendering them. Whether a response is truly observable, whether a
 number has a source and whether a design finding is real stay with the author and the

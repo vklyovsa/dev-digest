@@ -166,3 +166,30 @@ describe("Agent Context tab — token sum and note", () => {
     expect(screen.getByText("via pr-quality-rubric")).toBeInTheDocument();
   });
 });
+
+describe("Agent Context tab — token budget", () => {
+  const RUNBOOK = "docs/runbook.md";
+  const OVER_BUDGET = "over the 8,000-token budget";
+
+  beforeEach(() => {
+    list = () => json({ roots: ROOTS, documents: [...DOCS, doc(RUNBOOK, "docs", 7800)] });
+  });
+
+  it("shows no warning while the attached documents fit the budget", async () => {
+    attached = [RUNBOOK];
+    await renderLoaded();
+
+    expect(screen.getByText("≈ 7,800 tokens")).toBeInTheDocument();
+    expect(screen.queryByText(OVER_BUDGET)).not.toBeInTheDocument();
+  });
+
+  it("warns once own and inherited documents together pass the budget", async () => {
+    attached = [RUNBOOK];
+    inherited = [{ path: ARCH, skill_id: "s9", skill_name: "pr-quality-rubric" }];
+    await renderLoaded();
+
+    const footer = screen.getByText(context.agentTab.note).parentElement!;
+    expect(within(footer).getByText("≈ 8,010 tokens")).toBeInTheDocument();
+    expect(within(footer).getByText(OVER_BUDGET)).toBeInTheDocument();
+  });
+});

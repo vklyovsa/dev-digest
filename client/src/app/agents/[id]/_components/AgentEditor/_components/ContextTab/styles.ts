@@ -15,6 +15,5 @@ export const s = {
     borderTop: "1px solid var(--border)",
     fontSize: 13,
   } satisfies CSSProperties,
-  tokens: { fontWeight: 600, color: "var(--text-secondary)" } satisfies CSSProperties,
   note: { color: "var(--text-muted)", textAlign: "right" } satisfies CSSProperties,
 } as const;

@@ -12,7 +12,8 @@ flowchart LR
   speccreator -. questions: blocking first, the rest with the draft .-> requirements
   speccreator -->|specs/date-slug.md, approved by the user| planner[implementation-planner]
   requirements -->|stated requirements, no spec| planner
-  planner -. questions: requirements, execution mode .-> requirements
+  planner -. questions: execution mode .-> requirements
+  planner -. gaps in the requirements .-> speccreator
   brainstorm -. chosen option .-> planner
   planner -->|specs/slug-plan.md| implementer
   implementer -->|uncommitted diff + report| verifier[plan-verifier]
@@ -53,8 +54,10 @@ before it; `test-writer` and `doc-writer` are not part of it, `security-reviewer
 
 Subagents cannot ask the user questions (`AskUserQuestion` is stripped from every subagent).
 Each agent returns a `Clarification needed` / `Blocked` block instead, and the calling session
-asks. `implementation-planner` also returns `Questions for the user` with its plan — unclear
-requirements and the execution mode (multi-agent or single-agent). `spec-creator` returns
+asks. `implementation-planner` clarifies no requirement: it returns `Blocked` when there is
+no approved spec to plan from, sends a gap it finds in the requirements back to
+`spec-creator`, and asks only about the plan — `Questions for the user` with the execution
+mode (multi-agent or single-agent) and its recommendations. `spec-creator` returns
 the same block twice: its blocking questions before it writes anything, then the
 non-blocking ones and its design proposals together with the draft — and `Research needed`
 for the facts it cannot look up itself. The calling session puts the questions to the user
@@ -67,8 +70,8 @@ with `AskUserQuestion` and never answers them itself. A new
 |---|---|---|---|---|---|---|
 | [brainstorm](brainstorm.md) | Compares 2–4 options for one decision before a plan exists, against weighted drivers taken from the project rules | opus | Read, Grep, Glob, Bash | Write, Edit, MultiEdit, NotebookEdit, Skill, Agent, Web*; `readonly-guard` | A decision or goal + a boundary | MADR-style options report + a ready task for the implementation-planner |
 | [researcher](researcher.md) | Answers one concrete question with evidence — REPO (code, docs, specs, INSIGHTS, git history) or EXTERNAL (official docs, changelogs, issues, standards) | sonnet | Read, Grep, Glob, Bash (read-only by instruction), WebSearch, WebFetch | Write, Edit, NotebookEdit, Skill, Agent — so no `/deep-research`, no subagents | A concrete question with a purpose or scope | Research report: answer + confidence, findings with `file:line` / commit / URL, references, **Not found / unverified** |
-| [spec-creator](spec-creator.md) | Writes the spec a feature is built from, in the shape of `specs/TEMPLATE.md`: EARS acceptance criteria with a verify ring, edge cases, non-functional requirements, module interactions, a review of the supplied design (missing states, corner cases, UX proposals), provenance, untrusted inputs, traceability. Turns every gap into a question, a research item or a proposal; ends with `check-spec.sh`; writes `Status: draft` only | opus | Read, Grep, Glob, Edit, Write, Bash | MultiEdit, NotebookEdit, Skill, Agent, Web*; `write-scope-guard --profile specs` | A feature in the user's words + the design sources the user supplies (text, Figma exports, existing code, the repository); later, the answers and `researcher` reports — sent to the same instance | `Questions for the user` and / or `Research needed` (blocking, nothing written), or a draft in `specs/` / `<pkg>/specs/` + a Specification report: non-blocking questions, proposals, the self-check output |
-| [implementation-planner](implementation-planner.md) | Reviews the requirements it is given (questions, recommendations), then turns them into a staged Implementation Plan that fits the modules, INSIGHTS, architecture rules and the skills the implementer will load, with tracks for multi-agent execution. Writes no spec and invents no requirement | opus | Read, Grep, Glob, Bash; `permissionMode: plan` | Write, Edit, MultiEdit, NotebookEdit, Skill, Agent, Web*; `readonly-guard` | `specs/<slug>.md` or a task that states its requirements and a boundary; optionally the execution mode | `Clarification needed`, or an Implementation Plan (text) with `Questions for the user` — the calling session asks them, then saves the plan to `specs/<slug>-plan.md` once approved |
+| [spec-creator](spec-creator.md) | Writes the spec a feature is built from, in the shape of `specs/TEMPLATE.md`: EARS acceptance criteria with a verify ring, edge cases, non-functional requirements, module interactions, a review of the supplied design (missing states, corner cases, UX proposals), provenance, untrusted inputs, traceability. Turns every gap into a question, a research item or a proposal, and marks what is still unanswered `[NEEDS CLARIFICATION]` in the text instead of guessing; ends with `check-spec.sh`; writes `Status: draft` only | opus | Read, Grep, Glob, Edit, Write, Bash | MultiEdit, NotebookEdit, Skill, Agent, Web*; `write-scope-guard --profile specs` | A feature in the user's words + the design sources the user supplies (text, Figma exports, existing code, the repository); later, the answers and `researcher` reports — sent to the same instance | `Questions for the user` and / or `Research needed` (blocking, nothing written), or a draft in `specs/` / `<pkg>/specs/` + a Specification report: non-blocking questions, proposals, the self-check output |
+| [implementation-planner](implementation-planner.md) | Checks the requirements it is given against the code — a gap goes back to `spec-creator`, recommendations stay with the plan — then turns them into a staged Implementation Plan that fits the modules, INSIGHTS, architecture rules and the skills the implementer will load, with tracks for multi-agent execution. Writes no spec and invents no requirement | opus | Read, Grep, Glob, Bash; `permissionMode: plan` | Write, Edit, MultiEdit, NotebookEdit, Skill, Agent, Web*; `readonly-guard` | `specs/<slug>.md` or a task that states its requirements and a boundary; optionally the execution mode | `Blocked` (nothing to plan from, a spec that is not approved, a gap that reshapes the plan), or an Implementation Plan (text) with `Questions for the user` — the execution mode and its recommendations; the calling session asks them, then saves the plan to `specs/<slug>-plan.md` once approved |
 | [implementer](implementer.md) | Executes the stages of one brief from an approved plan in `server/`, `client/`, `reviewer-core/`: reads the files and skill rules each stage names, edits, adds tests, verifies with `check-code.sh` | sonnet | Read, Grep, Glob, Edit, Write, Bash, Skill (for `engineering-insights` only; no preload) | Agent, WebSearch, WebFetch, NotebookEdit; `implementer-guard` | `specs/<slug>-plan.md` with no `[blocking]` question open + a brief from its §9 (stages, write set, packages to check) | Implementation report: stages, deviations, skills applied, verification table, AC evidence, handoff to reviewers, blockers; plus the uncommitted diff |
 | [test-writer](test-writer.md) | Writes client / server / reviewer-core tests from the plan's ACs and the spec (not from the current code), with the skills `routing.md` names, and runs them | sonnet | Read, Grep, Glob, Edit, Write, Bash, Skill | Agent, WebSearch, WebFetch, NotebookEdit; `write-scope-guard --profile tests` | A plan + stages, ACs without test evidence, or files + behaviours | Test report: tests written, static checks, test runs (passed/failed/skipped), gaps for the implementer |
 | [plan-verifier](plan-verifier.md) | Traceability check: every plan item (§0–8) and every spec requirement / AC / non-goal → done, partial, missing or deviated, with `file:line`; plus changes no plan item covers | sonnet | Read, Grep, Glob, Bash | Write, Edit, MultiEdit, NotebookEdit, Skill, Agent, Web*; `readonly-guard --allow-tests` | `specs/<slug>-plan.md` (+ spec, + implementation report) | Verification report: spec → plan → code, plan items, ACs, unplanned changes, needs a test run, not verifiable |
@@ -102,19 +105,23 @@ CRITICAL there.
   spec is written by `spec-creator` with the user, or by the user, in the shape of
   `../../specs/TEMPLATE.md` (`../../specs/README.md`); it may carry workflow and
   communication diagrams and contracts, and usually no implementation detail. `spec-creator`
-  structures what the user supplied and turns every gap into a question or a proposal; it
-  writes `Status: draft` only. The calling session sets `Status: approved` after the user
-  approves in so many words, with no `[blocking]` question open — no agent does.
+  structures what the user supplied and turns every gap into a question or a proposal; what
+  no source answers is marked `[NEEDS CLARIFICATION: … → OQ-n]` in the spec text, never
+  filled in. It writes `Status: draft` only. The calling session sets `Status: approved`
+  after the user approves in so many words, with no `[blocking]` question open — no agent
+  does.
   `implementation-planner` plans an approved spec (or requirements stated in the task),
-  copies requirements from their source and answers a gap with a question or a
-  recommendation, never with its own wording; `brainstorm` weighs options.
+  copies requirements from their source and sends a gap back to `spec-creator` — it asks
+  the user no requirement question and offers no wording of its own; `brainstorm` weighs
+  options.
 - **Questions, research and the way back** — a `Questions for the user` block goes to the
   user through `AskUserQuestion`. A `Research needed` block (`spec-creator`) becomes one
   `researcher` per item, started in parallel. Answers and reports go back to the **same
   agent instance** with `SendMessage`, never to a fresh one: a new instance re-reads
   everything and loses its `IN-n` numbering and the questions it held for the draft.
 - **Spec check** — `scripts/check-spec.sh` checks a spec against `specs/TEMPLATE.md`
-  (formats, EARS form, references, coverage, traceability). `spec-creator` runs it as its
+  (formats, EARS form, references, coverage, traceability, `[NEEDS CLARIFICATION]`
+  markers). `spec-creator` runs it as its
   final self-check, `implementation-planner` on its input, and the calling session with
   `--for-approval` before it sets `Status: approved`.
 - **Execution mode** — multi-agent or single-agent is the user's choice.

@@ -30,6 +30,9 @@ Approaches and solutions that held up, with the context that made them work.
 Dead ends and anti-patterns: what was tried, why it failed, what to do instead.
 **The highest-value section and the one most often left empty. Fill it.**
 
+- **A spec's `IN-n` pointer to `i/img_N.png` does not survive the next feature: `i/` is an untracked scratch folder whose files are overwritten in place.** (2026-10-06) `specs/2026-10-04-project-context.md:383` cites `i/img_2.png` as the skill editor's Context frame; the file now holds the PR Brief Overview frame (saved 2026-10-05 18:12). The export also never showed what the JSX prototype holds — `docs/design/Dev Digest 2/Dev Digest/context_docs.jsx:107` (an over-cap badge, `CONTEXT_TOKEN_CAP = 4000` at `:11`) and `:126-131` (SERIALIZES AS grouped under `Project specifications` / `Project docs` / `Project insights`) — so SPEC-01 specified one heading and no warning, and a review found both gaps.
+  → For a designed screen, grep `docs/design/Dev Digest 2/Dev Digest/*.jsx` for the screen's strings and name that file as a source next to the export; never re-open an `i/` path from an older spec as evidence.
+
 - **A plan's absence check on generic words can never print nothing: `grep -rn "chunks\|Re-index" client/src` matches code that existed before the feature.** (2026-10-04) `specs/2026-10-04-project-context-plan.md` §6 used `useReindexContext\|devdigest/specs\|chunks\|Re-index` over all of `client/src` as its "old model is gone" proof; `AddRepoView.tsx`, `Showcase.tsx`, `BlastRadiusCard.test.tsx` and `chunks_indexed` in `vendor/shared/contracts/platform.ts` match it, so three implementers and plan-verifier each had to narrow it and declare a deviation.
   → Build an absence check from identifiers only the removed code had (`useReindexContext`), or scope the generic words to the feature's own files and catalog; run the grep once on the base commit before it goes into a plan's Done-when.
 
@@ -162,6 +165,10 @@ instead of an investigation.
 Dated summaries as `### YYYY-MM-DD — topic`: what was worked on and what state it
 was left in. Prune an entry once its content has moved into a section above.
 
+### 2026-10-06 — review fixes: planner without clarification, `[NEEDS CLARIFICATION]`, Context tab budget
+`implementation-planner` no longer returns `Clarification needed` or asks a requirement question: no source → `Blocked — no requirements to plan from`; a gap found against the code → `Blocked — the requirements need revision`, or a `[blocking] [→ spec-creator]` line in plan §7, on which `/implement` stops. `spec-creator`, `specs/TEMPLATE.md` and `check-spec.sh` gained the marker `[NEEDS CLARIFICATION: … → OQ-n]`; the checker holds only a `draft` to it, so SPEC-01 and SPEC-02 still pass. Client: `TokenSum` warns above `CONTEXT_TOKEN_BUDGET` (8000) on both Context tabs and SERIALIZES AS is grouped by root folder; 421 client tests green.
+Neither agent has been run since the edit (a running session keeps the prompt it registered — § Tool & Library Notes), the tabs were not opened in a browser, nothing is committed.
+
 ### 2026-10-06 — PR Brief: live check, security review, three fix rounds
 Follows the 2026-10-05 note. The dev DB got migration `0016_huge_inhumans` (backup `/tmp/devdigest-pre-brief-20261005-234449.dump`, dry run on a restored copy first: two new empty tables, every other table unchanged) and the stack was started detached with `--no-seed`. The live check on PR #6 (100 files) found the default model timing out; the user moved the `risk_brief` default to `minimax/minimax-m2.5` (plan §7). `security-reviewer`: one WARNING — author text could leave its `<untrusted>` block in the brief prompt — fixed in `server/src/modules/brief/render.ts` (`wrapFact`), then its regex made linear.
 After the fixes: server 445 unit and 163 integration, client 411; through the app a brief for PR #6 in 9.6 s, `attempts: 1`; in a browser the Overview blocks, the jump to `file:line` on Files changed, Back and a reload without a POST all hold. Open: the same `wrapUntrusted` gap in `modules/intent/render.ts` and the review prompt (`server/INSIGHTS.md § Codebase Patterns`); the 429 check and `./scripts/e2e.sh` were not run. The code is still uncommitted; PR and video are the user's.
@@ -282,6 +289,9 @@ Nothing was reseeded — see the standing rule not to seed unless asked.
 
 Unresolved behaviour, undecided design, unverified assumptions. Delete an entry when
 it is answered — the answer belongs in another section.
+
+- **Undecided: the skill tab's SERIALIZES AS box no longer matches AC-54 of approved SPEC-01, and its group order is not the order of the prompt.** (2026-10-06) Since the review fix the box groups stored paths by root folder (`client/src/app/skills/_components/SkillDetail/_components/ContextTab/helpers.ts`), while `specs/2026-10-04-project-context.md:122` still asks for one `## Project specifications` heading in attachment order, and `reviewer-core/src/prompt.ts:190` (`specsBlock`) sends one `## Project context` block in attachment order (AC-62, AC-63).
+  → Decide with the user: a spec that supersedes AC-54 for the grouped box only, or grouping in the prompt as well (reviewer-core + server; changes AC-62, AC-63 and AC-72). Until then read the box as a display of stored paths, not as the wire format.
 
 - **Unverified: whether `skills:` preload still injects a skill into an agent that denies the `Skill` tool — no agent here combines the two.** (2026-10-04) The four agents with `skills:` (`architecture-reviewer`, `security-reviewer`, `implementer`, `doc-writer`) all list `Skill` in `tools`; the five that deny it (`spec-creator`, `implementation-planner`, `brainstorm`, `plan-verifier`, `researcher`) carry no `skills:` and read `SKILL.md` with `Read`. `check-agents.sh` checks only that a preloaded skill's `SKILL.md` exists.
   → Before adding `skills:` to a `Skill`-denied agent, run it once and have it quote a line of the preloaded skill; until that passes, keep the `Read` pointer in the agent text.

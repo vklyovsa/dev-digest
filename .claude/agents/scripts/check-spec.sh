@@ -9,7 +9,10 @@
 # EARS form of every AC (pattern tag, capital keywords, one `shall`, a named system, covers,
 # verify ring and hint); vague words in AC / NFR; references that do not resolve; coverage
 # (US → AC, the origin table, traceability, assumed → OQ, UI → AC | NFR); placement against
-# `Packages:`; Open questions format; a [blocking] question on a spec that is not a draft.
+# `Packages:`; Open questions format; a [blocking] question on a spec that is not a draft;
+# a `[NEEDS CLARIFICATION: … → OQ-n]` marker that is malformed or names no question, and,
+# on a draft, a question no place in the text points at or an `assumed` item without its
+# marker.
 # --for-approval also fails on any [blocking] question and on a Status other than draft.
 # WARN, never a failure: a repository path that does not exist; `verify: e2e | manual`;
 # diagrams (counted, never rendered).
@@ -81,7 +84,8 @@ const REQUIREMENT_FAMILIES = ['G', 'NG', 'US', 'AC', 'EC', 'NFR'];
 
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
 const VAGUE_RE = VAGUE.map((w) => [w, new RegExp(`(?<![A-Za-z0-9_-])${escapeRe(w)}(?![A-Za-z0-9_-])`)]);
-const plain = (s) => s.replace(/`[^`]*`/g, ' ').replace(/"[^"]*"|“[^”]*”/g, ' ');
+const MARKER_RE = /\[NEEDS CLARIFICATION:\s*\S[^\]\n]*?\s*→\s*(OQ-\d+)\s*\]/g;
+const plain = (s) => s.replace(MARKER_RE, ' ').replace(/`[^`]*`/g, ' ').replace(/"[^"]*"|“[^”]*”/g, ' ');
 const idsIn = (s, families) => s.match(new RegExp(`\\b(?:${families.join('|')})-\\d+\\b`, 'g')) || [];
 
 function allSpecIds() {
@@ -372,6 +376,7 @@ function check(fileArg) {
 
   // ---- inputs and provenance
   const seenOrigin = {};
+  const assumed = [];
   for (const cells of rowsOf['Inputs and provenance'] || []) {
     if (/^IN-\d+$/.test(cells[0])) {
       if (cells.length !== 4) fail(`${cells[0]}: expected 4 columns, found ${cells.length}`);
@@ -389,6 +394,7 @@ function check(fileArg) {
     for (const id of ids) {
       if (!has(id)) fail(`Inputs and provenance: origin table refers to ${id}, which is not defined`);
       seenOrigin[id] = (seenOrigin[id] || 0) + 1;
+      if (cells[1] === 'assumed') assumed.push({ id, questions: sources.filter((q) => q.startsWith('OQ-')) });
     }
   }
   for (const fam of REQUIREMENT_FAMILIES) {
@@ -459,6 +465,34 @@ function check(fileArg) {
     else refs(it.id, a[1], ['G', 'NG', 'US', 'AC', 'EC', 'NFR', 'MI', 'DR', 'UI']);
   }
   if (blocking && status && status !== 'draft') fail(`status: ${blocking} [blocking] question(s) open on a spec that is \`${status}\``);
+
+  // ---- [NEEDS CLARIFICATION] markers
+  const flat = lines.join('\n').replace(/\n {2,}(?=\S)/g, ' ').replace(/`\[NEEDS CLARIFICATION[^`\n]*`/g, ' ');
+  const marked = [...flat.matchAll(MARKER_RE)].map((m) => m[1]);
+  const opened = (flat.match(/\[NEEDS CLARIFICATION/g) || []).length;
+  if (opened !== marked.length) fail(`markers: ${opened - marked.length} malformed — expected \`[NEEDS CLARIFICATION: <what is undecided> → OQ-n]\``);
+  for (const id of new Set(marked)) if (!has(id)) fail(`markers: a [NEEDS CLARIFICATION] marker refers to ${id}, which is not defined`);
+  if (status === 'draft') {
+    const pointed = new Set(marked);
+    const pointsFrom = new Map();
+    for (const it of Object.values(itemsOf).flat()) {
+      const here = [...it.text.matchAll(MARKER_RE)].map((m) => m[1]);
+      const open = it.fam === 'EC' ? /—\s*open:\s*(\S.*)$/.exec(it.text) : null;
+      if (open) here.push(...idsIn(open[1], ['OQ']));
+      pointsFrom.set(it.id, here);
+      for (const id of here) pointed.add(id);
+    }
+    for (const { id, questions } of assumed) {
+      const here = pointsFrom.get(id) || [];
+      if (questions.length && !questions.some((q) => here.includes(q))) fail(`${id}: \`assumed\` — its text carries no \`[NEEDS CLARIFICATION: … → ${questions[0]}]\``);
+    }
+    for (const cells of rowsOf['Design review'] || []) {
+      if (/^DR-\d+$/.test(cells[0]) && /^open → /.test(cells[4] || '')) for (const id of idsIn(cells[4], ['OQ'])) pointed.add(id);
+    }
+    for (const id of byFam.OQ || []) {
+      if (!pointed.has(id)) fail(`${id}: no place in the text points at it — mark what it leaves open with \`[NEEDS CLARIFICATION: … → ${id}]\``);
+    }
+  }
   if (forApproval) {
     if (blocking) fail(`approval: ${blocking} [blocking] question(s) still open`);
     if (status !== 'draft') fail(`approval: only a \`draft\` is approved — this one is \`${status || '?'}\``);
@@ -475,7 +509,7 @@ function check(fileArg) {
   if (diagrams) warn(`diagrams: ${diagrams}, not rendered — check nodes (20 at most) and edge labels by reading`);
 
   const c = (fam) => `${fam} ${count(fam)}`;
-  const summary = `${specId || 'SPEC-?'} · ${status || '?'} · ${['G', 'NG', 'US', 'AC', 'EC', 'NFR', 'MI', 'DR', 'IN', 'UI'].map(c).join(' · ')} · OQ ${count('OQ')} (blocking ${blocking})`;
+  const summary = `${specId || 'SPEC-?'} · ${status || '?'} · ${['G', 'NG', 'US', 'AC', 'EC', 'NFR', 'MI', 'DR', 'IN', 'UI'].map(c).join(' · ')} · OQ ${count('OQ')} (blocking ${blocking}) · [NEEDS CLARIFICATION] ${marked.length}`;
   return { rel, fails, warns, summary };
 }
 

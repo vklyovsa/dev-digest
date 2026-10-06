@@ -24,6 +24,7 @@
     "notFound": "not found in this repository",
     "via": "via {skill}",
     "tokens": "≈ {count, number} tokens",
+    "overBudget": "over the {budget, number}-token budget",
     "saveError": "Could not save the attached documents. Nothing was changed.",
     "loadError": "Couldn’t load the documents",
     "noRepo": "Add or select a repository to list its documents.",
@@ -40,6 +41,12 @@
     "count": "{count, number} attached",
     "inherit": "Any agent using this skill inherits these documents.",
     "serializesAs": "SERIALIZES AS",
-    "serializedHeading": "## Project specifications"
+    "serializedHeadings": {
+      "specs": "## Project specifications",
+      "docs": "## Project docs",
+      "insights": "## Project insights",
+      "custom": "## Project {type}",
+      "other": "## Project documents"
+    }
   }
 }

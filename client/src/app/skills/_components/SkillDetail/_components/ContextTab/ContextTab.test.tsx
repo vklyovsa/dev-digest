@@ -87,7 +87,7 @@ async function renderLoaded() {
   await waitFor(() => expect(rows).toHaveAttribute("aria-busy", "false"));
 }
 
-const serializedBox = () => screen.getByText(/## Project specifications/);
+const serializedBox = () => screen.getByText(/^## Project /);
 
 beforeEach(() => {
   activeRepo = { id: "r1", full_name: "acme/payments-api" };
@@ -141,6 +141,19 @@ describe("Skill Context tab — token sum", () => {
     await renderLoaded();
     expect(screen.queryByText(context.agentTab.note)).not.toBeInTheDocument();
   });
+
+  it("warns once the attached documents pass the token budget", async () => {
+    const RUNBOOK = "docs/runbook.md";
+    list = () => json({ roots: ROOTS, documents: [...DOCS, doc(RUNBOOK, "docs", 7800)] });
+    attached = [RUNBOOK];
+    await renderLoaded();
+    expect(screen.queryByText("over the 8,000-token budget")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: `Attach ${ARCH}` }));
+
+    expect(await screen.findByText("≈ 8,010 tokens")).toBeInTheDocument();
+    expect(screen.getByText("over the 8,000-token budget")).toBeInTheDocument();
+  });
 });
 
 describe("Skill Context tab — what the skill serializes as", () => {
@@ -168,7 +181,53 @@ describe("Skill Context tab — what the skill serializes as", () => {
     await renderLoaded();
 
     expect(screen.queryByText("SERIALIZES AS")).not.toBeInTheDocument();
-    expect(screen.queryByText(/## Project specifications/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^## Project /)).not.toBeInTheDocument();
+  });
+
+  it("groups the documents under one heading per type, in the order of the roots", async () => {
+    attached = [INCIDENT, PUB, ARCH, SEC];
+    await renderLoaded();
+
+    expect(serializedBox().textContent).toBe(
+      [
+        "## Project specifications",
+        `- ${PUB}`,
+        `- ${SEC}`,
+        "## Project docs",
+        `- ${ARCH}`,
+        "## Project insights",
+        `- ${INCIDENT}`,
+      ].join("\n"),
+    );
+  });
+
+  it("leaves out the heading of a type nothing is attached from", async () => {
+    attached = [ARCH];
+    await renderLoaded();
+
+    expect(serializedBox().textContent).toBe(`## Project docs\n- ${ARCH}`);
+  });
+
+  it("names a configured root by its folder and puts a path under no root last", async () => {
+    const ADR = "adr/0001-record-decisions.md";
+    const STRAY = "notes/removed-root.md";
+    list = () => json({ roots: ["adr", "docs"], documents: [doc(ADR, "adr", 40), doc(ARCH, "docs", 210)] });
+    attached = [STRAY, ARCH, ADR];
+    await renderLoaded();
+
+    expect(serializedBox().textContent).toBe(
+      ["## Project adr", `- ${ADR}`, "## Project docs", `- ${ARCH}`, "## Project documents", `- ${STRAY}`].join("\n"),
+    );
+  });
+
+  it("groups by the default folder names when no repository is active", async () => {
+    activeRepo = null;
+    attached = [ARCH, SEC];
+    renderTab();
+
+    await waitFor(() =>
+      expect(serializedBox().textContent).toBe(`## Project specifications\n- ${SEC}\n## Project docs\n- ${ARCH}`),
+    );
   });
 
   it("follows a change of the attachment list", async () => {

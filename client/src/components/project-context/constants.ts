@@ -5,6 +5,10 @@ export const DOC_TYPE_COLORS = {
   insights: { color: "var(--warn)", bg: "var(--warn-bg)" },
 } as const;
 
+export const DEFAULT_DOC_TYPES: readonly string[] = Object.keys(DOC_TYPE_COLORS);
+
+export const CONTEXT_TOKEN_BUDGET = 8000;
+
 export const NEUTRAL_DOC_TYPE_COLORS = {
   color: "var(--text-secondary)",
   bg: "var(--bg-hover)",

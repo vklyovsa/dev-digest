@@ -10,8 +10,6 @@ export const s = {
     paddingTop: 14,
     borderTop: "1px solid var(--border)",
     fontSize: 13,
-    fontWeight: 600,
-    color: "var(--text-secondary)",
   } satisfies CSSProperties,
   serializesAs: {
     margin: "22px 0 8px",
