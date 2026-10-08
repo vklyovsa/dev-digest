@@ -1,0 +1,158 @@
+{
+  "skill_name": "onion-architecture",
+  "evals": [
+    {
+      "id": 1,
+      "name": "repo-summary-endpoint",
+      "prompt": "Потрібен новий ендпоінт на бекенді: `GET /repos/:id/summary`. Має повертати для репозиторію: скільки всього PR імпортовано, скільки з них чекають рев'ю (статус `needs_review`) і скільки «застарілих» — тих, де після останнього рев'ю з'явилися нові коміти (`last_reviewed_sha` заповнений, але вже не збігається з `head_sha`). Якщо репозиторію немає у воркспейсі — 404. Клієнт не чіпай, тільки API і тести.",
+      "expected_output": "A working endpoint layered route → service → repository, a shared response contract, and a hermetic test of the use case.",
+      "files": [],
+      "expectations": [
+        "Typecheck passes: `tsc --noEmit` in server/ exits 0",
+        "Layering check passes: dependency-cruiser reports no violations",
+        "No added route code reaches past a service: no `container.db`, no `container.<x>Repo`, no adapter call on the container, no Drizzle import",
+        "The `GET /repos/:id/summary` handler declares `params` and `response` in `schema:` and makes exactly one service call",
+        "The response contract is a Zod schema with snake_case keys present in BOTH server/src/vendor/shared and client/src/vendor/shared",
+        "A hermetic test (not `*.it.test.ts`, no `test/helpers/pg`) covers the use case with fakes instead of Postgres — the 404 and the counts — and runs green",
+        "No public service method added by the change accepts or returns a Drizzle row type (`*Row`, `$inferSelect`)",
+        "A newly introduced service or repository is constructed in `platform/container.ts`, not inside a `routes.ts` or a service constructor",
+        "New names follow the ones already in server/src/modules (`<Name>Repository`, `<Name>Service`, reader/deps interfaces declared in the module): no `Drizzle*`-prefixed class, no new `ports.ts`, no repository port added to `vendor/shared/adapters.ts`"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "review-labels-patch",
+      "prompt": "Колега накидав новий модуль labels. Зміни вже лежать у цій копії, сам дифф — `labels-module.patch` у корені. Подивись перед тим, як я відкрию PR: що з архітектури бекенду треба виправити до мерджу, а що нормально? Дай список з файлом і рядком. Нічого не виправляй — лише рев'ю.",
+      "expected_output": "A review that names the seven seeded layering violations with their location and leaves the two legitimate changes alone.",
+      "files": [
+        "evals/files/labels-module.patch"
+      ],
+      "expectations": [
+        "Flags the route calling the GitHub adapter through the container (`app.container.github()`, labels/routes.ts:46)",
+        "Flags the route reading a repository through the container (`app.container.repoRepo.getById`, labels/routes.ts:40)",
+        "Flags the business rule living in the route (closed or merged pull request → 409, labels/routes.ts:35)",
+        "Flags `LabelsService` taking the whole `Container` (labels/service.ts:12)",
+        "Flags the Drizzle row type `PullRow` in a public service signature (`getPull`, labels/service.ts:17)",
+        "Flags the import or construction of another module's repository (`../pulls/repository.js`, labels/service.ts:4 and :14)",
+        "Flags the filesystem and environment read in the pure core (`node:fs`, `process.env` in reviewer-core/src/labels.ts)",
+        "Does NOT report labels/repository.ts importing drizzle-orm and the schema as a violation",
+        "Does NOT report the new Drizzle query in src/platform/jobs.ts (`countActive`) as a layering violation",
+        "Every reported problem names its file and a line number or symbol",
+        "Every must-fix finding cites the rule it breaks: a dependency-cruiser rule name or an `OA-<n>` checklist ID",
+        "The answer ends with a single `Verdict:` line that says BLOCK (with the number of must-fix findings) or PASS"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "webhook-on-repo-added",
+      "prompt": "Коли в DevDigest додають новий репозиторій, хочу отримувати повідомлення у вебхук: POST з JSON `{ \"event\": \"repo.added\", \"full_name\": ..., \"url\": ... }` на адресу з env-змінної `REPO_WEBHOOK_URL`. Якщо змінна не задана — нічого не слати. Якщо вебхук недоступний або відповів помилкою — додавання репозиторію все одно має пройти успішно, помилку лише залогувати. Зроби на бекенді, з тестами.",
+      "expected_output": "A new outbound capability behind an interface: adapter under src/adapters, mock and container override, config read in one place, and a hermetic test of both policies.",
+      "files": [],
+      "expectations": [
+        "Typecheck passes: `tsc --noEmit` in server/ exits 0",
+        "Layering check passes: dependency-cruiser reports no violations",
+        "The HTTP call to the webhook lives under server/src/adapters/ — no `fetch(` or HTTP client call is added under src/modules/",
+        "The use case depends on an interface for the notification, not on the concrete adapter class",
+        "`src/adapters/mocks.ts` gains a mock or fake of the new capability and `ContainerOverrides` gains a field to inject it",
+        "`REPO_WEBHOOK_URL` is read through `platform/config.ts` only — no `process.env` added under src/modules/ or src/adapters/",
+        "A hermetic test (not `*.it.test.ts`) proves both policies with a fake notifier — nothing sent when the URL is unset, a failing webhook does not fail the add — and runs green",
+        "`repos/routes.ts` still makes one service call per handler and does not reference the notifier",
+        "The concrete adapter is instantiated only in `platform/container.ts`"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "review-pull-refresh-patch",
+      "prompt": "Колега додав ендпоінт `POST /pulls/:id/refresh` — перечитати pull request з GitHub і оновити збережені дані. Зміни вже лежать у цій копії, сам дифф — `pull-refresh.patch` у корені. Подивись перед тим, як я відкрию PR: що з архітектури бекенду треба виправити до мерджу, а що нормально? Дай список з файлом і рядком. Нічого не виправляй — лише рев'ю.",
+      "expected_output": "A review that names the three seeded transport-layer violations in pulls/routes.ts and leaves the legitimate repository and service changes alone.",
+      "files": [
+        "evals/files/pull-refresh.patch"
+      ],
+      "expectations": [
+        "Flags the route reading repositories through the container (`container.pullsRepo.getById` and/or `container.repoRepo.getById`, pulls/routes.ts:52 / :57)",
+        "Flags the business rule living in the route (merged or closed pull request → 409, pulls/routes.ts:54)",
+        "Flags the route calling the GitHub adapter through the container (`container.github()` / `github.getPullRequest`, pulls/routes.ts:60)",
+        "Does NOT report the new Drizzle query `PullsRepository.updateHead` in pulls/repository.ts as a layering violation",
+        "Every reported problem names its file and a line number or symbol",
+        "Every must-fix finding cites the rule it breaks: a dependency-cruiser rule name or an `OA-<n>` checklist ID",
+        "The answer ends with a single `Verdict:` line that says BLOCK (with the number of must-fix findings) or PASS"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "review-reminders-module-patch",
+      "prompt": "Колега накидав новий модуль reminders: показати pull requests, що чекають рев'ю, і надіслати нагадування у Slack. Зміни вже лежать у цій копії, сам дифф — `reminders-module.patch` у корені. Подивись перед тим, як я відкрию PR: що з архітектури бекенду треба виправити до мерджу, а що нормально? Дай список з файлом і рядком. Нічого не виправляй — лише рев'ю.",
+      "expected_output": "A review that names the three seeded application-layer violations in reminders/service.ts and leaves the module's own Drizzle repository and the container wiring alone.",
+      "files": [
+        "evals/files/reminders-module.patch"
+      ],
+      "expectations": [
+        "Flags the import or construction of another module's repository (`../repos/repository.js`, `new RepoRepository(db)`, reminders/service.ts:5 and :22)",
+        "Flags the Drizzle row type `PullRow` in a public service signature / raw rows reaching the HTTP response (`pending`, reminders/service.ts:25)",
+        "Flags the outbound HTTP call to Slack made directly in the service (`fetch`, reminders/service.ts:43) instead of going through a port with an adapter",
+        "Does NOT report reminders/repository.ts importing drizzle-orm and the schema as a violation (objecting to the row type it returns is fine)",
+        "Every reported problem names its file and a line number or symbol",
+        "Every must-fix finding cites the rule it breaks: a dependency-cruiser rule name or an `OA-<n>` checklist ID",
+        "The answer ends with a single `Verdict:` line that says BLOCK (with the number of must-fix findings) or PASS"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "review-merge-gate-patch",
+      "prompt": "Колега почав фічу merge gate: правило, яке вирішує, чи блокувати PR, поріг для нього і публікація commit status у GitHub. Виклик із рев'ю буде наступним PR. Зміни вже лежать у цій копії, сам дифф — `merge-gate.patch` у корені. Подивись перед тим, як я відкрию PR: що з архітектури бекенду треба виправити до мерджу, а що нормально? Дай список з файлом і рядком. Нічого не виправляй — лише рев'ю.",
+      "expected_output": "A review that names the three seeded dependency-direction violations (domain, pure core, adapter) and leaves the port, the mock and the container wiring alone.",
+      "files": [
+        "evals/files/merge-gate.patch"
+      ],
+      "expectations": [
+        "Flags the domain file importing a database row type (`FindingRow` from `db/rows.js`, server/src/domain/reviews/merge-gate.ts:1)",
+        "Flags the environment read in the pure core (`process.env.DEVDIGEST_MAX_BLOCKERS`, reviewer-core/src/review/gate-threshold.ts:4)",
+        "Flags the adapter importing a feature module (`../../modules/pulls/status.js`, server/src/adapters/github/commit-status.ts:4)",
+        "Does NOT report constructing `OctokitCommitStatusPublisher` in platform/container.ts as a violation",
+        "Every reported problem names its file and a line number or symbol",
+        "Every must-fix finding cites the rule it breaks: a dependency-cruiser rule name or an `OA-<n>` checklist ID",
+        "The answer ends with a single `Verdict:` line that says BLOCK (with the number of must-fix findings) or PASS"
+      ]
+    },
+    {
+      "id": 7,
+      "name": "review-pull-labels-patch",
+      "prompt": "Колега додав ендпоінт `PUT /pulls/:id/labels` — задати мітки pull request. Зміни вже лежать у цій копії, сам дифф — `pull-labels.patch` у корені. Подивись перед тим, як я відкрию PR: що з архітектури бекенду треба виправити до мерджу, а що нормально? Дай список з файлом і рядком. Нічого не виправляй — лише рев'ю.",
+      "expected_output": "A review that names the three seeded violations (a route reading a repository through the container, a hand-written 404 body in the route, a raw Error thrown from the service) and leaves the AppError 409 and the repository query alone.",
+      "files": [
+        "evals/files/pull-labels.patch"
+      ],
+      "expectations": [
+        "Flags the route reading a repository through the container (`container.pullsRepo.getById`, pulls/routes.ts:54)",
+        "Flags the route writing an error response by hand (`reply.status(404).send({ message })`, pulls/routes.ts:56) instead of letting a thrown NotFoundError reach the error handler",
+        "Flags the raw `throw new Error(...)` for the label limit in the service (pulls/service.ts:230) as needing an AppError / 4xx with a code",
+        "Does NOT report the `AppError('pull_not_open', …, 409)` thrown in `PullsService.setLabels` (pulls/service.ts:225) or the Drizzle query `updateLabels` in pulls/repository.ts as a violation",
+        "Every reported problem names its file and a line number or symbol",
+        "Every must-fix finding cites the rule it breaks: a dependency-cruiser rule name or an `OA-<n>` checklist ID",
+        "The answer ends with a single `Verdict:` line that says BLOCK (with the number of must-fix findings) or PASS"
+      ]
+    },
+    {
+      "id": 8,
+      "name": "review-digests-module-patch",
+      "prompt": "Колега зробив новий модуль digests: показати «застарілі» відкриті pull requests репозиторію і надіслати їх дайджест у Slack. Зміни вже лежать у цій копії, сам дифф — `digests-module.patch` у корені. Подивись перед тим, як я відкрию PR: що з архітектури бекенду треба виправити до мерджу, а що нормально? Дай список з файлом і рядком. Нічого не виправляй — лише рев'ю.",
+      "expected_output": "A review that finds six violations none of which typecheck, dependency-cruiser or a one-line grep on routes.ts can see — each needs a type, a call or a `new` followed across files — and leaves the module's Drizzle repository and the Slack adapter alone.",
+      "files": [
+        "evals/files/digests-module.patch"
+      ],
+      "expectations": [
+        "Flags raw Drizzle rows leaving the data layer under an alias: `listOpen` has an inferred return and `StalePull` is derived from it (digests/repository.ts:8, :18), so `DigestPreview.pulls` (types.ts) / `DigestService.preview` return table rows and they reach the HTTP response",
+        "Flags `digests/handlers.ts` reading a repository through the container (`container.repoRepo.getById`, handlers.ts:13) — transport code reaching past the service, even though it is not in routes.ts",
+        "Flags the business condition in transport code (`!repo.clonePath` → 409 `repo_not_ready`, digests/handlers.ts:15) as belonging in the service",
+        "Flags the clock read inside the supposedly pure helpers (`Date.now()` in `ageInDays`, digests/helpers.ts:14, reached from `isStale` / `formatDigest`) — time should be passed in",
+        "Flags the environment read in constants (`process.env.DIGEST_TIMEZONE`, digests/constants.ts:4) as config that must come through platform/config.ts",
+        "Flags the module constructing the concrete adapter itself (`new SlackDigestNotifier(url)` in digests/notifier.ts:11, called from the service) instead of the container wiring it",
+        "Does NOT report digests/repository.ts importing drizzle-orm and the schema as a violation (objecting to what it returns is fine)",
+        "Does NOT report the `fetch` call in server/src/adapters/notifier/slack.ts as a violation",
+        "Every reported problem names its file and a line number or symbol",
+        "Every must-fix finding cites the rule it breaks: a dependency-cruiser rule name or an `OA-<n>` checklist ID",
+        "The answer ends with a single `Verdict:` line that says BLOCK (with the number of must-fix findings) or PASS"
+      ]
+    }
+  ]
+}

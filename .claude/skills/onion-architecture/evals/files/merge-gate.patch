@@ -1,0 +1,206 @@
+--- a/client/src/vendor/shared/adapters.ts
++++ b/client/src/vendor/shared/adapters.ts
+@@ -150,6 +150,16 @@
+   currentLogin(): Promise<string>;
+ }
+ 
++export interface MergeGateReport {
++  blocked: boolean;
++  reason: string;
++  findings: { severity: string }[];
++}
++
++export interface CommitStatusPublisher {
++  publish(repo: RepoRef, sha: string, report: MergeGateReport): Promise<void>;
++}
++
+ // ---------- Git (simple-git, heavy) ----------
+ export interface CloneOptions {
+   depth?: number;
+--- a/reviewer-core/src/index.ts
++++ b/reviewer-core/src/index.ts
+@@ -62,3 +62,5 @@
+ // The single OpenAI-compatible structured provider (OpenRouter), shared by the
+ // CI runner and the server's openrouter path. Owns session grouping + guards.
+ export { OpenRouterProvider, type OpenRouterProviderOptions } from './llm/openrouter.js';
++
++export { maxBlockers, DEFAULT_MAX_BLOCKERS } from './review/gate-threshold.js';
+--- a/reviewer-core/src/review/gate-threshold.ts
++++ b/reviewer-core/src/review/gate-threshold.ts
+@@ -0,0 +1,8 @@
++export const DEFAULT_MAX_BLOCKERS = 0;
++
++export function maxBlockers(): number {
++  const raw = process.env.DEVDIGEST_MAX_BLOCKERS;
++  if (raw === undefined || raw.trim() === '') return DEFAULT_MAX_BLOCKERS;
++  const parsed = Number.parseInt(raw, 10);
++  return Number.isInteger(parsed) && parsed >= 0 ? parsed : DEFAULT_MAX_BLOCKERS;
++}
+--- a/server/src/adapters/github/commit-status.ts
++++ b/server/src/adapters/github/commit-status.ts
+@@ -0,0 +1,38 @@
++import { Octokit } from 'octokit';
++import type { CommitStatusPublisher, MergeGateReport, RepoRef } from '@devdigest/shared';
++import { withRetry, withTimeout } from '../../platform/resilience.js';
++import { rollupSeverities } from '../../modules/pulls/status.js';
++
++const TIMEOUT = 15_000;
++const STATUS_CONTEXT = 'devdigest/merge-gate';
++const DESCRIPTION_MAX = 140;
++
++export class OctokitCommitStatusPublisher implements CommitStatusPublisher {
++  private octokit: Octokit;
++
++  constructor(token: string) {
++    this.octokit = new Octokit({ auth: token });
++  }
++
++  async publish(repo: RepoRef, sha: string, report: MergeGateReport): Promise<void> {
++    const counts = rollupSeverities(report.findings);
++    const description =
++      `${report.reason} (${counts.critical} critical, ${counts.warning} warning, ${counts.suggestion} suggestion)`.slice(
++        0,
++        DESCRIPTION_MAX,
++      );
++    await withRetry(() =>
++      withTimeout(
++        this.octokit.rest.repos.createCommitStatus({
++          owner: repo.owner,
++          repo: repo.name,
++          sha,
++          state: report.blocked ? 'failure' : 'success',
++          context: STATUS_CONTEXT,
++          description,
++        }),
++        TIMEOUT,
++      ),
++    );
++  }
++}
+--- a/server/src/adapters/mocks.ts
++++ b/server/src/adapters/mocks.ts
+@@ -33,6 +33,8 @@
+   AuthWorkspace,
+   SecretsProvider,
+   SecretKey,
++  CommitStatusPublisher,
++  MergeGateReport,
+ } from '@devdigest/shared';
+ import { parseUnifiedDiff } from './git/diff-parser.js';
+ 
+@@ -369,3 +371,11 @@
+     return this.secrets[key as string];
+   }
+ }
++
++export class MockCommitStatusPublisher implements CommitStatusPublisher {
++  public published: { repo: RepoRef; sha: string; report: MergeGateReport }[] = [];
++
++  async publish(repo: RepoRef, sha: string, report: MergeGateReport): Promise<void> {
++    this.published.push({ repo, sha, report });
++  }
++}
+--- a/server/src/domain/reviews/merge-gate.ts
++++ b/server/src/domain/reviews/merge-gate.ts
+@@ -0,0 +1,24 @@
++import type { FindingRow } from '../../db/rows.js';
++
++export interface MergeGateDecision {
++  blocked: boolean;
++  blockers: number;
++  reason: string;
++}
++
++export function decideMergeGate(
++  findings: readonly FindingRow[],
++  maxBlockers: number,
++): MergeGateDecision {
++  const blockers = findings.filter(
++    (f) => f.dismissedAt === null && f.severity === 'CRITICAL',
++  ).length;
++  const blocked = blockers > maxBlockers;
++  return {
++    blocked,
++    blockers,
++    reason: blocked
++      ? `${blockers} critical finding(s), at most ${maxBlockers} allowed`
++      : 'within the allowed number of critical findings',
++  };
++}
+--- a/server/src/platform/container.ts
++++ b/server/src/platform/container.ts
+@@ -7,6 +7,7 @@
+   Embedder,
+   LLMProvider,
+   RepoDocsReader,
++  CommitStatusPublisher,
+ } from '@devdigest/shared';
+ import type { AppConfig } from './config.js';
+ import type { PromptLog } from './prompt-log.js';
+@@ -16,6 +17,7 @@
+ import { LocalSecretsProvider } from '../adapters/secrets/local.js';
+ import { LocalNoAuthProvider } from '../adapters/auth/local.js';
+ import { OctokitGitHubClient } from '../adapters/github/octokit.js';
++import { OctokitCommitStatusPublisher } from '../adapters/github/commit-status.js';
+ import { SimpleGitClient } from '../adapters/git/simple-git.js';
+ import { RipgrepCodeIndex } from '../adapters/codeindex/ripgrep.js';
+ import { FsRepoDocsReader } from '../adapters/docs/fs.js';
+@@ -60,6 +62,7 @@
+   secrets?: SecretsProvider;
+   auth?: AuthProvider;
+   github?: GitHubClient;
++  commitStatus?: CommitStatusPublisher;
+   git?: GitClient;
+   codeIndex?: CodeIndex;
+   embedder?: Embedder;
+@@ -95,6 +98,7 @@
+ 
+   private _git?: GitClient;
+   private _github?: GitHubClient;
++  private _commitStatus?: CommitStatusPublisher;
+   private _codeIndex?: CodeIndex;
+   private _embedder?: Embedder;
+   private _repoDocs?: RepoDocsReader;
+@@ -339,6 +343,15 @@
+     return this._github;
+   }
+ 
++  async commitStatus(): Promise<CommitStatusPublisher> {
++    if (this.overrides.commitStatus) return this.overrides.commitStatus;
++    if (this._commitStatus) return this._commitStatus;
++    const token = await this.secrets.get('GITHUB_TOKEN');
++    if (!token) throw new ConfigError('GITHUB_TOKEN is not configured');
++    this._commitStatus = new OctokitCommitStatusPublisher(token);
++    return this._commitStatus;
++  }
++
+   /** Resolve an LLM provider by id; constructs from the secret key, cached. */
+   async llm(id: 'openai' | 'anthropic' | 'openrouter'): Promise<LLMProvider> {
+     const injected = this.overrides.llm?.[id];
+@@ -394,6 +407,7 @@
+   invalidateSecretCaches(): void {
+     this.llmCache.clear();
+     this._github = undefined;
++    this._commitStatus = undefined;
+     this._embedder = undefined;
+   }
+ }
+--- a/server/src/vendor/shared/adapters.ts
++++ b/server/src/vendor/shared/adapters.ts
+@@ -179,6 +179,16 @@
+   currentLogin(): Promise<string>;
+ }
+ 
++export interface MergeGateReport {
++  blocked: boolean;
++  reason: string;
++  findings: { severity: string }[];
++}
++
++export interface CommitStatusPublisher {
++  publish(repo: RepoRef, sha: string, report: MergeGateReport): Promise<void>;
++}
++
+ // ---------- Git (simple-git, heavy) ----------
+ export interface CloneOptions {
+   depth?: number;

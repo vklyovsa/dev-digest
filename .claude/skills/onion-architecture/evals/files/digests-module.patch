@@ -1,0 +1,311 @@
+--- a/client/src/vendor/shared/adapters.ts
++++ b/client/src/vendor/shared/adapters.ts
+@@ -150,6 +150,10 @@
+   currentLogin(): Promise<string>;
+ }
+ 
++export interface DigestNotifier {
++  send(text: string): Promise<void>;
++}
++
+ // ---------- Git (simple-git, heavy) ----------
+ export interface CloneOptions {
+   depth?: number;
+--- a/server/src/adapters/mocks.ts
++++ b/server/src/adapters/mocks.ts
+@@ -33,6 +33,7 @@
+   AuthWorkspace,
+   SecretsProvider,
+   SecretKey,
++  DigestNotifier,
+ } from '@devdigest/shared';
+ import { parseUnifiedDiff } from './git/diff-parser.js';
+ 
+@@ -369,3 +370,11 @@
+     return this.secrets[key as string];
+   }
+ }
++
++export class MockDigestNotifier implements DigestNotifier {
++  public sent: string[] = [];
++
++  async send(text: string): Promise<void> {
++    this.sent.push(text);
++  }
++}
+--- a/server/src/adapters/notifier/slack.ts
++++ b/server/src/adapters/notifier/slack.ts
+@@ -0,0 +1,20 @@
++import type { DigestNotifier } from '@devdigest/shared';
++import { ExternalServiceError } from '../../platform/errors.js';
++
++const TIMEOUT_MS = 10_000;
++
++export class SlackDigestNotifier implements DigestNotifier {
++  constructor(private readonly webhookUrl: string) {}
++
++  async send(text: string): Promise<void> {
++    const res = await fetch(this.webhookUrl, {
++      method: 'POST',
++      headers: { 'content-type': 'application/json' },
++      body: JSON.stringify({ text }),
++      signal: AbortSignal.timeout(TIMEOUT_MS),
++    });
++    if (!res.ok) {
++      throw new ExternalServiceError(`Slack webhook responded with ${res.status}`);
++    }
++  }
++}
+--- a/server/src/modules/digests/constants.ts
++++ b/server/src/modules/digests/constants.ts
+@@ -0,0 +1,4 @@
++export const DIGEST_MAX_PULLS = 25;
++export const DIGEST_STALE_DAYS = 3;
++export const DIGEST_WEBHOOK_SECRET = 'SLACK_DIGEST_WEBHOOK_URL';
++export const DIGEST_TIMEZONE = process.env.DIGEST_TIMEZONE ?? 'UTC';
+--- a/server/src/modules/digests/handlers.ts
++++ b/server/src/modules/digests/handlers.ts
+@@ -0,0 +1,37 @@
++import type { FastifyRequest } from 'fastify';
++import type { Container } from '../../platform/container.js';
++import { AppError, NotFoundError } from '../../platform/errors.js';
++import { getContext } from '../_shared/context.js';
++import type { DigestPreview, DigestRepo, DigestSendResult } from './types.js';
++
++async function requireRepo(
++  container: Container,
++  req: FastifyRequest,
++  repoId: string,
++): Promise<DigestRepo> {
++  const { workspaceId } = await getContext(container, req);
++  const repo = await container.repoRepo.getById(workspaceId, repoId);
++  if (!repo) throw new NotFoundError('Repo not found');
++  if (!repo.clonePath) {
++    throw new AppError('repo_not_ready', 'The repository is still being cloned.', 409);
++  }
++  return { id: repo.id, fullName: repo.fullName };
++}
++
++export async function previewDigest(
++  container: Container,
++  req: FastifyRequest,
++  repoId: string,
++): Promise<DigestPreview> {
++  const repo = await requireRepo(container, req, repoId);
++  return container.digestService.preview(repo);
++}
++
++export async function sendDigest(
++  container: Container,
++  req: FastifyRequest,
++  repoId: string,
++): Promise<DigestSendResult> {
++  const repo = await requireRepo(container, req, repoId);
++  return container.digestService.send(repo);
++}
+--- a/server/src/modules/digests/helpers.ts
++++ b/server/src/modules/digests/helpers.ts
+@@ -0,0 +1,32 @@
++import { DIGEST_TIMEZONE } from './constants.js';
++import type { StalePull } from './repository.js';
++
++const DAY_MS = 86_400_000;
++
++const dayFormat = new Intl.DateTimeFormat('en-GB', {
++  timeZone: DIGEST_TIMEZONE,
++  day: '2-digit',
++  month: 'short',
++});
++
++function ageInDays(at: Date | null): number {
++  if (!at) return 0;
++  return Math.floor((Date.now() - at.getTime()) / DAY_MS);
++}
++
++function openedOn(at: Date | null): string {
++  return at ? dayFormat.format(at) : 'unknown';
++}
++
++export function isStale(pull: StalePull, staleDays: number): boolean {
++  return ageInDays(pull.updatedAt) >= staleDays;
++}
++
++export function formatDigest(repoFullName: string, pulls: readonly StalePull[]): string {
++  const lines = pulls.map(
++    (p) =>
++      `• #${p.number} ${p.title} — @${p.author}, opened ${openedOn(p.openedAt)}, ` +
++      `${ageInDays(p.updatedAt)}d without updates`,
++  );
++  return [`*${repoFullName}*: ${pulls.length} stale pull request(s)`, ...lines].join('\n');
++}
+--- a/server/src/modules/digests/notifier.ts
++++ b/server/src/modules/digests/notifier.ts
+@@ -0,0 +1,12 @@
++import type { DigestNotifier, SecretsProvider } from '@devdigest/shared';
++import { SlackDigestNotifier } from '../../adapters/notifier/slack.js';
++import { AppError } from '../../platform/errors.js';
++import { DIGEST_WEBHOOK_SECRET } from './constants.js';
++
++export async function resolveNotifier(secrets: SecretsProvider): Promise<DigestNotifier> {
++  const url = await secrets.get(DIGEST_WEBHOOK_SECRET);
++  if (!url) {
++    throw new AppError('digest_not_configured', 'Add a Slack webhook URL to send digests.', 400);
++  }
++  return new SlackDigestNotifier(url);
++}
+--- a/server/src/modules/digests/repository.ts
++++ b/server/src/modules/digests/repository.ts
+@@ -0,0 +1,18 @@
++import { and, asc, eq } from 'drizzle-orm';
++import type { Db } from '../../db/client.js';
++import * as t from '../../db/schema.js';
++
++export class DigestRepository {
++  constructor(private db: Db) {}
++
++  async listOpen(repoId: string, limit: number) {
++    return this.db
++      .select()
++      .from(t.pullRequests)
++      .where(and(eq(t.pullRequests.repoId, repoId), eq(t.pullRequests.status, 'open')))
++      .orderBy(asc(t.pullRequests.updatedAt))
++      .limit(limit);
++  }
++}
++
++export type StalePull = Awaited<ReturnType<DigestRepository['listOpen']>>[number];
+--- a/server/src/modules/digests/routes.ts
++++ b/server/src/modules/digests/routes.ts
+@@ -0,0 +1,17 @@
++import type { FastifyInstance } from 'fastify';
++import type { ZodTypeProvider } from 'fastify-type-provider-zod';
++import { IdParams } from '../_shared/schemas.js';
++import { previewDigest, sendDigest } from './handlers.js';
++
++export default async function digestsRoutes(appBase: FastifyInstance) {
++  const app = appBase.withTypeProvider<ZodTypeProvider>();
++  const { container } = app;
++
++  app.get('/repos/:id/digest', { schema: { params: IdParams } }, (req) =>
++    previewDigest(container, req, req.params.id),
++  );
++
++  app.post('/repos/:id/digest', { schema: { params: IdParams } }, (req) =>
++    sendDigest(container, req, req.params.id),
++  );
++}
+--- a/server/src/modules/digests/service.ts
++++ b/server/src/modules/digests/service.ts
+@@ -0,0 +1,31 @@
++import type { SecretsProvider } from '@devdigest/shared';
++import { DIGEST_MAX_PULLS, DIGEST_STALE_DAYS } from './constants.js';
++import { formatDigest, isStale } from './helpers.js';
++import { resolveNotifier } from './notifier.js';
++import type { DigestRepository } from './repository.js';
++import type { DigestPreview, DigestRepo, DigestSendResult } from './types.js';
++
++export class DigestService {
++  constructor(
++    private readonly digests: DigestRepository,
++    private readonly secrets: SecretsProvider,
++  ) {}
++
++  async preview(repo: DigestRepo): Promise<DigestPreview> {
++    const open = await this.digests.listOpen(repo.id, DIGEST_MAX_PULLS);
++    return {
++      repo: repo.fullName,
++      stale_days: DIGEST_STALE_DAYS,
++      pulls: open.filter((pull) => isStale(pull, DIGEST_STALE_DAYS)),
++    };
++  }
++
++  async send(repo: DigestRepo): Promise<DigestSendResult> {
++    const { pulls } = await this.preview(repo);
++    if (pulls.length === 0) return { sent: 0 };
++
++    const notifier = await resolveNotifier(this.secrets);
++    await notifier.send(formatDigest(repo.fullName, pulls));
++    return { sent: pulls.length };
++  }
++}
+--- a/server/src/modules/digests/types.ts
++++ b/server/src/modules/digests/types.ts
+@@ -0,0 +1,16 @@
++import type { StalePull } from './repository.js';
++
++export interface DigestRepo {
++  id: string;
++  fullName: string;
++}
++
++export interface DigestPreview {
++  repo: string;
++  stale_days: number;
++  pulls: StalePull[];
++}
++
++export interface DigestSendResult {
++  sent: number;
++}
+--- a/server/src/modules/index.ts
++++ b/server/src/modules/index.ts
+@@ -14,6 +14,7 @@
+ import blast from './blast/routes.js';
+ import context from './context/routes.js';
+ import brief from './brief/routes.js';
++import digests from './digests/routes.js';
+ 
+ /**
+  * Module registry. Each feature module is a Fastify plugin in
+@@ -44,4 +45,5 @@
+   blast,
+   context,
+   brief,
++  digests,
+ };
+--- a/server/src/platform/container.ts
++++ b/server/src/platform/container.ts
+@@ -44,6 +44,8 @@
+ import { ContextService } from '../modules/context/service.js';
+ import { BriefRepository } from '../modules/brief/repository.js';
+ import { BriefService } from '../modules/brief/service.js';
++import { DigestRepository } from '../modules/digests/repository.js';
++import { DigestService } from '../modules/digests/service.js';
+ import type { RepoIntel } from '../modules/repo-intel/types.js';
+ import { RepoIntelService } from '../modules/repo-intel/service.js';
+ import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph/index.js';
+@@ -121,6 +123,7 @@
+   private _blastService?: BlastService;
+   private _contextService?: ContextService;
+   private _briefService?: BriefService;
++  private _digestService?: DigestService;
+   private logger: ContainerLogger = SILENT_LOGGER;
+   private _repoIntel?: RepoIntel;
+   private _depgraph?: DepGraph;
+@@ -280,6 +283,13 @@
+     }));
+   }
+ 
++  get digestService(): DigestService {
++    return (this._digestService ??= new DigestService(
++      new DigestRepository(this.db),
++      this.secrets,
++    ));
++  }
++
+   get codeIndex(): CodeIndex {
+     if (this.overrides.codeIndex) return this.overrides.codeIndex;
+     this._codeIndex ??= new RipgrepCodeIndex(this.git);
+--- a/server/src/vendor/shared/adapters.ts
++++ b/server/src/vendor/shared/adapters.ts
+@@ -179,6 +179,10 @@
+   currentLogin(): Promise<string>;
+ }
+ 
++export interface DigestNotifier {
++  send(text: string): Promise<void>;
++}
++
+ // ---------- Git (simple-git, heavy) ----------
+ export interface CloneOptions {
+   depth?: number;

@@ -16,6 +16,12 @@ and leave it here as history.
 
 Approaches and solutions that held up, with the context that made them work.
 
+- **Corrected 2026-10-08: the skill-eval harness moved out of the skill folder.** `prepare-copy.sh`, `collect_run.py` and `extract_transcript.py` now live in `.claude/skill-evals/onion-architecture/`; `.claude/skills/onion-architecture/evals/` holds only what ships with the skill — `evals.json` and `files/*.patch`.
+  → Keep test cases and fixtures in `<skill>/evals/`, and anything that prepares, runs or collects in `.claude/skill-evals/<skill>/`; the executor still gets a copy of the skill without `evals/`.
+
+- **A skill eval stays honest only when the executor can see neither the answer key nor the experiment: hand it a copy of the skill without `evals/`, and give control and treatment working copies with neutral paths.** (2026-10-08) By skill-creator's layout `evals/evals.json` sits inside the skill folder, so an executor told to read `.claude/skills/onion-architecture/` can open the expectations; a working copy under `…-workspace/…/without_skill/` tells the control what is being measured. Six runs in neutral temp-directory copies built by `.claude/skills/onion-architecture/evals/prepare-copy.sh` showed zero reads of the real repository and zero Skill-tool calls, read off the transcripts by `evals/extract_transcript.py`.
+  → Build each run's copy with `prepare-copy.sh`, give the with-skill run a snapshot of the skill taken without `evals/`, grade blind (A/B folders holding only the answer, the diff and the measured checks), and prove isolation from the transcript, never from the answer.
+
 - **Corrected 2026-09-24: the seed re-link was found by comparing the live `agent_skills` rows with `SEED_SKILLS` BEFORE any run, not by the dry run.** The dry run on the copy then proved the fixed seed only added rows. Both steps matter: the comparison finds what an operation would undo, the copy proves what it actually does.
   → Before a seed or migration on the dev DB, list what the user has changed away from the defaults (unlinked skills, deleted agents, edited settings), then dry-run on the copy.
 
@@ -29,6 +35,12 @@ Approaches and solutions that held up, with the context that made them work.
 
 Dead ends and anti-patterns: what was tried, why it failed, what to do instead.
 **The highest-value section and the one most often left empty. Fill it.**
+
+- **Making the seeded violations harder did not separate two versions of the onion-architecture skill either: detection was 60/60 for both.** (2026-10-09) Eval 8 (`evals/files/digests-module.patch`, six cross-file violations, `./check.sh` fully green) and eval 7, five Sonnet runs per version: v0.1.0 and v0.2.0 each found every seeded violation in 5 of 5 runs. The 100% vs 71.5% pass rate is report shape only (rule ID per finding, `Verdict:` line, every problem located). What did move: on the large fixture v0.2.0 cost 271K tokens / 50 s against 442K / 73 s, and it produced no wrong must-fix item where v0.1.0 produced two.
+  → On Sonnet, compare skill versions on report shape, cost and false positives — recall is saturated. A recall difference needs a weaker model or a violation whose rule contradicts a precedent in the tree.
+
+- **A "find the seeded layering violation in a patch" eval does not separate the onion-architecture skill from no skill on Sonnet.** (2026-10-08) Evals 4–6 (`.claude/skills/onion-architecture/evals/files/{pull-refresh,reminders-module,merge-gate}.patch`, three seeded violations and one decoy each, no comments) scored 15/15 with the skill and 15/15 without, blind-graded, at equal cost (~250K tokens, ~38 s). The baseline found all nine from `AGENTS.md`, the neighbouring code and `./check.sh` alone — including eval 4, whose three violations dependency-cruiser cannot see; in eval 6 two of three are printed by depcruise outright.
+  → To measure the skill, seed what the tree does not teach: a convention only the skill states, a build task, or a case where the neighbouring code sets the wrong precedent. Keep 4–6 as a regression floor, not as evidence the skill helps.
 
 - **A spec's `IN-n` pointer to `i/img_N.png` does not survive the next feature: `i/` is an untracked scratch folder whose files are overwritten in place.** (2026-10-06) `specs/2026-10-04-project-context.md:383` cites `i/img_2.png` as the skill editor's Context frame; the file now holds the PR Brief Overview frame (saved 2026-10-05 18:12). The export also never showed what the JSX prototype holds — `docs/design/Dev Digest 2/Dev Digest/context_docs.jsx:107` (an over-cap badge, `CONTEXT_TOKEN_CAP = 4000` at `:11`) and `:126-131` (SERIALIZES AS grouped under `Project specifications` / `Project docs` / `Project insights`) — so SPEC-01 specified one heading and no warning, and a review found both gaps.
   → For a designed screen, grep `docs/design/Dev Digest 2/Dev Digest/*.jsx` for the screen's strings and name that file as a source next to the export; never re-open an `i/` path from an older spec as evidence.
@@ -90,6 +102,9 @@ settled enough to move into `CLAUDE.md`.
 
 Quirks of dependencies, versions and tooling — what a library does that its docs
 do not say.
+
+- **A dependency-cruiser rule anchored on `^node:` never fires: `import … from 'node:fs'` resolves to plain `fs` with `dependencyTypes: ['core']`, so the builtin half of `core-purity` and `no-domain-to-infra` passes vacuously.** (2026-10-08) `server/.dependency-cruiser.cjs:65` (`^node:`) and `:91` (`^node:(fs|child_process|…)`): on a scratch copy a `reviewer-core/src/labels.ts` importing `readFileSync` from `node:fs` gave 3 violations, none of them `core-purity`, and `--output-type json` showed `"resolved": "fs"`. With the alternative written as `^(node:)?(fs|child_process|net|http|https|dns)$` the same run reported `core-purity: ../reviewer-core/src/labels.ts → fs`. `process.env` is invisible to the graph either way.
+  → The config is NOT fixed yet. Until it is, a green `arch:check` proves nothing about builtins in the pure rings: run `grep -rnE "from 'node:|process\.env" reviewer-core/src server/src/domain`. When fixing, apply the same form to `no-domain-to-infra` and prove each rule fires on a probe import first.
 
 - **A `pr-self-review` verdict is tied to the index as well as to the files: `git add` alone changes its `dirty_hash`, and the default `branch` scope of a stacked branch re-reviews every earlier lesson on it.** (2026-10-06) `psr_dirty_hash` (`.claude/skills/pr-self-review/scripts/lib.sh:35-42`) hashes `git status --porcelain`, `git diff` and `git diff --cached`, so staging 72 files during a run moved the hash from `1452bf45…` to `277aec70…` with no file newer than the collected snapshot; a commit moves `head_sha` too. On `feature/lhw-05` (five commits ahead of `origin/main`) the scope was 298 files and 11 lanes, against 81 files for `--scope working`; lanes above roughly 170 KB of diff had to be cut into chunks (18 agents in all) to fit one agent each.
   → For the gate, order the steps: stage and commit first, then `/pr-self-review`, then `gh pr create` — a verdict written before the commit is stale by construction. To review one feature on a stacked branch use `--scope working` before committing it; split a lane by file boundaries when its patch is larger than one agent can read.
@@ -167,6 +182,16 @@ instead of an investigation.
 
 Dated summaries as `### YYYY-MM-DD — topic`: what was worked on and what state it
 was left in. Prune an entry once its content has moved into a section above.
+
+### 2026-10-09 — onion-architecture skill v0.2.0, compared with v0.1.0 (iterations 3 and 4)
+Skill edited: `rules/errors.md` (OA-10), `rules/review-report.md` (rule IDs, `Verdict:` line), `rules/tracing.md` (OA-5 widened, OA-11–OA-13), checklist items numbered, route grep widened. Evals 7 and 8 added with `pull-labels.patch` and `digests-module.patch`. Iteration 3: one run per version on evals 4–7; iteration 4: five runs per version on evals 7–8, in the git-ignored workspace (`benchmark.md`, `review.html`). Known weakness of v0.2.0: it splits one defect into several must-fix rows (9 rows for 6 defects in 3 of 5 runs).
+
+### 2026-10-08 — onion-architecture skill eval, iteration 2 (three review fixtures)
+Added evals 4–6 to `.claude/skills/onion-architecture/evals/evals.json` with comment-free patch fixtures; six Sonnet runs (one per configuration), blind-graded, in the git-ignored `.claude/skills/onion-architecture-workspace/iteration-2/` (`benchmark.md`, `review.html`). Result 100% vs 100%; the skill is unchanged. Open from the grader: eval 5 lacks an expectation for the service taking `db: Db`, and no expectation checks that cited line numbers are right.
+
+### 2026-10-08 — onion-architecture skill through the skill-creator eval loop (iteration 1)
+Eval set in `.claude/skills/onion-architecture/evals/` (3 tasks, 28 expectations, a seeded review patch, copy / collect / transcript scripts); runs, gradings and the benchmark in the git-ignored `.claude/skills/onion-architecture-workspace/iteration-1/`. One trial per configuration on Sonnet, graded blind: 92.7% with the skill, 89.3% without, 24 of 28 expectations passing either way, and the skill costing 17–41% more tokens — one trial, so not a result yet.
+The skill itself is unchanged and waits for the user's review of the viewer. Known before iteration 2: eval 1's two-copies expectation contradicts its own prompt and eval 3's test expectation is worded loosely; the skill teaches names absent from the code (`ReviewRepositoryPort`, `DrizzleReviewRepository`, `uow.run`) and its route grep misses `container.<x>Repo`. The description-triggering loop was not run.
 
 ### 2026-10-06 — review fixes: planner without clarification, `[NEEDS CLARIFICATION]`, Context tab budget
 `implementation-planner` no longer returns `Clarification needed` or asks a requirement question: no source → `Blocked — no requirements to plan from`; a gap found against the code → `Blocked — the requirements need revision`, or a `[blocking] [→ spec-creator]` line in plan §7, on which `/implement` stops. `spec-creator`, `specs/TEMPLATE.md` and `check-spec.sh` gained the marker `[NEEDS CLARIFICATION: … → OQ-n]`; the checker holds only a `draft` to it, so SPEC-01 and SPEC-02 still pass. Client: `TokenSum` warns above `CONTEXT_TOKEN_BUDGET` (8000) on both Context tabs and SERIALIZES AS is grouped by root folder; 421 client tests green.

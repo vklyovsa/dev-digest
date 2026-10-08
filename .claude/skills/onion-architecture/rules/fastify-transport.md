@@ -86,7 +86,8 @@ The fix is mechanical: move the query into `repository.ts`, the filter into
 
 Throw domain / application errors (`NotFoundError`, `AppError`) from the inside and let
 the registered error handler map them to status codes. A route must not invent an error
-taxonomy, and a service must not import `reply` or set a status code.
+taxonomy, and a service must not import `reply` or set a status code. The full rule,
+with the greps that check it, is `rules/errors.md`.
 
 ## SSE and jobs are also driving adapters
 

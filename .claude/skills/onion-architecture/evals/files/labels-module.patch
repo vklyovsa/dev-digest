@@ -1,0 +1,289 @@
+--- a/reviewer-core/src/index.ts
++++ b/reviewer-core/src/index.ts
+@@ -23,6 +23,9 @@
+   type PromptSectionName,
+ } from './prompt.js';
+ 
++// Label canonicalisation shared by the server and the runner.
++export { canonicalLabel } from './labels.js';
++
+ // Citation grounding — the mandatory mechanical gate for diff findings.
+ export { groundFindings, groundingSummary, type GroundingResult } from './grounding.js';
+ 
+--- a/reviewer-core/src/labels.ts
++++ b/reviewer-core/src/labels.ts
+@@ -0,0 +1,21 @@
++import { readFileSync } from 'node:fs';
++
++type AliasMap = Record<string, string>;
++
++function loadAliases(): AliasMap {
++  const path = process.env.LABEL_ALIASES_PATH;
++  if (!path) return {};
++  try {
++    return JSON.parse(readFileSync(path, 'utf8')) as AliasMap;
++  } catch {
++    return {};
++  }
++}
++
++const ALIASES = loadAliases();
++
++/** Lower-case a label and fold known aliases ("bugfix" → "bug") into one spelling. */
++export function canonicalLabel(label: string): string {
++  const key = label.toLowerCase();
++  return ALIASES[key] ?? key;
++}
+--- a/server/src/modules/index.ts
++++ b/server/src/modules/index.ts
+@@ -14,6 +14,7 @@
+ import blast from './blast/routes.js';
+ import context from './context/routes.js';
+ import brief from './brief/routes.js';
++import labels from './labels/routes.js';
+ 
+ /**
+  * Module registry. Each feature module is a Fastify plugin in
+@@ -44,4 +45,5 @@
+   blast,
+   context,
+   brief,
++  labels,
+ };
+--- a/server/src/modules/labels/constants.ts
++++ b/server/src/modules/labels/constants.ts
+@@ -0,0 +1,13 @@
++/** Labels longer than this are dropped rather than truncated. */
++export const MAX_LABEL_LENGTH = 50;
++
++/** A pull request carries at most this many labels after a sync. */
++export const MAX_LABELS_PER_PULL = 20;
++
++/** Path prefix → the label suggested for a pull request that touches it. */
++export const PATH_LABELS: Readonly<Record<string, string>> = {
++  'docs/': 'documentation',
++  'test/': 'tests',
++  'src/db/migrations/': 'migration',
++  '.github/': 'ci',
++};
+--- a/server/src/modules/labels/helpers.ts
++++ b/server/src/modules/labels/helpers.ts
+@@ -0,0 +1,25 @@
++import { canonicalLabel } from '@devdigest/reviewer-core';
++import { MAX_LABEL_LENGTH, MAX_LABELS_PER_PULL, PATH_LABELS } from './constants.js';
++
++/** Trim, canonicalise, de-duplicate and cap a raw label list. Order is kept. */
++export function normalizeLabels(raw: readonly string[]): string[] {
++  const seen = new Set<string>();
++  for (const value of raw) {
++    const label = canonicalLabel(value.trim());
++    if (!label || label.length > MAX_LABEL_LENGTH) continue;
++    seen.add(label);
++    if (seen.size === MAX_LABELS_PER_PULL) break;
++  }
++  return [...seen];
++}
++
++/** Labels implied by the paths a pull request changes. */
++export function labelsForPaths(paths: readonly string[]): string[] {
++  const found = new Set<string>();
++  for (const path of paths) {
++    for (const [prefix, label] of Object.entries(PATH_LABELS)) {
++      if (path.startsWith(prefix)) found.add(label);
++    }
++  }
++  return [...found];
++}
+--- a/server/src/modules/labels/repository.ts
++++ b/server/src/modules/labels/repository.ts
+@@ -0,0 +1,23 @@
++import { and, eq } from 'drizzle-orm';
++import type { Db } from '../../db/client.js';
++import type { PullRow } from '../../db/rows.js';
++import * as t from '../../db/schema.js';
++
++export class LabelsRepository {
++  constructor(private readonly db: Db) {}
++
++  async findPull(workspaceId: string, prId: string): Promise<PullRow | undefined> {
++    const [row] = await this.db
++      .select()
++      .from(t.pullRequests)
++      .where(and(eq(t.pullRequests.workspaceId, workspaceId), eq(t.pullRequests.id, prId)));
++    return row;
++  }
++
++  async setLabels(workspaceId: string, prId: string, labels: string[]): Promise<void> {
++    await this.db
++      .update(t.pullRequests)
++      .set({ labels })
++      .where(and(eq(t.pullRequests.workspaceId, workspaceId), eq(t.pullRequests.id, prId)));
++  }
++}
+--- a/server/src/modules/labels/routes.ts
++++ b/server/src/modules/labels/routes.ts
+@@ -0,0 +1,50 @@
++import type { FastifyInstance } from 'fastify';
++import type { ZodTypeProvider } from 'fastify-type-provider-zod';
++import { z } from 'zod';
++import { getContext } from '../_shared/context.js';
++import { IdParams } from '../_shared/schemas.js';
++
++const LabelList = z.object({ labels: z.array(z.string()) });
++
++export default async function labelsRoutes(appBase: FastifyInstance) {
++  const app = appBase.withTypeProvider<ZodTypeProvider>();
++  const service = app.container.labelsService;
++
++  app.get(
++    '/pulls/:id/labels',
++    { schema: { params: IdParams, response: { 200: LabelList } } },
++    async (req) => {
++      const { workspaceId } = await getContext(app.container, req);
++      return { labels: await service.listForPull(workspaceId, req.params.id) };
++    },
++  );
++
++  app.get(
++    '/pulls/:id/labels/suggestions',
++    { schema: { params: IdParams, response: { 200: LabelList } } },
++    async (req) => {
++      const { workspaceId } = await getContext(app.container, req);
++      return { labels: await service.suggestForPull(workspaceId, req.params.id) };
++    },
++  );
++
++  app.post('/pulls/:id/labels/sync', { schema: { params: IdParams } }, async (req, reply) => {
++    const { workspaceId } = await getContext(app.container, req);
++    const pull = await service.getPull(workspaceId, req.params.id);
++
++    if (pull.status === 'merged' || pull.status === 'closed') {
++      reply.status(409);
++      return { error: 'Labels of a closed pull request are frozen' };
++    }
++
++    const repo = await app.container.repoRepo.getById(workspaceId, pull.repoId);
++    if (!repo) {
++      reply.status(404);
++      return { error: 'Repo not found' };
++    }
++
++    const github = await app.container.github();
++    const remote = await github.getPullRequest({ owner: repo.owner, name: repo.name }, pull.number);
++    return { labels: await service.replaceLabels(workspaceId, pull.id, remote.labels ?? []) };
++  });
++}
+--- a/server/src/modules/labels/service.ts
++++ b/server/src/modules/labels/service.ts
+@@ -0,0 +1,40 @@
++import type { PullRow } from '../../db/rows.js';
++import type { Container } from '../../platform/container.js';
++import { NotFoundError } from '../../platform/errors.js';
++import { PullsRepository } from '../pulls/repository.js';
++import { labelsForPaths, normalizeLabels } from './helpers.js';
++import { LabelsRepository } from './repository.js';
++
++export class LabelsService {
++  private readonly labels: LabelsRepository;
++  private readonly pulls: PullsRepository;
++
++  constructor(private readonly container: Container) {
++    this.labels = new LabelsRepository(container.db);
++    this.pulls = new PullsRepository(container.db);
++  }
++
++  async getPull(workspaceId: string, prId: string): Promise<PullRow> {
++    const pull = await this.labels.findPull(workspaceId, prId);
++    if (!pull) throw new NotFoundError('Pull request not found');
++    return pull;
++  }
++
++  async listForPull(workspaceId: string, prId: string): Promise<string[]> {
++    const pull = await this.getPull(workspaceId, prId);
++    return normalizeLabels(pull.labels);
++  }
++
++  async suggestForPull(workspaceId: string, prId: string): Promise<string[]> {
++    const pull = await this.getPull(workspaceId, prId);
++    const files = await this.pulls.listFiles(pull.id);
++    const current = new Set(normalizeLabels(pull.labels));
++    return labelsForPaths(files.map((f) => f.path)).filter((label) => !current.has(label));
++  }
++
++  async replaceLabels(workspaceId: string, prId: string, labels: readonly string[]): Promise<string[]> {
++    const next = normalizeLabels(labels);
++    await this.labels.setLabels(workspaceId, prId, next);
++    return next;
++  }
++}
+--- a/server/src/platform/container.ts
++++ b/server/src/platform/container.ts
+@@ -44,6 +44,7 @@
+ import { ContextService } from '../modules/context/service.js';
+ import { BriefRepository } from '../modules/brief/repository.js';
+ import { BriefService } from '../modules/brief/service.js';
++import { LabelsService } from '../modules/labels/service.js';
+ import type { RepoIntel } from '../modules/repo-intel/types.js';
+ import { RepoIntelService } from '../modules/repo-intel/service.js';
+ import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph/index.js';
+@@ -121,6 +122,7 @@
+   private _blastService?: BlastService;
+   private _contextService?: ContextService;
+   private _briefService?: BriefService;
++  private _labelsService?: LabelsService;
+   private logger: ContainerLogger = SILENT_LOGGER;
+   private _repoIntel?: RepoIntel;
+   private _depgraph?: DepGraph;
+@@ -286,6 +288,10 @@
+     return this._codeIndex;
+   }
+ 
++  get labelsService(): LabelsService {
++    return (this._labelsService ??= new LabelsService(this));
++  }
++
+   /**
+    * The repo-intel facade (T1.1). All higher-level features (reviews,
+    * blast/onboarding migrations, phantom-gate) code against this interface.
+--- a/server/src/platform/jobs.ts
++++ b/server/src/platform/jobs.ts
+@@ -106,6 +106,15 @@
+   }
+ 
+   /** Wait for the queue to drain (useful in tests). */
++  /** How many jobs of `kind` are waiting or running — used to skip a duplicate enqueue. */
++  async countActive(kind: string): Promise<number> {
++    const rows = await this.db
++      .select({ status: t.jobs.status })
++      .from(t.jobs)
++      .where(eq(t.jobs.kind, kind));
++    return rows.filter((r) => r.status === 'queued' || r.status === 'running').length;
++  }
++
+   async onIdle(): Promise<void> {
+     await this.queue.onIdle();
+   }
+--- a/server/test/labels-helpers.test.ts
++++ b/server/test/labels-helpers.test.ts
+@@ -0,0 +1,21 @@
++import { describe, expect, it } from 'vitest';
++import { labelsForPaths, normalizeLabels } from '../src/modules/labels/helpers.js';
++
++describe('normalizeLabels', () => {
++  it('trims, lower-cases and de-duplicates while keeping order', () => {
++    expect(normalizeLabels([' Bug ', 'bug', 'API'])).toEqual(['bug', 'api']);
++  });
++
++  it('drops empty and over-long labels', () => {
++    expect(normalizeLabels(['', 'x'.repeat(51), 'ok'])).toEqual(['ok']);
++  });
++});
++
++describe('labelsForPaths', () => {
++  it('maps path prefixes onto labels once each', () => {
++    expect(labelsForPaths(['docs/a.md', 'docs/b.md', 'test/a.test.ts'])).toEqual([
++      'documentation',
++      'tests',
++    ]);
++  });
++});

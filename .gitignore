@@ -26,3 +26,6 @@ test-results/
 
 # pr-self-review verdict artifacts (local only)
 .claude/pr-self-review/
+
+# skill-creator eval runs (local only); the eval set itself lives in <skill>/evals/
+.claude/skills/*-workspace/
