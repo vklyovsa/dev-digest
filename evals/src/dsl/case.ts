@@ -9,7 +9,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, expect } from "vitest";
-import { DEFAULT_THRESHOLD } from "../config.js";
+import { DEFAULT_THRESHOLD, WORKFLOW_MODEL } from "../config.js";
 import { skillTask, agentTask, workflowTask } from "../tasks.js";
 import { runClaude, type Result, type RunOptions } from "../runtime/run-claude.js";
 import { patternMatch } from "../scoring/pattern-match.js";
@@ -69,7 +69,7 @@ export type WorkflowCase =
     };
 
 /** Did a skill engage? Either an explicit Skill tool-call, or reading its SKILL.md. */
-export function activated(result: Result, skill: string): boolean {
+export function activated(result: Pick<Result, "skillsInvoked" | "filesRead">, skill: string): boolean {
   const bySkill = result.skillsInvoked.some((s) => s === skill || s.endsWith(`:${skill}`));
   const byRead = result.filesRead.some((f) => f.includes(`skills/${skill}/SKILL.md`));
   return bySkill || byRead;
@@ -126,21 +126,30 @@ export function runWorkflowCases(cases: WorkflowCase[]): void {
           stopWhen: (p) => p.subagents.includes(expect1),
         });
         logTrace(c.name, result);
+        let passed = false;
         try {
           expect(result.subagents, `subagents: ${result.subagents.join(", ")}`).toContain(c.expectSubagent);
+          passed = true;
         } finally {
-          record(c.name, { result });
+          record(c.name, { result, passed });
         }
       } else if (c.kind === "activation") {
-        const result = await workflowTask(c.prompt, { maxTurns: c.maxTurns });
+        // A positive case stops the moment the skill engages; a negative one must run to the end.
+        const skill = c.skill;
+        const result = await workflowTask(c.prompt, {
+          maxTurns: c.maxTurns,
+          stopWhen: c.shouldActivate ? (p) => activated(p, skill) : undefined,
+        });
         logTrace(c.name, result);
+        let passed = false;
         try {
           expect(
             activated(result, c.skill),
             `skills: ${result.skillsInvoked.join(", ")} | reads: ${result.filesRead.join(", ")}`,
           ).toBe(c.shouldActivate);
+          passed = true;
         } finally {
-          record(c.name, { result });
+          record(c.name, { result, passed });
         }
       } else if (c.kind === "trace") {
         // One session, many asserts — every provided expectation is checked against the same trace.
@@ -149,17 +158,15 @@ export function runWorkflowCases(cases: WorkflowCase[]): void {
         const subs = c.expectSubagents ?? [];
         const skls = c.expectSkills ?? [];
         const files = c.expectFilesRead ?? [];
-        const skillEngaged = (p: { skillsInvoked: string[]; filesRead: string[] }, skill: string) =>
-          p.skillsInvoked.some((s) => s === skill || s.endsWith(`:${skill}`)) ||
-          p.filesRead.some((f) => f.includes(`skills/${skill}/SKILL.md`));
         const result = await workflowTask(c.prompt, {
           maxTurns: c.maxTurns,
           stopWhen: (p) =>
             subs.every((s) => p.subagents.includes(s)) &&
-            skls.every((s) => skillEngaged(p, s)) &&
+            skls.every((s) => activated(p, s)) &&
             files.every((f) => p.filesRead.some((r) => r.includes(f))),
         });
         logTrace(c.name, result);
+        let passed = false;
         try {
           for (const sub of c.expectSubagents ?? []) {
             expect(result.subagents, `subagents: ${result.subagents.join(", ")}`).toContain(sub);
@@ -177,8 +184,9 @@ export function runWorkflowCases(cases: WorkflowCase[]): void {
             ).toBe(true);
           }
           expect(result.isError).toBe(false);
+          passed = true;
         } finally {
-          record(c.name, { result });
+          record(c.name, { result, passed });
         }
       } else {
         // contrast: treatment (real harness) vs control (empty tmpdir, no on-disk config).
@@ -190,17 +198,21 @@ export function runWorkflowCases(cases: WorkflowCase[]): void {
           maxTurns: c.maxTurns,
           cwd: emptyCwd,
           settingSources: [],
+          // Same model as the treatment (workflowTask), or the contrast compares two models.
+          model: process.env.EVAL_MODEL ? undefined : WORKFLOW_MODEL,
         });
         logTrace(`${c.name} [treatment]`, treatment);
         logTrace(`${c.name} [control]`, control);
+        let passed = false;
         try {
           const treatmentRead = treatment.filesRead.some((f) => f.includes(c.expectFileRead));
           const controlRead = control.filesRead.some((f) => f.includes(c.expectFileRead));
           expect(treatmentRead, `treatment reads: ${treatment.filesRead.join(", ")}`).toBe(true);
           expect(controlRead, `control reads: ${control.filesRead.join(", ")}`).toBe(false);
+          passed = true;
         } finally {
-          record(`${c.name} [treatment]`, { result: treatment });
-          record(`${c.name} [control]`, { result: control });
+          record(`${c.name} [treatment]`, { result: treatment, passed });
+          record(`${c.name} [control]`, { result: control, passed });
         }
       }
     });

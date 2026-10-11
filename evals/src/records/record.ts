@@ -31,6 +31,8 @@ export interface RecordData {
   verdict?: Verdict;
   grounded?: number;
   threshold?: number;
+  /** Did the case's own assertions hold? Workflow cases pass it: they have no judge or grounding. */
+  passed?: boolean;
   extra?: Record<string, unknown>;
 }
 
@@ -40,18 +42,20 @@ export interface RecordData {
  * from being silently empty.
  */
 export function record(label: string, data: RecordData): void {
-  const { result, verdict, grounded, threshold, extra } = data;
+  const { result, verdict, grounded, threshold, passed, extra } = data;
   const state = expect.getState();
   const nodeid = `${state.testPath ?? "?"} > ${state.currentTestName ?? label}`;
 
-  // outcome: grounding gate failure short-circuits to false; else the judge threshold; else
-  // "did the run itself succeed" (workflow tests have neither grounding nor a judge verdict).
+  // outcome: an explicit assertion result wins (workflow tests); else a grounding gate failure
+  // short-circuits to false; else the judge threshold; else "did the run itself succeed".
   const outcome =
-    grounded !== undefined && grounded < 1
-      ? false
-      : verdict && threshold !== undefined
-        ? verdict.score >= threshold
-        : !result.isError;
+    passed !== undefined
+      ? passed
+      : grounded !== undefined && grounded < 1
+        ? false
+        : verdict && threshold !== undefined
+          ? verdict.score >= threshold
+          : !result.isError;
 
   const outDir = join(OUTPUTS, RUN_ID);
   mkdirSync(outDir, { recursive: true });

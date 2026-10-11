@@ -3,83 +3,85 @@ import { fixtureReader } from "../../src/index.js";
 
 const fx = fixtureReader(import.meta.url);
 
-const REVIEW_PROMPT = `Audit this diff against DevDigest's documented structural contracts.
+// agentTask strips Bash and the fixture files are not in the working tree. The prompt does not
+// say so: handling an inline diff with fewer tools is the agent's own job (its Step 0).
+const reviewPrompt = (fixture: string) => `Review this diff against DevDigest's documented architecture rules.
 
-${fx("checkout-service.diff")}`;
+${fx(fixture)}`;
 
-// A second real diff whose violations map onto DevDigest-SPECIFIC rule names
-// (`reviewer-core-zero-io`, `reviewer-core-ground-findings-gate`) that a competent model will
-// describe in prose but will not spontaneously name unless the agent forces a citation. This is
-// the discriminating case for the strict-vs-lite A/B: both variants should FIND both problems,
-// but only the strict variant (which keeps the "cite the exact documented rule per finding" hard
-// rule) should reliably emit the identifier. The checkout diff's textbook violations don't
-// discriminate — the model volunteers `inward-only-dependencies`/`di-discipline` either way.
-const REVIEWER_CORE_PROMPT = `Audit this diff against DevDigest's documented structural contracts.
+const CHECKOUT_PROMPT = reviewPrompt("checkout-service.diff");
+const BENIGN_PROMPT = reviewPrompt("benign-refactor.diff");
+const ALLOWED_IMPORT_PROMPT = reviewPrompt("cross-module-service.diff");
 
-${fx("reviewer-core-gate.diff")}`;
+const FASTIFY_FINDING = "the `fastify` import (`FastifyReply`) in server/src/domain/checkout/pricing.ts";
+const NEW_REPO_FINDING = "the `new PgCheckoutRepository()` call in server/src/modules/checkout/service.ts";
 
-// A diff that violates NO documented rule (a pure local-variable rename inside a domain file, no
-// new imports, no cross-layer edges). A grounded reviewer should report zero violations. This
-// surfaces the COST of relaxing the citation rule: freed from "every finding must name a
-// documented contract", the lite variant is more prone to fabricating a judgment/best-practice
-// finding where the strict variant stays silent.
-const BENIGN_PROMPT = `Audit this diff against DevDigest's documented structural contracts.
-
-${fx("benign-refactor.diff")}`;
-
-// Shared across the strict (architecture-reviewer) and relaxed (architecture-reviewer-lite)
-// variants so the two agents are graded on the exact same task — the only thing that should
-// move between the two runs is whether "cites the specific documented rule" keeps passing.
+// Shared by the strict (architecture-reviewer) and relaxed (architecture-reviewer-lite) variants:
+// same prompts, fixtures, practices, thresholds and turn budget. Detection and severity are the
+// controls; the rule-citation case is the one the relaxation is expected to move, and the benign
+// case shows what the relaxation costs.
+//
+// The judge passes a practice only on a verbatim quote, so every practice names something
+// quotable in the final report (a `### F<n>` heading, a `Rule:` line) — never an absence.
 export const cases: AgentCase[] = [
   {
-    name: "flags both violations in the checkout diff with severity and a citable rule",
+    name: "detects both seeded violations in the checkout diff",
     kind: "quality",
-    prompt: REVIEW_PROMPT,
+    prompt: CHECKOUT_PROMPT,
+    grounding: ["# Architecture review", "## Findings (JSON)"],
     practices: [
-      "flags the domain file (checkout.ts) importing a type from 'fastify' as a violation of the inward-only dependency rule between Domain and Presentation layers",
-      "flags the `new PgCheckoutRepository()` call inside service.ts as a violation of DI discipline (concrete adapters/repositories must be constructed only in the composition root / container)",
-      "names the specific documented rule identifier for EVERY finding (e.g. `inward-only-dependencies`, `di-discipline`) rather than describing the problem only in prose",
-      "assigns a severity (critical/high/medium/low/info) to each finding",
-      "quotes the offending line verbatim as evidence for each finding, not a paraphrase",
-      "ends with an explicit PASS/FAIL gate verdict based on whether any critical or high findings exist",
+      "the reply opens with the `# Architecture review` heading — no analysis or draft list of violations comes before it",
+      `reports ${FASTIFY_FINDING} as a finding: the domain layer depends on the HTTP transport framework`,
+      `reports ${NEW_REPO_FINDING} as a finding: a service constructs a concrete repository itself instead of receiving it from the composition root (platform/container.ts)`,
     ],
     threshold: 1.0,
     maxTurns: 25,
   },
   {
-    name: "does not fabricate an architecture finding for the out-of-scope security-shaped change",
+    name: "assigns a severity on the project scale to each checkout violation",
     kind: "quality",
-    prompt: REVIEW_PROMPT,
+    prompt: CHECKOUT_PROMPT,
     practices: [
-      "does not invent an architecture-contract violation for the optional `reply?: FastifyReply` parameter beyond the inward-only-dependencies import issue itself (no runtime bug/security finding fabricated as an architecture rule)",
-      "stays scoped to structural/layering/DI findings and does not comment on naming, style, or test coverage",
+      `the \`### F<n>\` heading of the finding about ${FASTIFY_FINDING} reads CRITICAL or WARNING`,
+      `the \`### F<n>\` heading of the finding about ${NEW_REPO_FINDING} reads WARNING — depcruise does not catch it, so it is not CRITICAL`,
+      "each `### F<n>` heading in the report carries one of CRITICAL, WARNING or SUGGESTION",
+      "the `FastifyReply` import, the `reply` parameter typed with it and the `reply?.header(...)` call are reported under one `### F<n>` finding, with the parameter and the call quoted as its evidence",
     ],
     threshold: 1.0,
     maxTurns: 25,
   },
   {
-    name: "cites the DevDigest-specific rule identifier for reviewer-core violations",
+    name: "cites a specific documented rule for each checkout finding",
     kind: "quality",
-    prompt: REVIEWER_CORE_PROMPT,
+    prompt: CHECKOUT_PROMPT,
     practices: [
-      "flags the `import { readFileSync } from 'node:fs'` added to reviewer-core/src/pipeline/run.ts as a violation (reviewer-core must do no I/O except the injected LLMProvider)",
-      "flags that runPipeline now returns `deduped` directly, skipping the mandatory `groundFindings()` gate before emitting findings",
-      "names the exact documented rule identifier `reviewer-core-zero-io` for the fs-import finding rather than only describing it in prose",
-      "names the exact documented rule identifier `reviewer-core-ground-findings-gate` for the skipped-gate finding rather than only describing it in prose",
-      "quotes the offending line verbatim as evidence for each finding, not a paraphrase",
-      "ends with an explicit PASS/FAIL gate verdict based on whether any critical or high findings exist",
+      `names a specific documented rule for the finding about ${FASTIFY_FINDING} — the depcruise rule \`no-domain-to-infra\`, onion-architecture \`rules/domain-purity.md\` or \`rules/layers.md\`, or checklist item OA-7 — rather than describing the problem only in prose`,
+      `names a specific documented rule for the finding about ${NEW_REPO_FINDING} — onion-architecture \`rules/ports-and-di.md\` (the composition root is the only place with \`new\`) or checklist item OA-13 — rather than describing the problem only in prose`,
+      "each `### F<n>` block in the report has a `Rule` line that names a rule file, a depcruise rule or a checklist item",
     ],
     threshold: 1.0,
     maxTurns: 25,
   },
   {
-    name: "does not fabricate a documented-rule violation for a benign rename",
+    name: "reports no finding for a benign rename",
     kind: "quality",
     prompt: BENIGN_PROMPT,
     practices: [
-      "reports no violations for the benign rename (or records only `info`-level, non-blocking observations) — it does not invent a critical/high/medium finding",
-      "does not fabricate a documented-rule violation where the diff violates none of the checked rules",
-      "the final gate verdict is PASS",
+      "the `## Findings` section says `No findings.` for the rename of local variables in server/src/modules/blast/score.ts",
+      "the closing `## Findings (JSON)` block is an empty array `[]`",
+    ],
+    threshold: 1.0,
+    maxTurns: 25,
+  },
+  {
+    // layers.md § Cross-module rules allows importing another module's service, so no documented
+    // rule is broken here: the case where dropping "only a named rule is a finding" can show.
+    name: "reports no finding for an allowed cross-module service import",
+    kind: "quality",
+    prompt: ALLOWED_IMPORT_PROMPT,
+    practices: [
+      "the `## Findings` section says `No findings.` for the `BillingService` constructor dependency added to server/src/modules/checkout/service.ts",
+      "the closing `## Findings (JSON)` block is an empty array `[]`",
     ],
     threshold: 1.0,
     maxTurns: 25,

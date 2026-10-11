@@ -45,6 +45,8 @@ Only Postgres runs in Docker — the API and the web app run on the host.
   packages, `<package>/specs/` when it lives in one.
 - Writing a spec → `specs/TEMPLATE.md` and `specs/README.md`; the `spec-creator` agent
   writes it (`.claude/agents/README.md`).
+- Auditing dependencies (sizes, unused, version drift, advisories) → `/dependency-checker`
+  (`.claude/skills/dependency-checker/SKILL.md`); it reports, it never changes a lockfile.
 - Tooling or the environment behaves inexplicably → `INSIGHTS.md` (§ Recurring Errors).
 - You learned something non-obvious → append it to the matching `INSIGHTS.md` section.
 - Domain rules (Fastify, Drizzle, Postgres, Zod, React, Next, security) live in

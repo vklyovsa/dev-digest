@@ -37,6 +37,19 @@ export function agentContent(agentName: string): string {
   return stripFrontmatter(readFileSync(f, "utf8"));
 }
 
+/**
+ * The model an agent DECLARES in its frontmatter (`model: sonnet`), so the eval measures the agent
+ * on the model it actually runs on. Undefined when the agent declares none or `inherit`.
+ */
+export function agentModel(agentName: string): string | undefined {
+  const f = join(AGENTS_DIR, `${agentName}.md`);
+  if (!existsSync(f)) throw new Error(`agent not found: ${f}`);
+  const md = readFileSync(f, "utf8");
+  const fmEnd = md.startsWith("---") ? md.indexOf("\n---", 3) : -1;
+  const model = (fmEnd !== -1 ? md.slice(0, fmEnd) : "").match(/^model:\s*(\S+)\s*$/m)?.[1];
+  return model && model !== "inherit" ? model : undefined;
+}
+
 // Tools the eval refuses to hand a subagent: evals run with bypassPermissions against the LIVE
 // repo, so a mutating tool could take real actions. An agent that declares these still runs — it
 // just runs read-only, which is all an eval ever needs.

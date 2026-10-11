@@ -1,0 +1,23 @@
+diff --git a/server/src/modules/checkout/service.ts b/server/src/modules/checkout/service.ts
+index aff494f..97fe8ad 100644
+--- a/server/src/modules/checkout/service.ts
++++ b/server/src/modules/checkout/service.ts
+@@ -1,12 +1,17 @@
+ import { priceOrder, type CheckoutOrder } from "../../domain/checkout/pricing.js";
++import type { BillingService } from "../billing/service.js";
+ import type { CheckoutOrders } from "./types.js";
+ 
+ export class CheckoutService {
+-  constructor(private readonly orders: CheckoutOrders) {}
++  constructor(
++    private readonly orders: CheckoutOrders,
++    private readonly billing: BillingService,
++  ) {}
+ 
+   async checkout(order: CheckoutOrder): Promise<{ totalCents: number }> {
+     const totalCents = priceOrder(order);
+     await this.orders.saveTotal(order.id, totalCents);
++    await this.billing.charge(order.id, totalCents);
+     return { totalCents };
+   }
+ }

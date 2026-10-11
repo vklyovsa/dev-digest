@@ -32,6 +32,7 @@ If a test wouldn't catch a class of regression we care about, we don't write it.
 | reviewer-core | `reviewer-core/` | unit (engine) | vitest | `reviewer-core.yml` | no |
 | mcp | `mcp/` | unit + in-memory MCP + stdio spawn | vitest | `mcp.yml` | no |
 | e2e web | `e2e/` | browser e2e (deterministic) | agent-browser + `run.ts` | `e2e-web.yml` | yes (stack) |
+| evals | `evals/` | harness evals (model-backed) + static gate | vitest + Claude Agent SDK | `evals.yml` | yes (LiteLLM proxy) |
 
 ## What each suite covers
 
@@ -75,6 +76,13 @@ paid run.
 main journeys (boot → PR list → PR detail; agents; skills) against a real seeded
 stack.
 No `chat`, no model key.
+
+**evals** — see `evals/README.md` § CI. The Claude Code harness, not product code:
+skills, subagents and the instructions a session loads. The one suite that calls a
+model (OpenRouter, `OPENROUTER_API_KEY`), so a PR runs only the suites its changed
+skills, agents or `AGENTS.md` files reach; one with no written evals is logged as
+SKIP. The static gate (typecheck, SKILL.md structure, unit tests) blocks, and so does
+the skills tier; the agents and workflow tiers report without blocking.
 
 ## Running locally
 

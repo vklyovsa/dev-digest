@@ -11,6 +11,14 @@
 
 const BACKEND = process.env.EVAL_BACKEND ?? "subscription";
 
+const MODEL_OVERRIDE_VARS = [
+  "ANTHROPIC_DEFAULT_FABLE_MODEL",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+  "CLAUDE_CODE_SUBAGENT_MODEL",
+];
+
 /**
  * Copy the current env, configured for the selected inference backend.
  *
@@ -21,9 +29,12 @@ const BACKEND = process.env.EVAL_BACKEND ?? "subscription";
  *   SDK speaks the Anthropic wire protocol to OpenRouter instead of api.anthropic.com. The base
  *   URL must have NO trailing slash. Override OPENROUTER_BASE_URL to point at a local LiteLLM
  *   proxy (e.g. http://localhost:4000) when routing to models that need Anthropic<->OpenAI
- *   translation.
+ *   translation. `model` is the session's OpenRouter slug: a subagent declaring `model: sonnet`
+ *   is otherwise requested as `claude-sonnet-5`, an ID OpenRouter does not serve, so the model
+ *   aliases and the subagent model are pinned to the slug. They are overwritten, not defaulted:
+ *   a Claude Code session exports them as empty strings to whatever it launches.
  */
-export function subscriptionEnv(): Record<string, string> {
+export function subscriptionEnv(model?: string): Record<string, string> {
   const env = { ...process.env } as Record<string, string>;
 
   if (BACKEND === "openrouter") {
@@ -32,6 +43,7 @@ export function subscriptionEnv(): Record<string, string> {
     env.ANTHROPIC_BASE_URL = (process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api").replace(/\/$/, "");
     env.ANTHROPIC_AUTH_TOKEN = key;
     env.ANTHROPIC_API_KEY = ""; // blank, not deleted — stops the SDK falling back to Anthropic auth
+    if (model) for (const name of MODEL_OVERRIDE_VARS) env[name] = model;
     return env;
   }
 

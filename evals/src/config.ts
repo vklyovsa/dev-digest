@@ -26,6 +26,13 @@ export const COST_REGRESSION_RATIO = 1.25; // candidate mean tokens > 125% of ba
 export const SPAWN_TOOLS = new Set(["Task", "Agent"]);
 // workflowTask runs against the LIVE repo with bypassPermissions — keep this read-only.
 export const WORKFLOW_ALLOWED_TOOLS = ["Read", "Grep", "Glob", "Task", "Agent", "Skill"];
+// allowedTools only pre-approves; under bypassPermissions every other tool still runs. The deny-list
+// is what actually keeps a workflow session from writing to the repo.
+export const WORKFLOW_DISALLOWED_TOOLS = ["Bash", "Write", "Edit", "NotebookEdit"];
+// The workflow tier asserts what a session DOES with the harness, so it runs on the model family
+// real sessions use: on claude-haiku-4-5 a case fails by naming the right doc and ending the turn
+// before opening it. An explicit EVAL_MODEL still wins (and keeps the OpenRouter path unchanged).
+export const WORKFLOW_MODEL = "claude-sonnet-5";
 
 // --- Output verbosity -------------------------------------------------------
 // Set EVAL_QUIET to suppress per-run trace/verdict spam during multi-run aggregation.

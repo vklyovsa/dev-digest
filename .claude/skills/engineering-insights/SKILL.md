@@ -1,6 +1,6 @@
 ---
 name: engineering-insights
-description: Reads and appends this project's INSIGHTS.md files — the per-package record of what a future session would otherwise have to rediscover. Use it twice per session. First, before the first edit in a package, to read that package's INSIGHTS.md in full. Second, when a non-obvious learning surfaces or a task is about to be reported complete, to append it: a dead end, a tool or library quirk, an error whose cause was not in the message, a convention discovered by reading code, an architectural decision worth its reasoning, or a question left open. Also use when the user says "capture this", "wrap up", "запиши інсайт", or invokes /engineering-insights.
+description: "Reads and appends this project's INSIGHTS.md files — the per-package record of what a future session would otherwise have to rediscover. Use it twice per session. First, before the first edit in a package, to read that package's INSIGHTS.md in full. Second, when a non-obvious learning surfaces or a task is about to be reported complete, to append it: a dead end, a tool or library quirk, an error whose cause was not in the message, a convention discovered by reading code, an architectural decision worth its reasoning, or a question left open. Also use when the user says \"capture this\", \"wrap up\", \"запиши інсайт\", or invokes /engineering-insights."
 allowed-tools: Read, Grep, Bash
 ---
 

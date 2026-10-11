@@ -129,7 +129,7 @@ inside `evals/` and needs no code changes to use.
 | `proxy/litellm.config.yaml` | LiteLLM config: a wildcard route forwarding any `EVAL_MODEL` slug to OpenRouter, in no-auth mode |
 | `proxy/docker-compose.yml` | Runs `ghcr.io/berriai/litellm` on `:4000`, both wire formats on one port |
 | `scripts/litellm-proxy.sh` | `up` / `down` / `wait` wrapper (reads `OPENROUTER_API_KEY` from env, else `~/.devdigest/secrets.json`) |
-| `src/runtime/env.ts` | Points the SDK's `ANTHROPIC_BASE_URL` at `OPENROUTER_BASE_URL` (the proxy) under `EVAL_BACKEND=openrouter` |
+| `src/runtime/env.ts` | Points the SDK's `ANTHROPIC_BASE_URL` at `OPENROUTER_BASE_URL` (the proxy) under `EVAL_BACKEND=openrouter`, and pins the `sonnet` / `haiku` / `opus` aliases and the subagent model to the session's slug |
 | `src/runtime/run-openrouter.ts` | Content tier's direct OpenAI-format call — also honours `OPENROUTER_BASE_URL` |
 
 The proxy accepts **both** shapes on one port — `POST /v1/messages` (Anthropic, from the SDK) and
@@ -186,62 +186,35 @@ workflow cases:
 > checkout is disposable); locally, prefer the Anthropic path or a throwaway clone for the workflow
 > tier.
 
-### Wiring it into GitHub Actions (per-PR)
+### CI — `.github/workflows/evals.yml`
 
-The engine is CI-ready: bring the proxy up as a step, wait for it, run the tier, tear it down. Put
-the OpenRouter key in the repo's **Actions secrets** as `OPENROUTER_API_KEY` (Settings → Secrets and
-variables → Actions). Create `.github/workflows/<name>.yml` in your repo:
+Runs on a pull request that touches the harness (`.claude/**`, any `CLAUDE.md` / `AGENTS.md`, the
+docs the workflow cases assert on, `evals/**`) and on a manual run. `scripts/ci-detect.mjs` diffs the
+PR against its base and picks the suites; a manual run takes all of them.
 
-```yaml
-name: evals
-on:
-  pull_request:
-    paths: ['evals/**', '.claude/**', 'CLAUDE.md']   # only when the harness/artifacts change
+| Change | Runs |
+|--------|------|
+| `.claude/skills/<name>/**`, `evals/skills/<name>/**` | `skills/<name>` — or the log line `SKIP skill <name> (no evals …)` |
+| `.claude/agents/<name>.md`, `evals/agents/<name>/**` | `agents/<name>` (or SKIP); a changed definition also runs the workflow tier |
+| any `CLAUDE.md` / `AGENTS.md`, `.claude/settings.json`, `evals/workflow/**`, a doc or skill a workflow case names | the workflow tier |
+| `src/**`, `package.json`, the lockfile, `proxy/**`, the workflow file | every suite that has evals |
 
-permissions:
-  contents: read
+| Job | Model variable → default | Blocks the PR |
+|-----|--------------------------|---------------|
+| `static` — typecheck, `eval:quality`, `vitest run src/` | no model | yes |
+| `skills` — direct to OpenRouter | `EVAL_MODEL_SKILLS` → `deepseek/deepseek-v4-flash` | yes |
+| `agents` — through the proxy | `EVAL_MODEL_AGENTS` → `deepseek/deepseek-v4-flash` | no |
+| `workflow` — through the proxy | `EVAL_MODEL_WORKFLOW` → `google/gemini-2.5-flash` | no |
 
-jobs:
-  workflow-evals:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: evals
-    env:
-      EVAL_BACKEND: openrouter
-      OPENROUTER_BASE_URL: http://localhost:4000
-      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}   # repo Actions secret
-      EVAL_MODEL: google/gemini-2.5-flash
-      EVAL_JUDGE_MODEL: google/gemini-2.5-flash
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with: { version: 10 }
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: evals/pnpm-lock.yaml
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
+The judge is `EVAL_JUDGE_MODEL` → `google/gemini-2.5-flash`. Switch a model by editing the default in
+the workflow's `env` block, by a repository variable of the same name, or by an input on a manual run.
+`agents` and `workflow` report without blocking (`continue-on-error`) until their pass rate on these
+models is measured — the cases were calibrated on Claude models.
 
-      # --- the engine ---
-      - run: docker compose -f proxy/docker-compose.yml up -d   # OPENROUTER_API_KEY from job env
-      - run: pnpm proxy:wait                                     # block until the proxy answers
-      - run: pnpm eval:workflow                                  # or eval:agents / eval:skills / eval
-      - if: failure()
-        run: docker compose -f proxy/docker-compose.yml logs --tail 100
-      - if: always()
-        run: docker compose -f proxy/docker-compose.yml down
-```
-
-Notes:
-- ubuntu runners ship Docker + `docker compose`, so no extra setup is needed.
-- The proxy container reads `OPENROUTER_API_KEY` straight from the job `env` (which is fed by the
-  secret) — you don't pass it to `docker compose` explicitly.
-- Because tool tiers cost real tokens, gate on `paths:` (only when the harness/artifacts change) and
-  keep the case count small. For a stricter gate, split into a required `eval:agents`/`eval:skills`
-  job and a non-blocking `eval:workflow` job (activation flakiness, above).
+Setup: the `OPENROUTER_API_KEY` Actions secret (Settings → Secrets and variables → Actions). Without
+it — a fork PR gets no secrets — the model jobs are skipped with a warning. Each model job uploads
+`evals/results/` as an artifact. A doc that a new workflow case asserts on must be added to the
+workflow's `paths:` (`src/ci-detect.test.ts` fails otherwise).
 
 ## Module layout — `src/` (the engine)
 
@@ -266,13 +239,14 @@ src/
                         #   skill/agentTask skip injection under EVAL_CONFIG=baseline (benchmark lift)
   scoring/
     pattern-match.ts    # patternMatch() — deterministic substring coverage
-    llm-judge.ts        # llmJudge(), parseVerdict(), Verdict, the judge rubric
+    llm-judge.ts        # llmJudge(), parseVerdict(), Verdict, the judge rubric; one retry on a non-JSON reply
+    llm-judge.test.ts   # unit test — verdict parsing and the retry
   logging/
     log.ts              # logTrace() (tools/subagents/skills/reads/metrics), logVerdict() (per-practice)
   records/
     record.ts           # record() → results/records.jsonl + full output to results/outputs/<run>/<slug>.md
     stats.ts            # pure: calcStats(), loadRecords(), aggregate(), byConfig(), computeFlags()
-    stats.test.ts       # the only non-model unit tests — the statistics math
+    stats.test.ts       # unit test — the statistics math
     benchmark.ts        # eval:benchmark CLI (with vs without artifact)
   trend-reporter.ts     # vitest reporter: pass/fail rows → results/history.jsonl
   compare.ts            # eval:compare — run-flip view over history.jsonl
@@ -280,6 +254,7 @@ src/
   delta.ts              # eval:delta — diff two labeled repeat runs
   scaffold.ts           # eval:scaffold — list skills/agents, generate template eval files
   skill-quality.ts      # eval:quality — static SKILL.md gate (no model)
+  ci-detect.test.ts     # unit test — scripts/ci-detect.mjs (changed files → suites) and the CI path filter
   dsl/
     describe.ts         # describeSkill / describeAgent / describeWorkflow — labeled groups
     case.ts             # SkillCase / AgentCase / WorkflowCase types; runSkillCases / runAgentCases / runWorkflowCases
@@ -415,14 +390,14 @@ pnpm eval:skills         # just skills/
 pnpm eval:agents         # just agents/
 pnpm eval:workflow       # just workflow/
 pnpm vitest run skills/onion-architecture       # one artifact
-pnpm vitest run src/records/stats.test.ts       # the only non-model unit test (stats math)
+pnpm vitest run src/                            # the non-model unit tests (stats math, judge parsing, CI detector)
 ```
 
 ### `eval:repeat` — stability of one thing
 
 ```bash
-pnpm eval:repeat <vitest pattern> [-n times=5] [-t testNamePattern] [--label name]
-pnpm eval:repeat skills/onion-architecture -n 5 --label baseline
+pnpm eval:repeat <vitest pattern> [-n times<=2] [-t testNamePattern] [--label name]
+EVAL_REPEAT_MAX=5 pnpm eval:repeat skills/onion-architecture -n 5 --label baseline
 ```
 Runs the pattern N times, then prints per-test pass rate, a per-**practice** table
 (`passed/total (pct)`), and metric stats (`turns`, `duration_ms`, `tokens_out` as mean ± stddev;
@@ -435,9 +410,9 @@ The primary "before vs after a change" workflow. **Capture the baseline label BE
 there is no way to reconstruct it afterwards short of reverting.
 
 ```bash
-pnpm eval:repeat skills/onion-architecture -n 5 --label baseline   # BEFORE the edit
+EVAL_REPEAT_MAX=5 pnpm eval:repeat skills/onion-architecture -n 5 --label baseline   # BEFORE the edit
 #   ...edit SKILL.md...
-pnpm eval:repeat skills/onion-architecture -n 5 --label candidate  # AFTER the edit
+EVAL_REPEAT_MAX=5 pnpm eval:repeat skills/onion-architecture -n 5 --label candidate  # AFTER the edit
 pnpm eval:delta baseline candidate
 ```
 Shows the delta at three levels: per-test pass rate, per-**practice** (which practice
@@ -515,13 +490,14 @@ Cheap and orthogonal; the `TrendReporter` keeps writing test-level outcome rows 
 | Env var | Default | Meaning |
 |---------|---------|---------|
 | `EVAL_BACKEND` | `subscription` | runner: `subscription` (Claude Code) or `openrouter` — see [Runners](#runners-claude-code-default-vs-openrouter) |
-| `EVAL_MODEL` | `claude-haiku-4-5` | model under test. Anthropic ID on `subscription`; OpenRouter slug on `openrouter` |
+| `EVAL_MODEL` | `claude-haiku-4-5` | model under test. Anthropic ID on `subscription`; OpenRouter slug on `openrouter`. Unset, an **agent** case runs on the `model:` its frontmatter declares and a **workflow** case on `claude-sonnet-5` (`WORKFLOW_MODEL`) |
 | `EVAL_JUDGE_MODEL` | `claude-sonnet-5` | judge model (stronger family); same slug-format rule as `EVAL_MODEL` |
 | `OPENROUTER_API_KEY` | — | required when `EVAL_BACKEND=openrouter`; also in `~/.devdigest/secrets.json` |
 | `OPENROUTER_BASE_URL` | OpenRouter | override to point at a local LiteLLM proxy for non-Anthropic tool-tier models |
 | `EVAL_MAX_TURNS` | `8` | max agent turns per case |
 | `EVAL_CONFIG` | `candidate` | `benchmark` sets this to `baseline` to skip artifact injection |
 | `EVAL_QUIET` | unset | suppress per-run trace spam during multi-run aggregation |
+| `EVAL_REPEAT_MAX` | `2` | ceiling for `eval:repeat -n` (token economy); set it to `5` for a real stability or delta run |
 
 ## Records, statistics, flags
 
@@ -571,9 +547,10 @@ tokens > 125% of baseline), `missing_data` (a config has zero records for a test
 
 ## Safety
 
-Sessions run with `permissionMode: "bypassPermissions"`, so `workflowTask` keeps a **read-only
-allow-list** (`Read, Grep, Glob, Task, Agent, Skill` — no `Bash`/`Write`/`Edit`). Don't copy the
-bypass pattern into a context that grants write tools.
+Sessions run with `permissionMode: "bypassPermissions"`, where `allowedTools` only pre-approves:
+a tool outside the list still runs. `workflowTask` therefore also passes a **deny-list**
+(`WORKFLOW_DISALLOWED_TOOLS`: `Bash`, `Write`, `Edit`, `NotebookEdit`) — that is what keeps a
+session from writing to the live repo. Don't copy the bypass pattern without it.
 
 ## Deferred (recorded so it isn't rediscovered)
 

@@ -6,68 +6,95 @@
  *
  *   .claude/skills/<name>/**   OR  evals/skills/<name>/**   → run evals/skills/<name>  (content tier)
  *   .claude/agents/<name>.md   OR  evals/agents/<name>/**   → run evals/agents/<name>  (tool tier)
- *   CLAUDE.md / .claude/CLAUDE.md / any agent / engine change → run the workflow tier
+ *   the harness — any CLAUDE.md / AGENTS.md, .claude/settings.json, an agent definition,
+ *     evals/workflow/**, a doc or skill a workflow case names → run the workflow tier
+ *   the engine — evals/src, package.json, the lockfile, the proxy, the CI workflow —
+ *     or $RUN_ALL=true (a manual run)                          → run every suite that has evals
  *
  * A changed artifact with NO written evals is NOT a failure: it is reported on the `skipped_*`
- * outputs so the job can print a visible "SKIP <name> (no evals)" line instead of going red.
+ * outputs and as a "SKIP <name> (no evals)" log line instead of going red.
  *
  * Emits GitHub Actions step outputs (skills, agents, run_workflow, skipped_skills, skipped_agents)
- * to $GITHUB_OUTPUT. Pure filesystem + string work — no deps.
+ * to $GITHUB_OUTPUT and a table to $GITHUB_STEP_SUMMARY. Pure filesystem + string work — no deps.
  */
 
-import { existsSync, readdirSync, appendFileSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { appendFileSync, existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const EVALS_DIR = join(dirname(fileURLToPath(import.meta.url)), "..");
 const REPO_ROOT = join(EVALS_DIR, "..");
+const WORKFLOW_DIR = join(EVALS_DIR, "workflow");
+
+const SKILL_DEF = /^\.claude\/skills\/([^/]+)\//;
+// README.md in that folder documents the agents; it is not one.
+const AGENT_DEF = /^\.claude\/agents\/(?!README\.md$)([^/]+)\.md$/;
+const HARNESS = [/(^|\/)(CLAUDE|AGENTS)\.md$/, /^\.claude\/settings\.json$/, /^evals\/workflow\//];
+// A change here can move any result, so it re-runs everything; unit tests of the engine cannot.
+const ENGINE = [
+  /^evals\/src\/(?!.*\.test\.ts$)/,
+  /^evals\/(package\.json|pnpm-lock\.yaml|vitest\.config\.ts)$/,
+  /^evals\/proxy\//,
+  /^evals\/scripts\/litellm-proxy\.sh$/,
+  /^\.github\/workflows\/evals\.yml$/,
+];
 
 const changed = (process.env.CHANGED_FILES ?? "")
   .split("\n")
   .map((s) => s.trim())
   .filter(Boolean);
 
-/** Does evals/<tier>/<name>/ contain at least one *.eval.ts? */
-function hasEvals(tier, name) {
-  const dir = join(EVALS_DIR, tier, name);
-  if (!existsSync(dir)) return false;
-  return readdirSync(dir).some((f) => f.endsWith(".eval.ts"));
-}
+const isDir = (path) => existsSync(path) && statSync(path).isDirectory();
+const list = (dir, suffix) => (isDir(dir) ? readdirSync(dir).filter((f) => f.endsWith(suffix)) : []);
 
-/** Collect distinct artifact names touched under a `.claude` and/or `evals` prefix. */
-function touched(reClaude, reEvals) {
+/** Does evals/<tier>/<name>/ contain at least one *.eval.ts? */
+const hasEvals = (tier, name) => list(join(EVALS_DIR, tier, name), ".eval.ts").length > 0;
+
+/** Every artifact of a tier that has evals. */
+const allWithEvals = (tier) => list(join(EVALS_DIR, tier), "").filter((name) => hasEvals(tier, name)).sort();
+
+/** Collect distinct artifact names captured by any of the patterns. */
+function touched(...patterns) {
   const names = new Set();
   for (const f of changed) {
-    const m = f.match(reClaude) ?? f.match(reEvals);
+    const m = patterns.map((re) => f.match(re)).find(Boolean);
     if (m) names.add(m[1]);
   }
   return [...names].sort();
 }
 
-const skillNames = touched(
-  /^\.claude\/skills\/([^/]+)\//,
-  /^evals\/skills\/([^/]+)\//,
+const workflowCases = list(WORKFLOW_DIR, ".cases.ts")
+  .map((f) => readFileSync(join(WORKFLOW_DIR, f), "utf8"))
+  .join("\n");
+
+/** Is `value` a string literal in a workflow case — a doc it expects read, a skill it expects to engage? */
+const namedByWorkflowCase = (value) => ['"', "'", "`"].some((q) => workflowCases.includes(q + value + q));
+
+const editedSkills = touched(SKILL_DEF);
+const editedAgents = touched(AGENT_DEF);
+const skillNames = touched(SKILL_DEF, /^evals\/skills\/([^/]+)\//);
+const agentNames = touched(AGENT_DEF, /^evals\/agents\/([^/]+)\//);
+
+const runAll = process.env.RUN_ALL === "true" || changed.some((f) => ENGINE.some((re) => re.test(f)));
+
+const skills = runAll ? allWithEvals("skills") : skillNames.filter((n) => hasEvals("skills", n));
+const agents = runAll ? allWithEvals("agents") : agentNames.filter((n) => hasEvals("agents", n));
+// Only an artifact that still exists is "skipped"; a deleted one with no evals is nothing to report.
+const skippedSkills = skillNames.filter(
+  (n) => !hasEvals("skills", n) && existsSync(join(REPO_ROOT, ".claude", "skills", n, "SKILL.md")),
 );
-const agentNames = touched(
-  /^\.claude\/agents\/([^/]+)\.md$/,
-  /^evals\/agents\/([^/]+)\//,
+const skippedAgents = agentNames.filter(
+  (n) => !hasEvals("agents", n) && existsSync(join(REPO_ROOT, ".claude", "agents", `${n}.md`)),
 );
 
-const skills = skillNames.filter((n) => hasEvals("skills", n));
-const skippedSkills = skillNames.filter((n) => !hasEvals("skills", n));
-const agents = agentNames.filter((n) => hasEvals("agents", n));
-const skippedAgents = agentNames.filter((n) => !hasEvals("agents", n));
-
-// The workflow tier measures the LIVE harness, so anything that changes it re-triggers it:
-// the root or .claude CLAUDE.md, any agent definition, the workflow cases, or the engine itself.
-const runWorkflow = changed.some(
-  (f) =>
-    f === "CLAUDE.md" ||
-    f === ".claude/CLAUDE.md" ||
-    /^\.claude\/agents\/.+\.md$/.test(f) ||
-    /^evals\/workflow\//.test(f) ||
-    /^evals\/src\//.test(f),
-);
+// The workflow tier measures the LIVE harness, so anything a session loads or a case asserts on
+// re-triggers it. A changed agent definition counts even without evals of its own: its
+// description is what the dispatch cases route on.
+const harnessChanged =
+  editedAgents.length > 0 ||
+  editedSkills.some(namedByWorkflowCase) ||
+  changed.some((f) => HARNESS.some((re) => re.test(f)) || namedByWorkflowCase(f));
+const runWorkflow = (runAll || harnessChanged) && list(WORKFLOW_DIR, ".eval.ts").length > 0;
 
 const out = process.env.GITHUB_OUTPUT;
 const write = (k, v) => (out ? appendFileSync(out, `${k}=${v}\n`) : console.log(`${k}=${v}`));
@@ -80,9 +107,27 @@ write("skipped_agents", skippedAgents.join(" "));
 
 // Human-readable summary in the step log.
 console.error("── eval change detection ──");
-console.error(`changed files : ${changed.length}`);
+console.error(`changed files : ${changed.length}${runAll ? " (engine change or manual run → every suite)" : ""}`);
 console.error(`skills → run  : ${skills.join(", ") || "(none)"}`);
 console.error(`agents → run  : ${agents.join(", ") || "(none)"}`);
 console.error(`workflow tier : ${runWorkflow ? "run" : "skip"}`);
-if (skippedSkills.length) console.error(`SKIP skills (no evals): ${skippedSkills.join(", ")}`);
-if (skippedAgents.length) console.error(`SKIP agents (no evals): ${skippedAgents.join(", ")}`);
+for (const n of skippedSkills) console.error(`SKIP skill ${n} (no evals in evals/skills/${n}/)`);
+for (const n of skippedAgents) console.error(`SKIP agent ${n} (no evals in evals/agents/${n}/)`);
+
+const summary = process.env.GITHUB_STEP_SUMMARY;
+if (summary) {
+  const cell = (names) => names.map((n) => `\`${n}\``).join(", ") || "—";
+  appendFileSync(
+    summary,
+    [
+      "### Harness evals",
+      "",
+      "| Suite | Run | Skipped — no evals |",
+      "|---|---|---|",
+      `| skills | ${cell(skills)} | ${cell(skippedSkills)} |`,
+      `| agents | ${cell(agents)} | ${cell(skippedAgents)} |`,
+      `| workflow | ${runWorkflow ? "yes" : "no"} | — |`,
+      "",
+    ].join("\n"),
+  );
+}

@@ -31,6 +31,7 @@ export interface Result {
 export interface RunOptions {
   systemPrompt?: string;
   allowedTools?: string[];
+  disallowedTools?: string[];
   maxTurns?: number;
   cwd?: string;
   model?: string;
@@ -59,16 +60,18 @@ export async function runClaude(prompt: string, opts: RunOptions = {}): Promise<
     systemPrompt = (systemPrompt ?? "") + directive;
   }
 
+  const model = opts.model ?? EVAL_MODEL;
   const options: Options = {
-    model: opts.model ?? EVAL_MODEL,
+    model,
     maxTurns: opts.maxTurns ?? MAX_TURNS,
     permissionMode: "bypassPermissions", // safe: evals only read/plan and tools are allow-listed
     systemPrompt,
     allowedTools,
+    disallowedTools: opts.disallowedTools,
     cwd: opts.cwd ?? REPO_ROOT,
     // Default: do NOT load on-disk config — isolates the injected artifact. workflowTask overrides.
     settingSources: opts.settingSources ?? [],
-    env: subscriptionEnv(),
+    env: subscriptionEnv(model),
   };
 
   const textParts: string[] = [];
@@ -144,7 +147,9 @@ export async function runClaude(prompt: string, opts: RunOptions = {}): Promise<
     }
   } catch (err) {
     isError = true;
-    if (!resultText && textParts.length === 0) {
+    // A tool trace is usable on its own: a workflow case that hits max-turns mid tool-use has no
+    // text yet, and rethrowing would lose the trace and leave the run without a record.
+    if (!resultText && textParts.length === 0 && toolCallCount === 0) {
       throw err; // nothing usable collected — surface the failure
     }
   }

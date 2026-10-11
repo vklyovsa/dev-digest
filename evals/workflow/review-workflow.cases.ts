@@ -1,60 +1,64 @@
 import type { WorkflowCase } from "../src/index.js";
 
 /**
- * Systemic ("workflow") tier — asserts the real on-disk harness (CLAUDE.md + skills + subagents,
- * loaded via settingSources:["project"]) behaves as documented. Organized by scenario, not by a
- * single artifact, because these behaviors are cross-cutting.
+ * Systemic ("workflow") tier — asserts the real on-disk harness (CLAUDE.md -> AGENTS.md, package
+ * AGENTS.md files, skills, subagents; loaded via settingSources:["project"]) behaves as documented.
  *
  * Budget: 5 Claude sessions total.
- *   - 3 × trace     → 1 session each                      = 3
- *   - 1 × activation pair (positive + near-miss negative) = 2
+ *   - 3 × trace     → 1 session each, several assertions per session = 3
+ *   - 1 × activation pair (positive + near-miss negative)            = 2
  *
- * `trace` folds several assertions into ONE session (cheaper, coarser) and stops early once its
- * evidence is in — so a dispatch-bearing trace never waits out the nested subagent's full run.
+ * Each trace is ONE chain of work, not a list of unrelated questions: package AGENTS.md -> the doc
+ * only that file routes to -> (optionally) a subagent. A later link proves the earlier one worked,
+ * so merging them costs no attribution. The activation pair cannot be merged: one session either
+ * engaged the skill or it did not.
+ *
+ * The trace sees `Read` tool calls only. Root AGENTS.md is auto-loaded and never appears in it;
+ * a package AGENTS.md appears because root AGENTS.md tells the agent to open it explicitly.
+ * Paths match by substring — keep the package prefix (`client/AGENTS.md`, never `AGENTS.md`).
  */
 export const cases: WorkflowCase[] = [
-  // --- trace (1 session): CLAUDE.md "Read When" routing + subagent dispatch, together -----------
+  // --- trace (1 session): client/ — package AGENTS.md, then the doc only it routes to -----------
   {
     kind: "trace",
-    // Endpoint must NOT already exist, or the model reviews the existing code inline instead of
-    // planning-then-dispatching. GET /reviews/:id/export is genuinely absent from routes.ts.
-    name: "API-route task reads api-contracts AND pulls the architecture-reviewer",
+    name: "client findings task opens client/AGENTS.md and follows it to findings-surfaces.md",
     prompt:
-      "Я планую додати НОВИЙ, ще не реалізований ендпоінт GET /reviews/:id/export (віддає ревʼю як " +
-      "markdown). Спершу звірся з конвенціями API цього репо. Потім ОБОВʼЯЗКОВО запусти сабагента " +
+      "Я збираюся змінити в client/ екран, який показує findings ревʼю. Коду поки не чіпай. " +
+      "Спершу відкрий настанови пакета client і прочитай ту документацію, яку вони вимагають " +
+      "прочитати перед такою зміною.",
+    expectFilesRead: ["client/AGENTS.md", "client/docs/findings-surfaces.md"],
+    maxTurns: 8,
+  },
+
+  // --- trace (1 session): server/ — package AGENTS.md, its routed doc, then subagent dispatch ---
+  {
+    kind: "trace",
+    // The column must NOT already exist, or the model reviews existing code inline instead of
+    // planning-then-dispatching.
+    name: "server PR-list task opens server/AGENTS.md, reads pr-list-read-model.md AND pulls the architecture-reviewer",
+    prompt:
+      "Я планую додати до списку pull requests у server/ НОВУ, ще не реалізовану похідну колонку — " +
+      "кількість відхилених findings. Коду не пиши. Спершу відкрий настанови пакета server і прочитай " +
+      "документ, який вони вимагають для такої зміни. Потім ОБОВʼЯЗКОВО запусти сабагента " +
       "architecture-reviewer, щоб він оцінив мій план на відповідність onion-шарам — не рецензуй сам.",
-    expectFilesRead: ["server/docs/api-contracts.md"],
+    expectFilesRead: ["server/AGENTS.md", "server/docs/pr-list-read-model.md"],
     expectSubagents: ["architecture-reviewer"],
-    maxTurns: 8,
+    maxTurns: 10,
   },
 
-  // --- trace (1 session): two "Read When" rows at once -----------------------------------------
+  // --- trace (1 session): two root "Read when" rows at once -------------------------------------
   {
     kind: "trace",
-    // Tests the CLAUDE.md "Read When" routing, so the prompt must push toward CONSULTING the docs,
-    // not exploring source. Earlier phrasing ("розберись, як усе влаштовано") sent the model straight
-    // into schema.ts / pipeline.run.ts and it never opened the routed doc. One anchor doc (pipeline.md)
-    // keeps this a deterministic routing check — asserting two docs in one session is inherently flaky.
-    name: "pipeline task follows CLAUDE.md routing to pipeline.md",
+    // The only trace that merges two UNRELATED routes, so it is the first suspect when the suite
+    // goes flaky: split it into two cases before rewording the prompt.
+    name: "root AGENTS.md routes an MCP question to mcp/AGENTS.md and a CI-lane question to TESTING.md",
     prompt:
-      "Я збираюся змінити review pipeline. Перш ніж торкатися коду — звірся з настановами цього репо " +
-      "(CLAUDE.md) щодо того, яку документацію треба прочитати для змін у pipeline, і прочитай саме ці документи.",
-    expectFilesRead: ["reviewer-core/docs/pipeline.md"],
+      "Маю два окремі питання, коду не чіпай. (1) Хочу змінити опис одного з тулів MCP-сервера. " +
+      "(2) Хочу зрозуміти, у яку CI-лінію потрапить новий тест сервера, що ходить у базу. " +
+      "Для кожного питання знайди за настановами цього репо, який документ треба прочитати, " +
+      "і прочитай саме ці документи.",
+    expectFilesRead: ["mcp/AGENTS.md", "TESTING.md"],
     maxTurns: 8,
-  },
-
-  // --- trace (1 session): CLAUDE.md "Hit unexpected behavior" routing -> gotchas ----------------
-  // Was a contrast case, but the control run (empty tmpdir) could still reach the real repo by
-  // absolute path and read gotchas.md, making the negative flaky. As a single-session trace it
-  // reliably checks the same routing rule: in the real repo, the discovery prompt reads gotchas.md.
-  {
-    kind: "trace",
-    name: "CLAUDE.md routes a gotchas lookup to reviewer-core/insights",
-    prompt:
-      "У reviewer-core я стикнувся з несподіваною поведінкою — щось працює не так, як я очікував. " +
-      "За настановами цього репо, де це вже могло бути задокументовано? Прочитай той файл.",
-    expectFilesRead: ["reviewer-core/insights/gotchas.md"],
-    maxTurns: 5,
   },
 
   // --- activation pair (2 sessions): positive + near-miss negative ------------------------------
