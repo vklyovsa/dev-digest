@@ -126,8 +126,8 @@ inside `evals/` and needs no code changes to use.
 
 | File | Role |
 |------|------|
-| `proxy/litellm.config.yaml` | LiteLLM config: a wildcard route forwarding any `EVAL_MODEL` slug to OpenRouter, in no-auth mode |
-| `proxy/docker-compose.yml` | Runs `ghcr.io/berriai/litellm` on `:4000`, both wire formats on one port |
+| `proxy/litellm.config.yaml` | LiteLLM config: a wildcard route forwarding any `EVAL_MODEL` slug to OpenRouter |
+| `proxy/docker-compose.yml` | Runs `ghcr.io/berriai/litellm` (pinned version) on `:4000`, both wire formats on one port; sets the master key LiteLLM needs to start |
 | `scripts/litellm-proxy.sh` | `up` / `down` / `wait` wrapper (reads `OPENROUTER_API_KEY` from env, else `~/.devdigest/secrets.json`) |
 | `src/runtime/env.ts` | Points the SDK's `ANTHROPIC_BASE_URL` at `OPENROUTER_BASE_URL` (the proxy) under `EVAL_BACKEND=openrouter`, and pins the `sonnet` / `haiku` / `opus` aliases and the subagent model to the session's slug |
 | `src/runtime/run-openrouter.ts` | Content tier's direct OpenAI-format call — also honours `OPENROUTER_BASE_URL` |
@@ -154,8 +154,8 @@ pnpm proxy:down
 ```
 
 `EVAL_MODEL` is forwarded verbatim to OpenRouter (the wildcard route in `proxy/litellm.config.yaml`),
-so you never edit config to try a new model. The proxy runs in **no-auth** mode — do not expose the
-port publicly.
+so you never edit config to try a new model. The proxy's master key is the OpenRouter key itself —
+the bearer token both runtimes already send — so a request without it is refused.
 
 #### Which cheap model — verified
 

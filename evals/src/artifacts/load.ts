@@ -50,6 +50,25 @@ export function agentModel(agentName: string): string | undefined {
   return model && model !== "inherit" ? model : undefined;
 }
 
+/**
+ * The tools an agent FORBIDS itself in frontmatter (`disallowedTools: Write, Agent`). The eval has
+ * to deny them too: `architecture-reviewer` forbids `Agent`, and a run that spawned a background
+ * subagent ended on a one-line remark about it instead of the report the judge scores.
+ */
+export function agentDisallowedTools(agentName: string): string[] {
+  const f = join(AGENTS_DIR, `${agentName}.md`);
+  if (!existsSync(f)) throw new Error(`agent not found: ${f}`);
+  const md = readFileSync(f, "utf8");
+  const fmEnd = md.startsWith("---") ? md.indexOf("\n---", 3) : -1;
+  const line = (fmEnd !== -1 ? md.slice(0, fmEnd) : "").match(/^disallowedTools:\s*(.+)$/m);
+  return line
+    ? line[1]
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean)
+    : [];
+}
+
 // Tools the eval refuses to hand a subagent: evals run with bypassPermissions against the LIVE
 // repo, so a mutating tool could take real actions. An agent that declares these still runs — it
 // just runs read-only, which is all an eval ever needs.

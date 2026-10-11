@@ -11,12 +11,17 @@
 
 services:
   litellm:
-    image: ghcr.io/berriai/litellm:main-stable
+    # Pinned: the floating main-stable tag moved to this build and stopped booting without a
+    # master key, which failed every tool-tier CI job before a single eval ran.
+    image: ghcr.io/berriai/litellm:v1.105.0
     container_name: devdigest-eval-litellm
     ports:
       - "4000:4000"
     environment:
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?set OPENROUTER_API_KEY in the environment}
+      # LiteLLM refuses to start without a master key. Both eval runtimes already send the
+      # OpenRouter key as their bearer token, so the same value is the proxy's key.
+      LITELLM_MASTER_KEY: ${OPENROUTER_API_KEY}
     volumes:
       - ./litellm.config.yaml:/app/config.yaml:ro
     command: ["--config", "/app/config.yaml", "--port", "4000", "--num_workers", "1"]
