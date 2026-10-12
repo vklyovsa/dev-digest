@@ -4,8 +4,8 @@ import type { WorkflowCase } from "../src/index.js";
  * Systemic ("workflow") tier — asserts the real on-disk harness (CLAUDE.md -> AGENTS.md, package
  * AGENTS.md files, skills, subagents; loaded via settingSources:["project"]) behaves as documented.
  *
- * Budget: 7 Claude sessions total.
- *   - 3 × trace     → 1 session each, several assertions per session = 3
+ * Budget: 8 Claude sessions total.
+ *   - 4 × trace     → 1 session each                                 = 4
  *   - 2 × activation pair (positive + near-miss negative)            = 4
  *
  * Each trace is ONE chain of work, not a list of unrelated questions: package AGENTS.md -> the doc
@@ -46,19 +46,27 @@ export const cases: WorkflowCase[] = [
     maxTurns: 10,
   },
 
-  // --- trace (1 session): two root "Read when" rows at once -------------------------------------
+  // --- trace (1 session each): one root "Read when" row per case --------------------------------
+  // Two unrelated routes in one prompt do not hold on a cheap model: gemini-2.5-flash followed one
+  // and guessed the other, a different one on each attempt.
   {
     kind: "trace",
-    // The only trace that merges two UNRELATED routes, so it is the first suspect when the suite
-    // goes flaky: split it into two cases before rewording the prompt.
-    name: "root AGENTS.md routes an MCP question to mcp/AGENTS.md and a CI-lane question to TESTING.md",
+    name: "root AGENTS.md routes an MCP tool-description change to mcp/AGENTS.md",
     prompt:
-      "Маю два окремі питання, коду не чіпай. (1) Хочу змінити опис одного з тулів MCP-сервера. " +
-      "(2) Хочу зрозуміти, у яку CI-лінію потрапить новий тест сервера, що ходить у базу. " +
-      "Для кожного питання знайди за настановами цього репо, який документ треба прочитати, " +
-      "і прочитай саме ці документи.",
-    expectFilesRead: ["mcp/AGENTS.md", "TESTING.md"],
-    maxTurns: 8,
+      "Хочу змінити опис одного з тулів MCP-сервера. Коду не чіпай. Знайди за настановами цього " +
+      "репо, який документ треба прочитати перед такою зміною, і прочитай саме його.",
+    expectFilesRead: ["mcp/AGENTS.md"],
+    maxTurns: 6,
+  },
+  {
+    kind: "trace",
+    name: "root AGENTS.md routes a CI-lane question to TESTING.md",
+    prompt:
+      "Хочу зрозуміти, у яку CI-лінію потрапить новий тест сервера, що ходить у базу. Коду не " +
+      "чіпай. Знайди за настановами цього репо, який документ про це треба прочитати, і прочитай " +
+      "саме його.",
+    expectFilesRead: ["TESTING.md"],
+    maxTurns: 6,
   },
 
   // --- activation pair (2 sessions): positive + near-miss negative ------------------------------
