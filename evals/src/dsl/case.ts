@@ -134,11 +134,13 @@ export function runWorkflowCases(cases: WorkflowCase[]): void {
           record(c.name, { result, passed });
         }
       } else if (c.kind === "activation") {
-        // A positive case stops the moment the skill engages; a negative one must run to the end.
+        // A positive case stops the moment the skill engages — or the moment the session hands the
+        // work to a subagent instead: that is a miss, and waiting out the nested session ends in
+        // the test timeout with no record. A negative one must run to the end.
         const skill = c.skill;
         const result = await workflowTask(c.prompt, {
           maxTurns: c.maxTurns,
-          stopWhen: c.shouldActivate ? (p) => activated(p, skill) : undefined,
+          stopWhen: c.shouldActivate ? (p) => activated(p, skill) || p.subagents.length > 0 : undefined,
         });
         logTrace(c.name, result);
         let passed = false;

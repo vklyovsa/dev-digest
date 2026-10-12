@@ -3,10 +3,21 @@
  * extracts what the session ACTUALLY did (tools, subagents, skills, reads) — not its prose.
  */
 
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { query, type Options } from "@anthropic-ai/claude-agent-sdk";
 import { EVAL_MODEL, MAX_TURNS, SPAWN_TOOLS } from "../config.js";
 import { REPO_ROOT } from "../artifacts/paths.js";
 import { subscriptionEnv } from "./env.js";
+
+// settingSources does not keep the developer's own context out: with ["project"] a session still
+// loads ~/.claude/CLAUDE.md, and with [] it still loads the auto-memory MEMORY.md. A case would
+// then measure personal rules (one that forbids invoking a skill unprompted fails every positive
+// activation), and CI, which has neither file, would measure something else.
+export const NO_PERSONAL_CONTEXT = {
+  claudeMdExcludes: [join(homedir(), ".claude", "**")],
+  autoMemoryEnabled: false,
+};
 
 export interface Metrics {
   durationMs: number;
@@ -71,6 +82,7 @@ export async function runClaude(prompt: string, opts: RunOptions = {}): Promise<
     cwd: opts.cwd ?? REPO_ROOT,
     // Default: do NOT load on-disk config — isolates the injected artifact. workflowTask overrides.
     settingSources: opts.settingSources ?? [],
+    settings: NO_PERSONAL_CONTEXT,
     env: subscriptionEnv(model),
   };
 

@@ -1,6 +1,6 @@
 # DevDigest — repository map
 
-Local-first AI pull-request review. **Five standalone packages, not a workspace**:
+Local-first AI pull-request review. **Six standalone packages, not a workspace**:
 each has its own `package.json` and lockfile; code is shared through tsconfig path
 aliases, never through published modules.
 
@@ -11,8 +11,9 @@ aliases, never through published modules.
 | `reviewer-core/` | `@devdigest/reviewer-core` | pure engine: diff → prompt → LLM → findings | — |
 | `e2e/` | `@devdigest/e2e` | deterministic browser e2e (agent-browser) | — |
 | `mcp/` | `@devdigest/mcp` | local MCP server over stdio, thin wrapper over the API | — |
+| `evals/` | `@devdigest/evals` | evals of the Claude Code harness itself: skills, subagents, instruction files | — |
 
-Node >= 22. **`server/` and `client/` use pnpm; `reviewer-core/`, `e2e/` and `mcp/` use npm.**
+Node >= 22. **`server/`, `client/` and `evals/` use pnpm; `reviewer-core/`, `e2e/` and `mcp/` use npm.**
 Only Postgres runs in Docker — the API and the web app run on the host.
 
 ## Commands
@@ -22,6 +23,8 @@ Only Postgres runs in Docker — the API and the web app run on the host.
 - Browser e2e: `./scripts/e2e.sh` — isolated stack on alternate ports
 - MCP server: registered with the MCP client (`mcp/README.md`), **never started by
   `./scripts/dev.sh` or `./scripts/e2e.sh`**
+- Harness evals: `cd evals && pnpm eval:quality` (static, no model); the model-backed
+  suite a change needs → § Harness evals
 - Per-package test / typecheck commands: see that package's `AGENTS.md`
 
 ## Read when
@@ -38,6 +41,8 @@ Only Postgres runs in Docker — the API and the web app run on the host.
   architecture / security review, docs) → `.claude/agents/README.md`.
 - Building an approved plan end to end (implementers, verification, architecture review
   with fix rounds) → `/implement` (`.claude/commands/implement.md`).
+- Changing a skill, a project agent or an instruction file (`CLAUDE.md` / `AGENTS.md`) →
+  run the eval § Harness evals names for it; writing or reading an eval → `evals/README.md`.
 - Changing a project agent, a command or the pipeline, or asking how a multi-agent run
   went → `docs/retro/README.md` and the newest entries in `docs/retro/ledger/`. An entry is
   written only by `/workflow-retro`, which the user types — never start it yourself.
@@ -59,6 +64,21 @@ Only Postgres runs in Docker — the API and the web app run on the host.
 - **When a surprise resolves, and before reporting a task complete** → run the
   `engineering-insights` skill. It re-reads the file, skips what is already recorded, and
   appends; it never rewrites. Having nothing substantial to add is the normal outcome.
+
+## Harness evals
+
+A change to the harness is checked by the eval it reaches, run from `evals/`:
+
+| Change | Minimum check |
+|---|---|
+| `.claude/skills/**` | `pnpm eval:quality`, then `pnpm exec vitest run skills/<name>/` when the skill has evals |
+| `.claude/agents/**` | `pnpm exec vitest run agents/<name>/` when the agent has evals, then `pnpm eval:workflow` |
+| `CLAUDE.md` / `AGENTS.md`, routing rules, `.claude/settings.json` | `pnpm eval:workflow` |
+| an eval case, a fixture or a scorer | measure the baseline again (`pnpm eval:repeat <suite> --label <name>`, or `pnpm eval:benchmark skills/<name>`) before comparing against it |
+
+Only `eval:quality` is free. Every other row starts model sessions on the Claude Code
+subscription: run the one suite the change reaches, never plain `pnpm eval`.
+`.github/workflows/evals.yml` picks the same suites from a pull request's diff.
 
 ## Conventions
 
@@ -100,7 +120,7 @@ Only Postgres runs in Docker — the API and the web app run on the host.
 
 ## Do not touch
 
-- **Lock-files** — `pnpm-lock.yaml` (`server/`, `client/`) and `package-lock.json`
+- **Lock-files** — `pnpm-lock.yaml` (`server/`, `client/`, `evals/`) and `package-lock.json`
   (`reviewer-core/`, `e2e/`, `mcp/`) are never hand-edited: change a dependency through the
   package manager in that package and commit the lockfile it writes. There is no
   root lockfile, because this is not a workspace.

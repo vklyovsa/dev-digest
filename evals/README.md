@@ -47,10 +47,14 @@ the artifact → measured lift). All three read the same persisted `results/reco
 
 - **`skillTask` / `agentTask`** inject the artifact's content as the system prompt and load **no**
   on-disk config. This isolates the artifact's *content* — the right question for skill/agent
-  quality. (Relies on the SDK default `settingSources: []`, which reads nothing from disk.)
+  quality (`settingSources: []`).
 - **`workflowTask`** loads the real harness (`settingSources: ["project"]` → `CLAUDE.md` + project
   skills/agents). The *systemic* tier: does a skill actually **activate**, does a subagent actually
   get **dispatched**, does `CLAUDE.md` change behavior? A content-only eval can't see this.
+
+Neither sees the developer's own `~/.claude/CLAUDE.md` or auto-memory: `runClaude` excludes both
+(`NO_PERSONAL_CONTEXT`), because `settingSources` alone does not. A personal rule would otherwise
+decide a case that CI, which has neither file, scores differently.
 
 ## Two scorers (both subscription-only)
 
@@ -213,7 +217,9 @@ models is measured — the cases were calibrated on Claude models.
 
 Setup: the `OPENROUTER_API_KEY` Actions secret (Settings → Secrets and variables → Actions). Without
 it — a fork PR gets no secrets — the model jobs are skipped with a warning. Each model job uploads
-`evals/results/` as an artifact. A doc that a new workflow case asserts on must be added to the
+`evals/results/` as an artifact. Budget: a job stops at its `timeout-minutes`, a case at its
+`maxTurns` and the test timeout (240 s; 480 s in the tool tiers), with one retry; the ceiling in
+money is the credit limit of the CI key, set in OpenRouter. A doc that a new workflow case asserts on must be added to the
 workflow's `paths:` (`src/ci-detect.test.ts` fails otherwise).
 
 ## Module layout — `src/` (the engine)
@@ -373,7 +379,7 @@ How each `kind` asserts:
 | `kind` | Runs | Passes when |
 |--------|------|-------------|
 | `dispatch` | `workflowTask` | `result.subagents` contains `expectSubagent` |
-| `activation` | `workflowTask` | `activated(result, skill) === shouldActivate` (positive **and** near-miss negative) |
+| `activation` | `workflowTask` | `activated(result, skill) === shouldActivate` (positive **and** near-miss negative); a positive case that dispatches a subagent instead is stopped there and counts as a miss |
 | `contrast` | treatment (real repo) **and** control (empty tmpdir, `settingSources:[]`) | `expectFileRead` read in treatment, NOT in control |
 
 Workflow records carry an empty `practices[]` (no judge) but a full trace; `contrast` writes two

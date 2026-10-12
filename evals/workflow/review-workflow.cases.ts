@@ -4,9 +4,9 @@ import type { WorkflowCase } from "../src/index.js";
  * Systemic ("workflow") tier — asserts the real on-disk harness (CLAUDE.md -> AGENTS.md, package
  * AGENTS.md files, skills, subagents; loaded via settingSources:["project"]) behaves as documented.
  *
- * Budget: 5 Claude sessions total.
+ * Budget: 7 Claude sessions total.
  *   - 3 × trace     → 1 session each, several assertions per session = 3
- *   - 1 × activation pair (positive + near-miss negative)            = 2
+ *   - 2 × activation pair (positive + near-miss negative)            = 4
  *
  * Each trace is ONE chain of work, not a list of unrelated questions: package AGENTS.md -> the doc
  * only that file routes to -> (optionally) a subagent. A later link proves the earlier one worked,
@@ -78,6 +78,28 @@ export const cases: WorkflowCase[] = [
     prompt:
       "Поясни, як у pgvector працюють розмірності колонок і чому невідповідність повертає нуль рядків.",
     skill: "engineering-insights",
+    shouldActivate: false,
+    maxTurns: 4,
+  },
+
+  // --- activation pair (2 sessions): dependency-checker, positive + near-miss negative ----------
+  {
+    kind: "activation",
+    name: "dependency-checker activates on a dependency audit request",
+    prompt:
+      "Перевір залежності цього репозиторію: що важке, що не використовується і де версії " +
+      "розходяться між пакетами.",
+    skill: "dependency-checker",
+    shouldActivate: true,
+    maxTurns: 4,
+  },
+  {
+    kind: "activation",
+    name: "near-miss negative — a question about one dependency must NOT start a dependency audit",
+    prompt:
+      "Поясни, чим `dependencies` відрізняються від `devDependencies` у package.json і в яку з " +
+      "секцій класти `vitest`.",
+    skill: "dependency-checker",
     shouldActivate: false,
     maxTurns: 4,
   },
