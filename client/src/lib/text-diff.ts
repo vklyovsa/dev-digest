@@ -1,4 +1,4 @@
-/** Pure helpers for VersionsTab — the line diff behind the Diff button. */
+/** Line diff between two texts — the Diff button of a skill version and the compare view of two eval runs. */
 
 export type DiffOp = "same" | "add" | "remove";
 

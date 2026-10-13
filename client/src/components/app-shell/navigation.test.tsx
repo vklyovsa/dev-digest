@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { Sidebar } from "@devdigest/ui";
+import shell from "../../../messages/en/shell.json";
 import { activeKeyFor } from "./helpers";
 
 afterEach(cleanup);
@@ -28,5 +29,27 @@ describe("Project Context navigation", () => {
     const row = (name: string) => screen.getByRole("link", { name }).firstElementChild;
     expect(row("Project Context")).toHaveStyle({ fontWeight: 600 });
     expect(row("Pull Requests")).toHaveStyle({ fontWeight: 500 });
+  });
+});
+
+describe("Eval Dashboard navigation", () => {
+  it("places the item in SKILLS LAB right after Conventions and links to /eval", () => {
+    render(<Sidebar ctx={{ repoId: "r1" }} />);
+    const names = screen.getAllByRole("link").map((l) => l.textContent);
+    expect(names.indexOf("Eval Dashboard")).toBe(names.indexOf("Conventions") + 1);
+    expect(screen.getByRole("link", { name: "Eval Dashboard" })).toHaveAttribute("href", "/eval");
+  });
+
+  it("labels the item with the shell message", () => {
+    expect(shell.nav.eval).toBe("Eval Dashboard");
+  });
+
+  it("marks the item active on every path under /eval", () => {
+    for (const path of ["/eval", "/eval/a1"]) expect(activeKeyFor(path)).toBe("eval");
+
+    render(<Sidebar ctx={{ repoId: "r1", activeKey: activeKeyFor("/eval/a1") }} />);
+    const row = (name: string) => screen.getByRole("link", { name }).firstElementChild;
+    expect(row("Eval Dashboard")).toHaveStyle({ fontWeight: 600 });
+    expect(row("Conventions")).toHaveStyle({ fontWeight: 500 });
   });
 });

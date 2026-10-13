@@ -190,18 +190,21 @@ workflow cases:
 > checkout is disposable); locally, prefer the Anthropic path or a throwaway clone for the workflow
 > tier.
 
-### CI — `.github/workflows/evals.yml`
+### CI — `.github/workflows/eval-{skills,agents,workflow}.yml`
 
-Runs on a pull request that touches the harness (`.claude/**`, any `CLAUDE.md` / `AGENTS.md`, the
-docs the workflow cases assert on, `evals/**`) and on a manual run. `scripts/ci-detect.mjs` diffs the
-PR against its base and picks the suites; a manual run takes all of them.
+One workflow per tier: `eval-skills.yml` (`static` + `skills`), `eval-agents.yml` (`agents`),
+`eval-workflow.yml` (`workflow`). Each runs on a pull request that touches the harness (`.claude/**`,
+any `CLAUDE.md` / `AGENTS.md`, the docs the workflow cases assert on, `evals/**`) and on a manual run.
+Its own `detect` job runs `scripts/ci-detect.mjs`, which diffs the PR against its base and picks the
+suites; a manual run takes all of that tier. `agents` and `workflow` do not wait for `static`.
 
 | Change | Runs |
 |--------|------|
 | `.claude/skills/<name>/**`, `evals/skills/<name>/**` | `skills/<name>` — or the log line `SKIP skill <name> (no evals …)` |
 | `.claude/agents/<name>.md`, `evals/agents/<name>/**` | `agents/<name>` (or SKIP); a changed definition also runs the workflow tier |
 | any `CLAUDE.md` / `AGENTS.md`, `.claude/settings.json`, `evals/workflow/**`, a doc or skill a workflow case names | the workflow tier |
-| `src/**`, `package.json`, the lockfile, `proxy/**`, the workflow file | every suite that has evals |
+| `src/**`, `package.json`, the lockfile, `proxy/**` | every suite that has evals |
+| one of the three workflow files | every suite of that file's tier |
 
 | Job | Model variable → default | Blocks the PR |
 |-----|--------------------------|---------------|
@@ -210,8 +213,8 @@ PR against its base and picks the suites; a manual run takes all of them.
 | `agents` — through the proxy | `EVAL_MODEL_AGENTS` → `deepseek/deepseek-v4-flash` | no |
 | `workflow` — through the proxy | `EVAL_MODEL_WORKFLOW` → `google/gemini-2.5-flash` | no |
 
-The judge is `EVAL_JUDGE_MODEL` → `google/gemini-2.5-flash`. Switch a model by editing the default in
-the workflow's `env` block, by a repository variable of the same name, or by an input on a manual run.
+The judge is `EVAL_JUDGE_MODEL` → `deepseek/deepseek-v4-flash` (since 2026-10-12; `google/gemini-2.5-flash` before). Switch a model by editing the default in
+the `env` block of the workflow that uses it, by a repository variable of the same name, or by an input on a manual run.
 `agents` and `workflow` report without blocking (`continue-on-error`) until their pass rate on these
 models is measured — the cases were calibrated on Claude models.
 
@@ -220,7 +223,7 @@ it — a fork PR gets no secrets — the model jobs are skipped with a warning. 
 `evals/results/` as an artifact. Budget: a job stops at its `timeout-minutes`, a case at its
 `maxTurns` and the test timeout (240 s; 480 s in the tool tiers), with one retry; the ceiling in
 money is the credit limit of the CI key, set in OpenRouter. A doc that a new workflow case asserts on must be added to the
-workflow's `paths:` (`src/ci-detect.test.ts` fails otherwise).
+`paths:` of all three workflows (`src/ci-detect.test.ts` fails otherwise).
 
 ## Module layout — `src/` (the engine)
 

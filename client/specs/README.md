@@ -21,3 +21,4 @@ One file per unit of work: what we intend to build, written **before** we build 
   findings surface, and the per-run severity filter.
 - [`skills-ui.md`](skills-ui.md) — the `/skills` two-pane editor, the import drawer
   and the agent's Skills tab.
+- [`2026-10-12-eval-trend-charts.md`](2026-10-12-eval-trend-charts.md) — SPEC-05: Eval trend charts — a chart of recall / precision / citation accuracy over an agent's eval runs on the Evals tab and the agent's eval view, one point per run with the prompt version and cost in its tooltip, drawn from SPEC-03's run list with no model call (client).

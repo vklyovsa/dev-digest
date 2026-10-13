@@ -91,6 +91,13 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
     app.log.warn({ err: (err as Error).message }, 'stale-run reaping failed (non-fatal)');
   }
 
+  try {
+    const reaped = await container.evalService.reapInterruptedRuns();
+    if (reaped > 0) app.log.info({ reaped }, 'reaped interrupted eval runs on boot');
+  } catch (err) {
+    app.log.warn({ err: (err as Error).message }, 'eval run reaping failed (non-fatal)');
+  }
+
   // Security headers (X-Content-Type-Options, X-Frame-Options, …). The API
   // serves JSON only, so the default CSP is fine.
   await app.register(helmet);

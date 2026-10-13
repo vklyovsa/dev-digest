@@ -1,0 +1,200 @@
+# id	ac	state	mode	path	env	input	expected_exit	stderr_has
+# AC-1, AC-2 — a touched package needs a fresh stamp that names it green
+ac01-d1	AC-1	server-touched	check	full	-	git commit -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac01-d2	AC-1	stamp-other-package	check	full	-	git commit -m x	2	commit-gate:|client: not named green|commit-check.sh client|explicit instruction of the developer|!server:
+ac01-d3	EC-17	server-touched	check	full	-	.claude/agents/scripts/commit-check.sh server && git commit -m x	2	commit-gate:|server: no stamp|as its own Bash call|explicit instruction of the developer
+ac02-a1	AC-2	server-fresh	check	full	-	git commit -m x	0	-
+ac02-a2	AC-2	two-fresh	check	full	-	git commit -m x	0	-
+ac02-a3	EC-18	server-fresh	check	full	-	sed -i s/a/b/ server/file.txt && git commit -m x	0	-
+# AC-3 — every form of a commit command, refused without a stamp
+ac03-d01	AC-3	server-touched	check	full	-	git commit	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac03-d02	AC-3	server-touched	check	full	-	git commit -a -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac03-d03	AC-3	server-touched	check	full	-	git commit --amend --no-edit	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac03-d04	AC-3	server-touched	check	full	-	git commit --dry-run	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac03-d05	AC-3	server-touched	check	full	-	git -C @OTHER@ commit -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac03-d06	AC-3	server-touched	check	full	-	git -c user.name=x commit -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac03-d07	AC-3	server-touched	check	full	-	git -C @OTHER@ -c user.name=x commit -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac03-d08	AC-3	server-touched	check	full	-	FOO=1 git commit -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac03-d09	AC-3	server-touched	check	full	-	env git commit -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac03-d10	AC-3	server-touched	check	full	-	env FOO=1 git commit -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac03-d11	AC-3	server-touched	check	full	-	sudo git commit -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac03-d12	AC-3	server-touched	check	full	-	command git commit -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac03-d13	AC-3	server-touched	check	full	-	time git commit -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac03-d14	AC-3	server-touched	check	full	-	nohup git commit -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac03-d15	AC-3	server-touched	check	full	-	exec git commit -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac03-d16	AC-3	server-touched	check	full	-	git add -A ; git commit -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac03-d17	AC-3	server-touched	check	full	-	git add -A && git commit -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac03-d18	AC-3	server-touched	check	full	-	git diff --quiet || git commit -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac03-d19	AC-3	server-touched	check	full	-	echo y | git commit -F -	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac03-d20	AC-3	server-touched	check	full	-	(git commit -m x)	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac03-d21	AC-3	server-touched	check	full	-	echo `git commit -m x`	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac03-d22	AC-3	server-touched	check	full	-	echo $(git commit -m x)	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac03-d23	AC-3	server-touched	check	full	-	echo "$(git commit -m x)"	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac03-d24	AC-3	server-touched	check	full	-	git add -A\ngit commit -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac03-d25	AC-3	server-touched	check	full	-	git add -A\n  git commit -m x\ngit status	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac03-d26	EC-9	server-touched	check	full	-	cat <<EOF\ngit commit -m x\nEOF	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+# AC-3 — the same forms pass with a fresh stamp
+ac03-a01	AC-3	server-fresh	check	full	-	git commit	0	-
+ac03-a02	AC-3	server-fresh	check	full	-	git commit -a -m x	0	-
+ac03-a03	AC-3	server-fresh	check	full	-	git commit --amend --no-edit	0	-
+ac03-a04	AC-3	server-fresh	check	full	-	git commit --dry-run	0	-
+ac03-a05	AC-3	server-fresh	check	full	-	git -C @OTHER@ commit -m x	0	-
+ac03-a06	AC-3	server-fresh	check	full	-	git -c user.name=x commit -m x	0	-
+ac03-a07	AC-3	server-fresh	check	full	-	git -C @OTHER@ -c user.name=x commit -m x	0	-
+ac03-a08	AC-3	server-fresh	check	full	-	FOO=1 git commit -m x	0	-
+ac03-a09	AC-3	server-fresh	check	full	-	env git commit -m x	0	-
+ac03-a10	AC-3	server-fresh	check	full	-	env FOO=1 git commit -m x	0	-
+ac03-a11	AC-3	server-fresh	check	full	-	sudo git commit -m x	0	-
+ac03-a12	AC-3	server-fresh	check	full	-	command git commit -m x	0	-
+ac03-a13	AC-3	server-fresh	check	full	-	time git commit -m x	0	-
+ac03-a14	AC-3	server-fresh	check	full	-	nohup git commit -m x	0	-
+ac03-a15	AC-3	server-fresh	check	full	-	exec git commit -m x	0	-
+ac03-a16	AC-3	server-fresh	check	full	-	git add -A ; git commit -m x	0	-
+ac03-a17	AC-3	server-fresh	check	full	-	git add -A && git commit -m x	0	-
+ac03-a18	AC-3	server-fresh	check	full	-	git diff --quiet || git commit -m x	0	-
+ac03-a19	AC-3	server-fresh	check	full	-	echo y | git commit -F -	0	-
+ac03-a20	AC-3	server-fresh	check	full	-	(git commit -m x)	0	-
+ac03-a21	AC-3	server-fresh	check	full	-	echo `git commit -m x`	0	-
+ac03-a22	AC-3	server-fresh	check	full	-	echo $(git commit -m x)	0	-
+ac03-a23	AC-3	server-fresh	check	full	-	echo "$(git commit -m x)"	0	-
+ac03-a24	AC-3	server-fresh	check	full	-	git add -A\ngit commit -m x	0	-
+ac03-a25	AC-3	server-fresh	check	full	-	git add -A\n  git commit -m x\ngit status	0	-
+ac03-a26	EC-9	server-fresh	check	full	-	cat <<EOF\ngit commit -m x\nEOF	0	-
+# AC-3 — not a commit command although the word stands near git
+ac03-n01	AC-3	server-touched	check	full	-	git commit-tree HEAD -m x	0	-
+ac03-n02	AC-3	server-touched	check	full	-	git commit-graph write	0	-
+ac03-n03	AC-3	server-touched	check	full	-	git log --grep commit	0	-
+ac03-n04	AC-3	server-touched	check	full	-	git -C commit status	0	-
+ac03-n05	AC-3	server-touched	check	full	-	git -c commit.gpgsign=false status	0	-
+ac03-n06	AC-3	server-touched	check	full	-	git help commit	0	-
+ac03-n07	AC-3	server-touched	check	full	-	gitcommit -m x	0	-
+ac03-n08	AC-3	server-touched	check	full	-	cat <<EOF\nrun git commit later\nEOF	0	-
+# AC-4 — the text of a commit command inside a quoted argument
+ac04-a1	AC-4	server-touched	check	full	-	echo "git commit -m x"	0	-
+ac04-a2	AC-4	server-touched	check	full	-	grep -n 'git commit' AGENTS.md	0	-
+ac04-a3	AC-4	server-touched	check	full	-	.claude/agents/scripts/commit-gate.sh --check "git commit -m x"	0	-
+ac04-a4	AC-4	server-touched	check	full	-	echo "done ; git commit -m x"	0	-
+ac04-a5	AC-4	server-touched	check	full	-	printf '%s' 'git add -A && git commit -m x'	0	-
+ac04-a6	AC-4	server-touched	hook	full	-	echo "git commit -m x"	0	-
+ac04-d1	AC-4	server-touched	check	full	-	echo "git commit -m x" && git commit -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+# AC-5 — no commit command, whatever the stamp says
+ac05-a01	AC-5	server-touched	check	full	-	git status --short	0	-
+ac05-a02	AC-5	server-touched	check	full	-	git add -A	0	-
+ac05-a03	AC-5	server-touched	check	full	-	git log --oneline -5	0	-
+ac05-a04	AC-5	server-touched	check	full	-	.claude/agents/scripts/check-code.sh mcp	0	-
+ac05-a05	AC-5	server-touched	check	full	-	.claude/agents/scripts/commit-check.sh server	0	-
+ac05-a06	AC-5	stamp-empty	check	full	-	git status --short	0	-
+ac05-a07	AC-5	server-stale	check	full	-	git diff --stat	0	-
+ac05-a08	EC-11	server-touched	check	full	-	git merge x	0	-
+ac05-a09	EC-11	server-touched	check	full	-	git cherry-pick x	0	-
+ac05-a10	EC-11	server-touched	check	full	-	git revert HEAD	0	-
+ac05-a11	EC-11	server-touched	check	full	-	git rebase --continue	0	-
+ac05-a12	EC-11	server-touched	check	full	-	git am x.patch	0	-
+ac05-a13	NG-3	server-touched	check	full	-	git push origin main	0	-
+ac05-a14	EC-10	server-touched	check	full	-	bash -c 'git commit -m x'	0	-
+ac05-a15	EC-10	server-touched	check	full	-	eval "git commit -m x"	0	-
+ac05-a16	NG-5	server-touched	check	full	-	git --no-pager commit -m x	0	-
+ac05-a17	AC-5	server-touched	check	full	-	@EMPTY@	0	-
+ac05-d1	AC-5	server-touched	check	full	-	git status --short && git commit -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+# AC-6 — a commit command between quoted texts of mixed kinds
+ac06-d1	AC-6	server-touched	check	full	-	echo "it's" ; git commit -m x ; echo 'y'	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac06-d2	AC-6	server-touched	check	full	-	echo \" ; git commit -m x ; echo \"	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac06-d3	AC-6	server-touched	check	full	-	echo 'it"s' ; git commit -m "it's" ; echo "y"	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac06-a1	AC-6	server-fresh	check	full	-	echo "it's" ; git commit -m x ; echo 'y'	0	-
+ac06-a2	AC-6	server-touched	check	full	-	echo "it's ; git commit -m x ; echo" 'y'	0	-
+# AC-7, AC-8 — the stamp follows file content, not the index
+ac07-d1	AC-7	server-stale	check	full	-	git commit -m x	2	commit-gate:|server: stale stamp|commit-check.sh server|explicit instruction of the developer
+ac07-d2	AC-7	server-stale	hook	full	-	git commit -a -m x	2	commit-gate:|server: stale stamp|commit-check.sh server|explicit instruction of the developer
+ac07-a1	AC-7	server-fresh	hook	full	-	git commit -m x	0	-
+ac08-a1	AC-8	server-fresh-staged	check	full	-	git commit -m x	0	-
+ac08-a2	AC-8	server-fresh-staged	hook	full	-	git commit -m x	0	-
+ac08-a3	AC-8	server-fresh-rm-staged	check	full	-	git commit -m x	0	-
+ac08-d1	AC-8	server-stale-staged	check	full	-	git commit -m x	2	commit-gate:|server: stale stamp|commit-check.sh server|explicit instruction of the developer
+# AC-9, EC-20 — a stamp that is not the record the test check writes
+ac09-d1	AC-9	stamp-empty	check	full	-	git commit -m x	2	commit-gate:|server: no readable stamp|commit-check.sh server|explicit instruction of the developer
+ac09-d2	AC-9	stamp-truncated	check	full	-	git commit -m x	2	commit-gate:|server: no readable stamp|commit-check.sh server|explicit instruction of the developer
+ac09-d3	AC-9	stamp-no-packages	check	full	-	git commit -m x	2	commit-gate:|server: no readable stamp|commit-check.sh server|explicit instruction of the developer
+ac09-d4	AC-9	stamp-truncated	hook	nojq	-	git commit -m x	2	commit-gate:|server: no readable stamp|commit-check.sh server|explicit instruction of the developer
+ac09-d5	AC-9	stamp-no-packages	hook	nojq	-	git commit -m x	2	commit-gate:|server: no readable stamp|commit-check.sh server|explicit instruction of the developer
+ac09-d6	EC-20	stamp-green-false	check	full	-	git commit -m x	2	commit-gate:|server: not named green|commit-check.sh server|explicit instruction of the developer
+ac09-d7	EC-20	stamp-green-false	hook	nojq	-	git commit -m x	2	commit-gate:|server: not named green|commit-check.sh server|explicit instruction of the developer
+ac09-a1	EC-20	server-fresh	check	full	-	git commit -m x	0	-
+ac09-a2	EC-20	server-fresh	hook	nojq	-	git commit -m x	0	-
+# AC-14 — a red test check leaves no green entry
+ac14-d1	AC-14	check-fail	check	full	-	git commit -m x	2	commit-gate:|server: not named green|commit-check.sh server|explicit instruction of the developer
+ac14-d2	AC-14	check-skip	check	full	-	git commit -m x	2	commit-gate:|server: not named green|commit-check.sh server|explicit instruction of the developer
+ac14-d3	AC-14	check-exit3	check	full	-	git commit -m x	2	commit-gate:|server: not named green|commit-check.sh server|explicit instruction of the developer
+# AC-10 — no touched package
+ac10-a1	AC-10	docs-only	check	full	-	git commit -m x	0	-
+ac10-a2	AC-10	claude-only	check	full	-	git commit -m x	0	-
+ac10-a3	AC-10	clean	check	full	-	git commit --amend -m x	0	-
+ac10-a4	AC-10	clean	hook	full	-	git commit -m x	0	-
+ac10-d1	AC-10	untracked-only	check	full	-	git commit -m x	2	commit-gate:|mcp: no stamp|commit-check.sh mcp|explicit instruction of the developer
+# AC-17 — the override, in the environment or before the commit command
+ac17-a1	AC-17	server-touched	check	full	COMMIT_GATE_OVERRIDE=1	git commit -m x	0	commit-gate: bypassed by COMMIT_GATE_OVERRIDE=1 (environment)
+ac17-a2	AC-17	server-touched	hook	full	COMMIT_GATE_OVERRIDE=1	git commit -m x	0	commit-gate: bypassed by COMMIT_GATE_OVERRIDE=1 (environment)
+ac17-a3	AC-17	server-touched	check	full	-	COMMIT_GATE_OVERRIDE=1 git commit -m x	0	commit-gate: bypassed by COMMIT_GATE_OVERRIDE=1 (command)
+ac17-a4	AC-17	server-touched	hook	full	-	COMMIT_GATE_OVERRIDE=1 git commit -m x	0	commit-gate: bypassed by COMMIT_GATE_OVERRIDE=1 (command)
+ac17-a5	AC-17	server-touched	check	full	-	env COMMIT_GATE_OVERRIDE=1 git -C @OTHER@ commit -m x	0	commit-gate: bypassed by COMMIT_GATE_OVERRIDE=1 (command)
+ac17-a6	AC-17	server-touched	check	full	-	git add -A && FOO=1 COMMIT_GATE_OVERRIDE=1 git commit -m x	0	commit-gate: bypassed by COMMIT_GATE_OVERRIDE=1 (command)
+ac17-a7	AC-17	server-touched	check	full	COMMIT_GATE_OVERRIDE=1	git status --short	0	!bypassed
+ac17-d1	AC-17	server-touched	check	full	COMMIT_GATE_OVERRIDE=0	git commit -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac17-d2	AC-17	server-touched	check	full	-	COMMIT_GATE_OVERRIDE=0 git commit -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac17-d3	AC-17	server-touched	check	full	-	COMMIT_GATE_OVERRIDE=1 git add -A ; git commit -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac17-d4	AC-17	server-touched	check	full	-	export COMMIT_GATE_OVERRIDE=1 ; git commit -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac17-d5	AC-17	server-touched	check	full	-	COMMIT_GATE_OVERRIDE=1 git commit -m x ; git commit -m y	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac17-d6	AC-17	server-touched	check	full	-	COMMIT_GATE_OVERRIDE=11 git commit -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+# AC-18 — the override text inside a quoted argument is no override
+ac18-d1	AC-18	server-touched	check	full	-	git commit -m "COMMIT_GATE_OVERRIDE=1 x"	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer|!bypassed
+ac18-d2	AC-18	server-touched	check	full	-	echo COMMIT_GATE_OVERRIDE=1 ; git commit -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer|!bypassed
+ac18-d3	AC-18	server-touched	check	full	-	echo 'COMMIT_GATE_OVERRIDE=1' && git commit -m 'COMMIT_GATE_OVERRIDE=1'	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer|!bypassed
+ac18-d4	AC-18	server-touched	check	full	-	COMMIT_GATE_OVERRIDE="1" git commit -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer|!bypassed
+ac18-a1	AC-18	server-fresh	check	full	-	git commit -m "COMMIT_GATE_OVERRIDE=1 x"	0	!bypassed
+# AC-19 — neither jq nor node
+ac19-d1	AC-19	server-touched	hook	nojqnode	-	git status --short	2	commit-gate:|jq|node
+ac19-d2	AC-19	clean	hook	nojqnode	-	git commit -m x	2	commit-gate:|jq|node
+ac19-d3	AC-19	server-fresh	check	nojqnode	-	git status --short	2	commit-gate:|jq|node
+ac19-a1	AC-19	server-touched	hook	nojq	-	git status --short	0	-
+# AC-20 — a broken payload or a failing internal step refuses, never exit 1
+ac20-d01	AC-20	clean	hook-raw	full	-	not json	2	commit-gate:|not one JSON object
+ac20-d02	AC-20	clean	hook-raw	full	-	@EMPTY@	2	commit-gate:|not one JSON object
+ac20-d03	AC-20	clean	hook-raw	full	-	[1,2]	2	commit-gate:|not one JSON object
+ac20-d04	AC-20	clean	hook-raw	full	-	"git status"	2	commit-gate:|not one JSON object
+ac20-d05	AC-20	clean	hook-raw	full	-	{"tool_name":"Bash","tool_input":{"command":"git status"}	2	commit-gate:|not one JSON object
+ac20-d06	AC-20	clean	hook-raw	full	-	{"tool_name":"Bash","tool_input":{"command":"git status"}} {"tool_name":"Edit"}	2	commit-gate:|not one JSON object
+ac20-d07	AC-20	clean	hook-raw	nojq	-	not json	2	commit-gate:|not one JSON object
+ac20-d08	AC-20	clean	hook-raw	nojq	-	@EMPTY@	2	commit-gate:|not one JSON object
+ac20-d09	AC-20	clean	hook-raw	nojq	-	[1,2]	2	commit-gate:|not one JSON object
+ac20-d10	AC-20	clean	hook-raw	nojq	-	{"tool_name":"Bash","tool_input":{"command":"git status"}	2	commit-gate:|not one JSON object
+ac20-d11	AC-20	server-touched	hook	nogit	-	git commit -m x	2	commit-gate:|git could not read
+ac20-d12	AC-20	server-fresh	hook	nogit	-	git commit -m x	2	commit-gate:|git could not read
+ac20-d13	AC-20	server-touched	hook	nojq	-	git commit -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac20-d14	AC-20	server-touched	hook-raw	full	-	{"tool_name":"Bash","tool_input":{"command":"git commit -m x"}}	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac20-d15	AC-20	server-touched	hook	noawk	-	git commit -m x	2	commit-gate:|awk failed
+ac20-d16	AC-20	server-touched	hook	nosed	-	git commit -m x	2	commit-gate:|sed failed
+ac20-d17	AC-20	server-touched	check	noawk	-	git status --short	2	commit-gate:|awk failed
+ac20-d18	AC-20	server-fresh	hook	full	CLAUDE_PROJECT_DIR=/nonexistent-commit-gate	git status --short	2	commit-gate:|does not exist
+ac20-a1	AC-20	server-fresh	hook	nojq	-	git commit -m x	0	-
+ac20-a2	AC-20	server-touched	hook	nogit	-	git status --short	0	-
+ac20-a3	AC-20	server-touched	hook-raw	full	-	{"tool_name":"Edit","tool_input":{"file_path":"server/file.txt","new_string":"git commit -m x"}}	0	-
+ac20-a4	AC-20	server-touched	hook-raw	nojq	-	{"tool_name":"Write","tool_input":{"file_path":"server/file.txt","content":"git commit -m x"}}	0	-
+# AC-21 — check mode and hook mode return the same code; check mode leaves stdin unread
+ac21-a1	AC-21	server-fresh	both	full	-	git commit -m x	0	-
+ac21-a2	AC-21	server-touched	both	full	-	git status --short	0	-
+ac21-a3	AC-21	server-touched	both	nojq	-	echo "git commit -m x"	0	-
+ac21-d1	AC-21	server-touched	both	full	-	git commit -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac21-d2	AC-21	server-stale	both	nojq	-	git add -A && git commit -m x	2	commit-gate:|server: stale stamp|commit-check.sh server|explicit instruction of the developer
+# AC-27 — -C <dir> never moves the judgement off the project's working copy
+ac27-d1	AC-27	server-touched	both	full	-	git -C @OTHER@ commit -m x	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+ac27-d2	AC-27	server-stale	check	full	-	git -C @OTHER@ commit -m x	2	commit-gate:|server: stale stamp|commit-check.sh server|explicit instruction of the developer
+ac27-a1	AC-27	server-fresh	both	full	-	git -C @OTHER@ commit -m x	0	-
+ac27-a2	AC-27	clean	check	full	-	git -C @OTHER@ commit -m x	0	-
+# NFR-6 — the command text and the stamp are data
+nfr6-d1	NFR-6	server-touched	check	full	-	git commit -m "$(touch cg-probe)"	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+nfr6-d2	NFR-6	server-touched	check	full	-	git commit -m "`touch cg-probe`"	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+nfr6-d3	NFR-6	server-touched	hook	full	-	git commit -m x $(touch cg-probe) ; `touch cg-probe`	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+nfr6-d4	NFR-6	server-touched	hook	nojq	-	git commit -m "$(touch cg-probe)"	2	commit-gate:|server: no stamp|commit-check.sh server|explicit instruction of the developer
+nfr6-d5	NFR-6	stamp-inject	check	full	-	git commit -m x	2	commit-gate:|server: stale stamp|commit-check.sh server|explicit instruction of the developer
+nfr6-d6	NFR-6	stamp-inject	hook	nojq	-	git commit -m x	2	commit-gate:|server: stale stamp|commit-check.sh server|explicit instruction of the developer
+nfr6-a1	NFR-6	server-touched	check	full	-	echo "$(touch cg-probe)" ; echo `touch cg-probe`	0	-
+nfr6-a2	NFR-6	server-fresh	hook	full	-	git commit -m "$(touch cg-probe)" -m '`touch cg-probe`'	0	-

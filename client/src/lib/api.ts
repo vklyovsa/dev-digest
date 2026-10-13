@@ -18,7 +18,10 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+export async function apiFetchWithStatus<T>(
+  path: string,
+  init?: RequestInit
+): Promise<{ status: number; data: T }> {
   let res: Response;
   try {
     res = await fetch(`${API_BASE}${path}`, {
@@ -58,14 +61,20 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     throw new ApiError(message, res.status, code, details);
   }
 
-  if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
+  if (res.status === 204) return { status: res.status, data: undefined as T };
+  return { status: res.status, data: (await res.json()) as T };
+}
+
+export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  return (await apiFetchWithStatus<T>(path, init)).data;
 }
 
 export const api = {
   get: <T>(path: string) => apiFetch<T>(path),
   post: <T>(path: string, body?: unknown) =>
     apiFetch<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined }),
+  postWithStatus: <T>(path: string, body?: unknown) =>
+    apiFetchWithStatus<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined }),
   put: <T>(path: string, body?: unknown) =>
     apiFetch<T>(path, { method: "PUT", body: body ? JSON.stringify(body) : undefined }),
   patch: <T>(path: string, body?: unknown) =>

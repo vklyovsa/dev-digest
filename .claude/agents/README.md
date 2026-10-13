@@ -159,8 +159,8 @@ CRITICAL there.
 ## Guards
 
 `PreToolUse` hooks declared in each agent's frontmatter; active only while that agent runs, on
-top of the project hook in `../settings.json` (`guard-pr.sh`). All three share
-[`scripts/guard-lib.sh`](scripts/guard-lib.sh).
+top of the two project hooks in `../settings.json` (`guard-pr.sh`, `commit-gate.sh`). All three
+share [`scripts/guard-lib.sh`](scripts/guard-lib.sh).
 
 | Guard | Used by | Allows | Blocks |
 |---|---|---|---|
@@ -185,6 +185,7 @@ Check a change to the guards or agents without running them as hooks:
 
 ```bash
 .claude/agents/scripts/check-guards.sh          # every row of scripts/guard-cases.tsv
+.claude/agents/scripts/check-commit-gate.sh     # the commit gate: its case table, the test check, the hook entry
 .claude/agents/scripts/check-agents.sh          # frontmatter, skills, hooks, this catalog
 .claude/agents/scripts/check-spec.sh <spec.md>  # a spec against specs/TEMPLATE.md
 .claude/agents/scripts/check-code.sh server     # typecheck, layering and tests of a package

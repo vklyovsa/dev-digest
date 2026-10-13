@@ -1,5 +1,5 @@
 /* SkillDetail — the right-hand pane of /skills: the selected skill's header and
-   its five tabs. Tab state is owned by the route (?tab=), so a link into a
+   its six tabs. Tab state is owned by the route (?tab=), so a link into a
    specific tab is shareable and survives a reload. */
 "use client";
 
@@ -13,6 +13,7 @@ import { typeColor } from "../../helpers";
 import { SKILL_TABS } from "../../constants";
 import { ConfigTab } from "./_components/ConfigTab";
 import { ContextTab } from "./_components/ContextTab";
+import { EvalsTab } from "./_components/EvalsTab";
 import { PreviewTab } from "./_components/PreviewTab";
 import { StatsTab } from "./_components/StatsTab";
 import { VersionsTab } from "./_components/VersionsTab";
@@ -95,6 +96,7 @@ export function SkillDetail({
         {tab === "config" && <ConfigTab key={`${skill.id}:${skill.version}`} skill={skill} />}
         {tab === "context" && <ContextTab key={skill.id} skill={skill} />}
         {tab === "preview" && <PreviewTab skill={skill} />}
+        {tab === "evals" && <EvalsTab key={skill.id} skill={skill} />}
         {tab === "stats" && <StatsTab skill={skill} />}
         {tab === "versions" && <VersionsTab skill={skill} />}
       </div>

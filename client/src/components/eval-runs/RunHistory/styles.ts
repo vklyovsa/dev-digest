@@ -1,0 +1,50 @@
+import type { CSSProperties } from "react";
+
+/** Co-located styles for RunHistory. */
+export const s = {
+  controls: { display: "flex", alignItems: "center", gap: 12 } satisfies CSSProperties,
+  selected: { fontSize: 13, color: "var(--text-muted)" } satisfies CSSProperties,
+  hint: { fontSize: 12.5, color: "var(--text-muted)" } satisfies CSSProperties,
+  error: { fontSize: 13, color: "var(--crit)", padding: "8px 0" } satisfies CSSProperties,
+  card: {
+    border: "1px solid var(--border)",
+    borderRadius: 9,
+    background: "var(--bg-elevated)",
+    overflowX: "auto",
+  } satisfies CSSProperties,
+  table: { width: "100%", borderCollapse: "collapse", fontSize: 13 } satisfies CSSProperties,
+  th: {
+    textAlign: "left",
+    padding: "11px 14px",
+    fontSize: 11.5,
+    fontWeight: 700,
+    letterSpacing: "0.06em",
+    textTransform: "uppercase",
+    color: "var(--text-muted)",
+    borderBottom: "1px solid var(--border)",
+    whiteSpace: "nowrap",
+  } satisfies CSSProperties,
+  td: {
+    padding: "11px 14px",
+    borderBottom: "1px solid var(--border)",
+    whiteSpace: "nowrap",
+  } satisfies CSSProperties,
+  rowSelected: { background: "var(--bg-hover)" } satisfies CSSProperties,
+  checkbox: { width: 16, height: 16, accentColor: "var(--accent)", cursor: "pointer" } satisfies CSSProperties,
+  hostCell: { whiteSpace: "normal", minWidth: 0, overflowWrap: "anywhere" } satisfies CSSProperties,
+  version: { color: "var(--accent)", fontWeight: 600 } satisfies CSSProperties,
+  metricCell: { display: "flex", alignItems: "center", gap: 8, minWidth: 130 } satisfies CSSProperties,
+  bar: { flex: 1, minWidth: 60 } satisfies CSSProperties,
+  pct: { width: 38, textAlign: "right", color: "var(--text-secondary)" } satisfies CSSProperties,
+  passed: { fontWeight: 700 } satisfies CSSProperties,
+  muted: { color: "var(--text-muted)" } satisfies CSSProperties,
+  failed: {
+    color: "var(--crit)",
+    display: "inline-block",
+    maxWidth: 320,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    verticalAlign: "bottom",
+  } satisfies CSSProperties,
+  empty: { padding: "18px 14px", fontSize: 13, color: "var(--text-muted)" } satisfies CSSProperties,
+} as const;

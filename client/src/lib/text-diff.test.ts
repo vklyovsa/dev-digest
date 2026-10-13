@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { collapseUnchanged, diffLines, diffStat } from "./helpers";
+import { collapseUnchanged, diffLines, diffStat } from "./text-diff";
 
 /**
  * The Diff button's whole substance is this function, and its failure mode is

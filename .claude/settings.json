@@ -8,6 +8,12 @@
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR/.claude/skills/pr-self-review/scripts/guard-pr.sh\"",
             "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/agents/scripts/commit-gate.sh\"",
+            "timeout": 20,
+            "onFailure": "block"
           }
         ]
       }

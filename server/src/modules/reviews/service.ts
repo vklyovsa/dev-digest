@@ -1,10 +1,11 @@
-import type { FindingActionKind, RunEventKind, RunTrace } from '@devdigest/shared';
+import type { FindingActionKind, RunEventKind, RunTrace, UnifiedDiff } from '@devdigest/shared';
 import type { ReviewsDeps } from './deps.js';
 import { AppError, NotFoundError } from '../../platform/errors.js';
 import type { AgentRow } from '../../db/rows.js';
 import { ReviewRepository } from './repository.js';
 import { type ReviewDto, type ReviewDtoFinding } from './helpers.js';
 import { ReviewRunExecutor, type Logger } from './run-executor.js';
+import { loadDiff } from './diff-loader.js';
 import { actOnFinding as actOnFindingImpl } from './findings.js';
 import { reviewToDto } from './helpers.js';
 
@@ -184,5 +185,42 @@ export class ReviewService {
 
   async getRunTrace(runId: string): Promise<RunTrace | undefined> {
     return this.repo.getRunTrace(runId);
+  }
+
+  /** A finding with its review's agent and its pull request; undefined when missing or of another workspace. */
+  async findingOrigin(workspaceId: string, findingId: string) {
+    const ctx = await this.repo.findingContext(findingId);
+    if (!ctx || ctx.pull.workspaceId !== workspaceId) return undefined;
+    const { finding, review, pull } = ctx;
+    return {
+      finding: {
+        id: finding.id,
+        file: finding.file,
+        startLine: finding.startLine,
+        endLine: finding.endLine,
+        severity: finding.severity,
+        category: finding.category,
+        title: finding.title,
+        acceptedAt: finding.acceptedAt,
+        dismissedAt: finding.dismissedAt,
+      },
+      agentId: review.agentId,
+      pull: {
+        id: pull.id,
+        number: pull.number,
+        title: pull.title,
+        author: pull.author,
+        body: pull.body,
+      },
+    };
+  }
+
+  /** The unified diff of a pull request as a review loads it. */
+  async diffForPull(workspaceId: string, prId: string): Promise<UnifiedDiff> {
+    const pull = await this.repo.getPull(workspaceId, prId);
+    if (!pull) throw new NotFoundError('Pull request not found');
+    const repo = await this.repo.getRepo(pull.repoId);
+    if (!repo) throw new NotFoundError('Repo not found');
+    return loadDiff(this.deps, this.repo, workspaceId, pull, repo);
   }
 }

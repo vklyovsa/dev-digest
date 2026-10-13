@@ -25,6 +25,8 @@ const TREE: Record<string, string> = {
     'export const cases = [{ skill: "routed", expectFilesRead: ["server/docs/routed.md"] }];',
 };
 
+const CI_WORKFLOWS = ["skills", "agents", "workflow"].map((tier) => `.github/workflows/eval-${tier}.yml`);
+
 let root: string;
 
 beforeAll(() => {
@@ -111,7 +113,7 @@ describe("ci-detect", () => {
     expect(detect([".claude/skills/routed/SKILL.md"])).toMatchObject({ skippedSkills: "routed", workflow: true });
   });
 
-  test.each(["evals/src/tasks.ts", "evals/pnpm-lock.yaml", ".github/workflows/evals.yml"])(
+  test.each(["evals/src/tasks.ts", "evals/pnpm-lock.yaml", ...CI_WORKFLOWS])(
     "an engine change (%s) runs every suite that has evals",
     (file) => {
       expect(detect([file])).toMatchObject({ skills: ["covered"], agents: ["reviewer"], workflow: true });
@@ -129,7 +131,7 @@ describe("ci-detect", () => {
 
 // The `paths:` filter decides whether the workflow starts at all, before the detector runs, so a
 // doc that a new workflow case asserts on has to be listed there too.
-test("the CI path filter covers every doc a workflow case expects to be read", async () => {
+test.each(CI_WORKFLOWS)("the path filter of %s covers every doc a workflow case expects to be read", async (workflow) => {
   const dir = join(EVALS_DIR, "workflow");
   const modules = await Promise.all(
     readdirSync(dir)
@@ -139,7 +141,7 @@ test("the CI path filter covers every doc a workflow case expects to be read", a
   const expected = modules
     .flatMap((m) => m.cases)
     .flatMap((c) => (c.kind === "trace" ? (c.expectFilesRead ?? []) : c.kind === "contrast" ? [c.expectFileRead] : []));
-  const filter = readFileSync(join(REPO_ROOT, ".github/workflows/evals.yml"), "utf8");
+  const filter = readFileSync(join(REPO_ROOT, workflow), "utf8");
 
   const uncovered = expected.filter((f) => !/(^|\/)(CLAUDE|AGENTS)\.md$/.test(f) && !filter.includes(`'${f}'`));
 

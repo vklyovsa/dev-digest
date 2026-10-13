@@ -16,7 +16,7 @@ import {
   type DiffCommentApi,
 } from "../comments";
 import { partitionFindings, fs, type DiffFindingsApi } from "../findings";
-import type { DiffTarget } from "../target";
+import type { DiffRange, DiffTarget } from "../target";
 import { s, chevronFor } from "../styles";
 import { CodeLine } from "../CodeLine";
 import { OutdatedComments } from "../OutdatedComments";
@@ -39,22 +39,33 @@ function findingsForLine(ln: Line, matched: Map<string, FindingRecord[]>): Findi
   return keysForLine(ln).flatMap((key) => matched.get(key) ?? []);
 }
 
+function inRange(ln: Line, range: DiffRange): boolean {
+  return (
+    (ln.kind === "add" || ln.kind === "ctx") &&
+    ln.newNo !== undefined &&
+    ln.newNo >= range.startLine &&
+    ln.newNo <= range.endLine
+  );
+}
+
 export function FileCard({
   file,
   commenting,
   findings,
   target,
+  range,
 }: {
   file: PrFile;
   commenting?: DiffCommentApi;
   findings?: DiffFindingsApi;
   target?: DiffTarget;
+  range?: DiffRange;
 }) {
   const t = useTranslations("shell");
   const isTarget = !!target;
   const autoOpen = (file.additions ?? 0) + (file.deletions ?? 0) <= AUTO_EXPAND_MAX_LINES;
   const [toggled, setToggled] = React.useState<boolean | null>(null);
-  const open = toggled ?? (isTarget || autoOpen);
+  const open = toggled ?? (isTarget || !!range || autoOpen);
   const lines = React.useMemo(() => parsePatch(file.patch), [file.patch]);
 
   const targetLine = target?.line ?? null;
@@ -141,6 +152,7 @@ export function FileCard({
                 lineFindings={findingsForLine(ln, matchedFindings)}
                 findings={findings}
                 rowRef={i === targetIndex ? targetRowRef : undefined}
+                rangeLabel={range && inRange(ln, range) ? range.label : undefined}
               />
             ))
           )}

@@ -27,3 +27,5 @@ already covered by `../README.md`.
   the cross-repo issue policy.
 - [`prompt-logging.md`](prompt-logging.md) — the `prompt.assembled` log line: fields,
   `correlationId`, what is never logged, and why `verbose` is development-only.
+- [`mutation-testing.md`](mutation-testing.md) — the Stryker run on one module: the command, the
+  baseline and re-run numbers, the mutant that was killed and the test that kills it.

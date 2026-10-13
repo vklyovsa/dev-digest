@@ -8,7 +8,7 @@
  *   .claude/agents/<name>.md   OR  evals/agents/<name>/**   → run evals/agents/<name>  (tool tier)
  *   the harness — any CLAUDE.md / AGENTS.md, .claude/settings.json, an agent definition,
  *     evals/workflow/**, a doc or skill a workflow case names → run the workflow tier
- *   the engine — evals/src, package.json, the lockfile, the proxy, the CI workflow —
+ *   the engine — evals/src, package.json, the lockfile, the proxy, a CI workflow —
  *     or $RUN_ALL=true (a manual run)                          → run every suite that has evals
  *
  * A changed artifact with NO written evals is NOT a failure: it is reported on the `skipped_*`
@@ -36,7 +36,7 @@ const ENGINE = [
   /^evals\/(package\.json|pnpm-lock\.yaml|vitest\.config\.ts)$/,
   /^evals\/proxy\//,
   /^evals\/scripts\/litellm-proxy\.sh$/,
-  /^\.github\/workflows\/evals\.yml$/,
+  /^\.github\/workflows\/eval-(skills|agents|workflow)\.yml$/,
 ];
 
 const changed = (process.env.CHANGED_FILES ?? "")

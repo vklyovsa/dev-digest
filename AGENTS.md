@@ -46,6 +46,10 @@ Only Postgres runs in Docker — the API and the web app run on the host.
 - Changing a project agent, a command or the pipeline, or asking how a multi-agent run
   went → `docs/retro/README.md` and the newest entries in `docs/retro/ledger/`. An entry is
   written only by `/workflow-retro`, which the user types — never start it yourself.
+- Working on a reviewer agent's eval cases, runs, scoring or the Eval Dashboard, or reading
+  its numbers → `docs/eval-pipeline.md` (not the root `evals/` package, which checks the harness).
+- A `git commit` from a Claude Code session is refused by a hook, or you change that hook
+  (`.claude/agents/scripts/commit-gate*.sh`, its `settings.json` entry) → `docs/commit-gate.md`.
 - The task comes from a written spec or a course lesson → `specs/` when it spans
   packages, `<package>/specs/` when it lives in one.
 - Writing a spec → `specs/TEMPLATE.md` and `specs/README.md`; the `spec-creator` agent
@@ -78,7 +82,7 @@ A change to the harness is checked by the eval it reaches, run from `evals/`:
 
 Only `eval:quality` is free. Every other row starts model sessions on the Claude Code
 subscription: run the one suite the change reaches, never plain `pnpm eval`.
-`.github/workflows/evals.yml` picks the same suites from a pull request's diff.
+`.github/workflows/eval-skills.yml`, `eval-agents.yml` and `eval-workflow.yml` pick the same suites from a pull request's diff.
 
 ## Conventions
 

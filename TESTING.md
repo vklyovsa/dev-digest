@@ -32,7 +32,7 @@ If a test wouldn't catch a class of regression we care about, we don't write it.
 | reviewer-core | `reviewer-core/` | unit (engine) | vitest | `reviewer-core.yml` | no |
 | mcp | `mcp/` | unit + in-memory MCP + stdio spawn | vitest | `mcp.yml` | no |
 | e2e web | `e2e/` | browser e2e (deterministic) | agent-browser + `run.ts` | `e2e-web.yml` | yes (stack) |
-| evals | `evals/` | harness evals (model-backed) + static gate | vitest + Claude Agent SDK | `evals.yml` | yes (LiteLLM proxy) |
+| evals | `evals/` | harness evals (model-backed) + static gate | vitest + Claude Agent SDK | `eval-skills.yml`, `eval-agents.yml`, `eval-workflow.yml` | yes (LiteLLM proxy) |
 
 ## What each suite covers
 
@@ -99,6 +99,7 @@ cd mcp           && npm test           # + npm run typecheck, npm run arch:check
 cd server && pnpm exec vitest run --exclude '**/*.it.test.ts'   # unit, no Docker
 cd server && pnpm exec vitest run .it.test                      # integration, needs Docker
 cd server && pnpm test                                          # both
+cd server && pnpm mutation:eval-helpers                         # mutation run on one module (Stryker) — local only, not a CI lane
 
 # browser e2e (needs the full stack + agent-browser CLI)
 ./scripts/dev.sh

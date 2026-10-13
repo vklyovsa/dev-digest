@@ -20,6 +20,7 @@ export function CodeLine({
   lineFindings,
   findings,
   rowRef,
+  rangeLabel,
 }: {
   ln: Line;
   path: string;
@@ -28,6 +29,7 @@ export function CodeLine({
   lineFindings: FindingRecord[];
   findings?: DiffFindingsApi;
   rowRef?: React.Ref<HTMLDivElement>;
+  rangeLabel?: string;
 }) {
   const [hover, setHover] = React.useState(false);
   const [composing, setComposing] = React.useState(false);
@@ -46,12 +48,13 @@ export function CodeLine({
 
   const severity = findings && lineFindings.length > 0 ? topSeverity(lineFindings) : undefined;
   const tok = severity ? SEV[severity as Severity] : undefined;
-  const barColor = tok?.c ?? (severity ? "var(--text-muted)" : undefined);
+  const barColor = tok?.c ?? (severity ? "var(--text-muted)" : undefined) ?? (rangeLabel ? "var(--accent)" : undefined);
   const SevIcon = tok ? Icon[tok.icon] : Icon.Info;
 
   return (
     <div
       ref={rowRef}
+      data-in-range={rangeLabel ? "true" : undefined}
       style={cs.rowWrap}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
@@ -74,6 +77,11 @@ export function CodeLine({
             >
               +
             </button>
+          )}
+          {rangeLabel && (
+            <span role="img" aria-label={rangeLabel} style={s.rangeGlyph}>
+              ▸
+            </span>
           )}
           {ln.newNo ?? ln.oldNo ?? ""}
         </span>

@@ -120,6 +120,27 @@
       "when": 1791128634551,
       "tag": "0016_huge_inhumans",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791813852990,
+      "tag": "0017_eval_pipeline",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791831489104,
+      "tag": "0018_eval_case_revision",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791908162620,
+      "tag": "0019_skill_evals",
+      "breakpoints": true
     }
   ]
 }

@@ -58,6 +58,11 @@ export const s = {
     userSelect: "none",
     flexShrink: 0,
   } satisfies CSSProperties,
+  rangeGlyph: {
+    position: "absolute",
+    left: 4,
+    color: "var(--accent)",
+  } satisfies CSSProperties,
   lineText: {
     flex: 1,
     whiteSpace: "pre-wrap",
