@@ -31,7 +31,8 @@
       "source": {
         "source": "github",
         "repo": "vklyovsa/dev-digest-ai-marketplace"
-      }
+      },
+      "autoUpdate": true
     }
   }
 }
