@@ -28,6 +28,7 @@ flowchart TD
   PULLS --> PR["/pulls/:number<br/>review detail<br/>(overview · diff · findings)"]
 
   AGENTS["/agents"] --> AGENT["/agents/:id<br/>editor (config · skills · evals tab)"]
+  AP["/agent-performance?period=<br/>Agent Performance (GLOBAL)"]
   EVAL["/eval · /eval/:agentId<br/>Eval Dashboard · one agent's runs"]
   SKILLS["/skills<br/>list (layout) + empty pane"] --> SKILL["/skills/:id?tab=<br/>same list + skill in the side pane<br/>(config · context · preview · evals · stats · versions)"]
   CONV["/repos/:repoId/conventions<br/>scan · accept/reject/edit · create skill"]
@@ -37,6 +38,7 @@ flowchart TD
   PR -->|"GET /pulls/:id · /reviews · /pulls/:id/comments · /pulls/:id/smart-diff · /pulls/:id/blast(/history)<br/>POST /pulls/:id/review · /findings/:id/(accept|dismiss)<br/>eval case modal: GET /findings/:id/eval-case-draft · POST /findings/:id/eval-case · POST /agents/:id/eval-cases/try"| API
   AGENTS -->|"/agents · /agents/:id · /agents/:id/skills<br/>evals tab: /agents/:id/eval-cases(/try) · /eval-cases/:id · /agents/:id/eval-runs(/compare) · /eval-runs/:id"| API
   EVAL -->|"GET /eval/dashboard · POST /agents/:id/eval-runs (Run all agents) · /agents/:id/eval-runs(/compare) · /eval-runs/:id<br/>GET /agents/:id/versions/:v · PUT /agents/:id (Promote vN)"| API
+  AP -->|"GET /agents/performance?from=&to="| API
   SKILLS -->|"/skills · /skills/:id(/versions|/agents)<br/>/skills/community · /skills/import(/preview)<br/>evals tab: /skills/:id/eval-cases(/try) · /eval-cases/:id · /skills/:id/eval-runs(/compare) · /eval-runs/:id · GET /agents"| API
   CONV -->|"GET /repos/:id/conventions · POST …/extract<br/>PATCH /conventions/:id · POST …/skill(/preview)"| API
   SETTINGS -->|"/settings · /providers"| API

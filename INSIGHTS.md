@@ -51,6 +51,9 @@ Approaches and solutions that held up, with the context that made them work.
 Dead ends and anti-patterns: what was tried, why it failed, what to do instead.
 **The highest-value section and the one most often left empty. Fill it.**
 
+- **The model cannot start `/implement` through the Skill tool, even when the user names it: `.claude/commands/implement.md:4` sets `disable-model-invocation: true`.** (2026-10-17) Seen while building SPEC-11, where the user's brief said "→ /implement". The command only runs when the user types it.
+  → When a user delegates the build half in prose, follow `implement.md` step by step as the calling session (implementers per §9 brief → `check-code.sh` → `plan-verifier` → `architecture-reviewer`), and say that it was run by hand.
+
 - **A per-brief filtered check stays green while parallel implementers break each other — run the whole package once every parallel track has landed.** (2026-10-13) Stage 11 of `specs/2026-10-13-eval-case-modal-plan.md` made "Run after saving" on by default in `client/src/components/eval-case-editor/CaseEditorDialog.tsx`, so a save keeps the dialog open; `EvalsTab.test.tsx` and `EvalCaseAction.test.tsx`, owned by two other tracks, failed only in the full `check-code.sh client` run, and `RunHistory.test.tsx` failed because `CompareRunsDialog` gained a read of the agent.
   → After the last parallel brief, run `.claude/agents/scripts/check-code.sh <package>` unfiltered before any review; in a test, look for the request among all `fetchMock.mock.calls`, never `calls.at(-1)`.
 
@@ -100,6 +103,12 @@ Dead ends and anti-patterns: what was tried, why it failed, what to do instead.
 
 Conventions and architectural decisions found while working here, before they are
 settled enough to move into `CLAUDE.md`.
+
+- **Corrected 2026-10-17: the cost source IS recorded now — `agent_runs.cost_billed_usd` and `cost_estimated_usd` (`server/src/db/schema/runs.ts`, migration `0020`) split `cost_usd`; the "needs a new column first" line above is out of date.** `OpenRouterProvider.completeStructured` counts an attempt as billed only for a finite `usage.cost` >= 0 and estimates the rest; OpenAI/Anthropic report everything as estimated (`estimatedOnly`); null on rows stored before `0020` means unknown source.
+  → Read billed vs estimated from the two columns; a run with a null part is unknown-source, not zero.
+
+- **Corrected 2026-10-17: run cost IS persisted now — `agent_runs.cost_usd` is back (`server/src/db/schema/runs.ts:22`) and `run-executor.ts:446` writes `outcome.costUsd`; the entry "Run cost is already plumbed end-to-end — only the sink was removed" is out of date.** The stored value is mixed: `reviewer-core/src/llm/openrouter.ts:107` returns OpenRouter's `usage.cost` when the API sends it and the PriceBook estimate otherwise, and no column records which one a row holds. SPEC-11 (Agent Performance) therefore labels every cost "DevDigest estimate".
+  → Read `cost_usd` as an estimate; a view that must separate billed from estimated cost needs a new column for the cost source first.
 
 - **Corrected 2026-10-09: a diff-reviewing agent does get past its Step 0 in an `evals/` agent case once the prompt says the diff is inline.** All 16 `architecture-reviewer` / `architecture-reviewer-lite` sessions on `claude-haiku-4-5` reviewed the inline diff, read `rules/domain-purity.md` and `rules/ports-and-di.md` and produced the full report; none answered "Nothing to review" or "Blocked" (`evals/results/outputs/20261008T22{0746,1201,1647,2228}/`).
   → Keep the "supplied inline, not applied, Bash unavailable" paragraph in every agent-case prompt (`reviewPrompt` in `evals/agents/architecture-reviewer/architecture-reviewer.cases.ts`); the question below is answered.

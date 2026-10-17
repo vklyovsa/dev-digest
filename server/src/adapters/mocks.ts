@@ -101,6 +101,8 @@ export class MockLLMProvider implements LLMProvider {
       tokensIn: 100,
       tokensOut: 50,
       costUsd: 0.001,
+      costBilledUsd: 0,
+      costEstimatedUsd: 0.001,
       raw: JSON.stringify(fixture),
       attempts: 1,
     };

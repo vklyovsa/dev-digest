@@ -32,6 +32,32 @@ describe("Project Context navigation", () => {
   });
 });
 
+describe("Agent Performance navigation", () => {
+  it("shows a GLOBAL heading after the last SKILLS LAB item, with a link to /agent-performance", () => {
+    render(<Sidebar ctx={{ repoId: "r1" }} />);
+    const heading = screen.getByText("GLOBAL");
+    const lastSkillsLab = screen.getByRole("link", { name: "Eval Dashboard" });
+    expect(
+      lastSkillsLab.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Agent Performance" })).toHaveAttribute(
+      "href",
+      "/agent-performance",
+    );
+  });
+
+  it("marks the item active on /agent-performance", () => {
+    const activeKey = activeKeyFor("/agent-performance");
+    expect(activeKey).toBe("agent-performance");
+
+    render(<Sidebar ctx={{ repoId: "r1", activeKey }} />);
+    const row = (name: string) => screen.getByRole("link", { name }).firstElementChild;
+    expect(row("Agent Performance")).toHaveStyle({ fontWeight: 600 });
+    expect(row("Agents")).toHaveStyle({ fontWeight: 500 });
+    expect(row("Eval Dashboard")).toHaveStyle({ fontWeight: 500 });
+  });
+});
+
 describe("Eval Dashboard navigation", () => {
   it("places the item in SKILLS LAB right after Conventions and links to /eval", () => {
     render(<Sidebar ctx={{ repoId: "r1" }} />);

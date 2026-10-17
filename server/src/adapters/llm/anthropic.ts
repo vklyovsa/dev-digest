@@ -10,7 +10,7 @@ import type {
 } from '@devdigest/shared';
 import { withRetry, withTimeout } from '../../platform/resilience.js';
 import { toJsonSchema, parseWithRepair } from '../../platform/structured.js';
-import { estimateCost } from './pricing.js';
+import { estimateCost, estimatedOnly } from './pricing.js';
 import { ExternalServiceError } from '../../platform/errors.js';
 
 const DEFAULT_TIMEOUT = 60_000;
@@ -132,7 +132,7 @@ export class AnthropicProvider implements LLMProvider {
           model: req.model,
           tokensIn,
           tokensOut,
-          costUsd: estimateCost(req.model, tokensIn, tokensOut),
+          ...estimatedOnly(estimateCost(req.model, tokensIn, tokensOut)),
           raw: lastRaw,
           attempts: attempt,
         };

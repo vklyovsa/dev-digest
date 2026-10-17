@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { Severity } from './findings.js';
+import { CostSplit } from './observability.js';
 
 /**
  * A6 — Productionize contracts (L08).
@@ -137,51 +138,83 @@ export type PluginImportResult = z.infer<typeof PluginImportResult>;
 
 /** Per-agent performance row (aggregate across agent_runs + findings). */
 export const AgentPerfRow = z.object({
-  agent_id: z.string(),
-  agent_name: z.string(),
-  provider: z.string().nullable(),
-  model: z.string().nullable(),
+  /** null for the row that gathers the runs of deleted agents. */
+  agent_id: z.string().nullable(),
+  /** null for the deleted-agents row. */
+  agent_name: z.string().nullable(),
+  provider: z.string().nullable().optional(),
+  model: z.string().nullable().optional(),
   runs: z.number().int(),
-  findings_total: z.number().int(),
+  findings_total: z.number().int().optional(),
   accepted: z.number().int(),
   dismissed: z.number().int(),
-  /** headline quality signal: accepted / (accepted + dismissed), 0..1 or null. */
+  /** accepted + dismissed. */
+  decisions: z.number().int(),
+  /** headline quality signal: accepted / decisions, 0..1 or null. */
   accept_rate: z.number().nullable(),
-  dismiss_rate: z.number().nullable(),
-  avg_findings_per_run: z.number().nullable(),
+  previous_accept_rate: z.number().nullable(),
+  accept_trend: z.enum(['up', 'down', 'flat']).nullable(),
+  /** true when decisions is below the small-sample threshold. */
+  small_sample: z.boolean(),
+  dismiss_rate: z.number().nullable().optional(),
+  avg_findings_per_run: z.number().nullable().optional(),
   total_cost_usd: z.number().nullable(),
   avg_cost_usd: z.number().nullable(),
+  cost_split: CostSplit,
+  /** counted runs that have no cost. */
+  unpriced_runs: z.number().int(),
   avg_latency_ms: z.number().nullable(),
   last_run_at: z.string().nullable(),
-  findings_by_severity: z.object({
-    CRITICAL: z.number().int(),
-    WARNING: z.number().int(),
-    SUGGESTION: z.number().int(),
-  }),
+  findings_by_severity: z
+    .object({
+      CRITICAL: z.number().int(),
+      WARNING: z.number().int(),
+      SUGGESTION: z.number().int(),
+    })
+    .optional(),
   /** recent findings-per-run trend (oldest→newest) for the sparkline. */
-  trend: z.array(z.number()),
+  trend: z.array(z.number()).optional(),
 });
 export type AgentPerfRow = z.infer<typeof AgentPerfRow>;
 
-/** A donut segment {label,value,color}. */
+/** A donut segment {label,value}. */
 export const PerfCostSegment = z.object({
-  label: z.string(),
-  value: z.number(),
+  /** agent name or stored model; null for deleted agents and runs without a model. */
+  label: z.string().nullable(),
+  value: z.number().positive(),
+  cost_split: CostSplit,
 });
 export type PerfCostSegment = z.infer<typeof PerfCostSegment>;
 
 /** Response of GET /agents/performance. */
 export const AgentPerf = z.object({
+  period: z.object({ from: z.string(), to: z.string() }),
+  min_decisions: z.number().int(),
   summary: z.object({
     runs: z.number().int(),
     total_cost_usd: z.number().nullable(),
+    cost_split: CostSplit,
+    cost_delta_usd: z.number().nullable(),
+    unpriced_runs: z.number().int(),
+    accepted: z.number().int(),
+    decisions: z.number().int(),
     avg_accept_rate: z.number().nullable(),
     most_active_agent: z.string().nullable(),
+    most_active_agent_id: z.string().nullable(),
+    most_active_runs: z.number().int(),
+    most_active_accept_rate: z.number().nullable(),
   }),
   agents: z.array(AgentPerfRow),
   /** cost split by agent and by model (for the two cost-breakdown donuts). */
-  cost_by_agent: z.array(PerfCostSegment),
+  cost_by_agent: z.array(PerfCostSegment.extend({ agent_id: z.string().nullable() })),
   cost_by_model: z.array(PerfCostSegment),
+  runs_series: z.array(z.object({ start: z.string(), runs: z.number().int() })),
+  previous: z.object({
+    from: z.string(),
+    to: z.string(),
+    runs: z.number().int(),
+    total_cost_usd: z.number().nullable(),
+  }),
 });
 export type AgentPerf = z.infer<typeof AgentPerf>;
 

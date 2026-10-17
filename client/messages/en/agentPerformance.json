@@ -1,32 +1,82 @@
 {
   "title": "Agent Performance",
-  "subtitle": "Accept-rate is the headline quality signal · cost shown as a breakdown",
-  "loadError": "Could not load agent performance.",
-  "summary": {
-    "totalRuns": "Total runs",
-    "avgAcceptRate": "Avg accept-rate",
-    "totalCost": "Total cost",
-    "mostActive": "Most active"
+  "subtitle": "Which agents earn their keep — accept rate is the quality signal",
+  "basis": {
+    "billed": "Billed",
+    "estimate": "Estimate",
+    "unknown": "Unknown source",
+    "mixed": "Mixed"
   },
-  "costByAgent": "Cost by agent",
-  "costByModel": "Cost by model",
-  "noCost": "No cost recorded yet.",
-  "sort": {
-    "acceptRate": "accept-rate",
-    "runs": "runs",
-    "cost": "cost"
+  "period": {
+    "label": "Period",
+    "choices": {
+      "1d": "1 day",
+      "30d": "30 days",
+      "custom": "Custom range"
+    },
+    "short": {
+      "1d": "1d",
+      "30d": "30d",
+      "custom": "{start} – {end}"
+    },
+    "custom": {
+      "start": "From",
+      "end": "To",
+      "apply": "Apply",
+      "inverted": "The range ends before it starts.",
+      "future": "The range cannot end after today."
+    }
+  },
+  "kpi": {
+    "totalRuns": "Total runs ({period})",
+    "totalCost": "Total cost ({period})",
+    "avgAcceptRate": "Avg accept rate ({period})",
+    "mostActive": "Most-active agent ({period})",
+    "decisionsAndRuns": "{decisions, plural, one {# decision} other {# decisions}} · {runs, plural, one {# run} other {# runs}}",
+    "mostActiveSub": "{runs, plural, one {# run} other {# runs}} · {rate} accept",
+    "unpriced": "{count, plural, one {# run} other {# runs}} without a cost left out",
+    "split": {
+      "billed": "Billed {amount}",
+      "estimate": "Estimate {amount}",
+      "unknown": "Unknown source {amount}"
+    },
+    "billedNote": "Billed is the cost the provider reported in its responses to DevDigest, not a figure read from the provider's account.",
+    "delta": "{sign}{amount} vs previous {days}d",
+    "noPrevious": "No earlier period to compare",
+    "series": "Runs per {unit, select, hour {hour} other {day}}, peak {peak, number}"
   },
   "table": {
     "agent": "Agent",
-    "accept": "Accept",
     "runs": "Runs",
-    "findings": "Findings",
-    "cost": "Cost",
-    "trend": "Trend"
+    "avgCost": "Avg cost",
+    "avgDuration": "Avg duration",
+    "acceptRate": "Accept rate",
+    "lastRun": "Last run",
+    "view": "View",
+    "viewAgent": "View {name}",
+    "decisions": "{count, plural, one {# decision} other {# decisions}}",
+    "smallSample": "small sample",
+    "noRuns": "No runs in this period",
+    "deletedAgent": "Deleted agent",
+    "trendUp": "up from {rate}",
+    "trendDown": "down from {rate}"
   },
-  "empty": {
-    "title": "No agent runs yet",
-    "body": "Run a review (manually) to populate per-agent performance."
+  "format": {
+    "count": "{value, number}",
+    "rate": "{value, number, percent}",
+    "seconds": "{value, number} s"
   },
-  "perAgent": "Per-agent"
+  "none": "—",
+  "cost": {
+    "title": "Cost breakdown",
+    "byAgent": "By agent",
+    "byModel": "By model",
+    "unknownModel": "Unknown model",
+    "none": "No cost recorded for this period"
+  },
+  "states": {
+    "loadError": "Could not load agent performance.",
+    "emptyTitle": "No agent runs in {period}",
+    "emptyBody": "Run a review on a pull request to see agent performance here."
+  }
 }

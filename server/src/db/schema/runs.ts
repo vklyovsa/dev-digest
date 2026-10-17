@@ -20,6 +20,9 @@ export const agentRuns = pgTable('agent_runs', {
   tokensOut: integer('tokens_out'),
   /** USD cost of the run; null on failed/cancelled runs and unpriced models. */
   costUsd: doublePrecision('cost_usd'),
+  /** Billed + estimated add up to costUsd; null on runs stored before the parts were recorded — read as unknown source. */
+  costBilledUsd: doublePrecision('cost_billed_usd'),
+  costEstimatedUsd: doublePrecision('cost_estimated_usd'),
   status: text('status'),
   /** Failure reason when status='failed' (LLM/API error, timeout, quota, …). */
   error: text('error'),

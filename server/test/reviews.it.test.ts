@@ -223,6 +223,9 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     expect(run!.findingsCount).toBe(1);
     expect(run!.grounding).toBe('1/2 passed');
     expect(run!.costUsd).toBeCloseTo(0.001, 6);
+    expect(run!.costBilledUsd).toBe(0);
+    expect(run!.costEstimatedUsd).toBeCloseTo(0.001, 6);
+    expect(run!.costBilledUsd! + run!.costEstimatedUsd!).toBeCloseTo(run!.costUsd!, 10);
 
     await app.close();
   });
@@ -245,6 +248,8 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
 
     expect(runs[0]!.status).toBe('failed');
     expect(runs[0]!.costUsd).toBeNull();
+    expect(runs[0]!.costBilledUsd).toBeNull();
+    expect(runs[0]!.costEstimatedUsd).toBeNull();
 
     await app.close();
   });

@@ -69,6 +69,9 @@ export interface StructuredResult<T> {
   tokensIn: number;
   tokensOut: number;
   costUsd: number | null;
+  /** Billed + estimated add up to `costUsd`; both are null when `costUsd` is null. */
+  costBilledUsd: number | null;
+  costEstimatedUsd: number | null;
   raw: string;
   attempts: number;
 }

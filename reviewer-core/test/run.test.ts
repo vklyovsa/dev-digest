@@ -116,6 +116,8 @@ describe('reviewPullRequest (engine)', () => {
           tokensIn: 0,
           tokensOut: 0,
           costUsd: 0,
+          costBilledUsd: 0,
+          costEstimatedUsd: 0,
           raw: '',
           attempts: 1,
         };
@@ -165,6 +167,8 @@ describe('reviewPullRequest (engine)', () => {
           tokensIn: 0,
           tokensOut: 0,
           costUsd: 0,
+          costBilledUsd: 0,
+          costEstimatedUsd: 0,
           raw: '',
           attempts: 1,
         };
@@ -183,5 +187,72 @@ describe('reviewPullRequest (engine)', () => {
     await reviewPullRequest({ systemPrompt: 's', model: 'm', diff, llm: recorder, sessionId: 'sess-abc' });
     expect(seen.length).toBeGreaterThan(0);
     expect(seen.every((s) => s === 'sess-abc')).toBe(true);
+  });
+
+  const stubWith = (parts: Array<[number | null, number | null, number | null]>): LLMProvider => {
+    let i = 0;
+    return {
+      id: 'openrouter',
+      async completeStructured<T>(req): Promise<StructuredResult<T>> {
+        const [costUsd, costBilledUsd, costEstimatedUsd] = parts[i++]!;
+        return {
+          data: { verdict: 'approve', summary: 'ok', score: 100, findings: [] } as unknown as T,
+          model: req.model,
+          tokensIn: 0,
+          tokensOut: 0,
+          costUsd,
+          costBilledUsd,
+          costEstimatedUsd,
+          raw: '',
+          attempts: 1,
+        };
+      },
+      async listModels() {
+        return [];
+      },
+      async complete() {
+        throw new Error('not used');
+      },
+      async embed() {
+        return [];
+      },
+    };
+  };
+  const twoFileDiff =
+    'diff --git a/src/a.ts b/src/a.ts\n--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1,1 +1,2 @@\n x\n+a1\n' +
+    'diff --git a/src/b.ts b/src/b.ts\n--- a/src/b.ts\n+++ b/src/b.ts\n@@ -1,1 +1,2 @@\n y\n+b1';
+
+  it('map-reduce: sums billed and estimated cost parts across chunks', async () => {
+    const diff = await new MockGitClient({ diff: twoFileDiff }).diff();
+    const outcome = await reviewPullRequest({
+      systemPrompt: 's',
+      model: 'm',
+      diff,
+      llm: stubWith([
+        [0.01, 0.01, 0],
+        [0.02, 0, 0.02],
+      ]),
+      strategy: 'map-reduce',
+    });
+    expect(outcome.costUsd).toBeCloseTo(0.03, 10);
+    expect(outcome.costBilledUsd).toBeCloseTo(0.01, 10);
+    expect(outcome.costEstimatedUsd).toBeCloseTo(0.02, 10);
+  });
+
+  it('map-reduce: one unpriced chunk makes all three cost figures null', async () => {
+    const diff = await new MockGitClient({ diff: twoFileDiff }).diff();
+    const outcome = await reviewPullRequest({
+      systemPrompt: 's',
+      model: 'm',
+      diff,
+      llm: stubWith([
+        [0.01, 0.01, 0],
+        [null, null, null],
+      ]),
+      strategy: 'map-reduce',
+    });
+    expect(outcome.costUsd).toBeNull();
+    expect(outcome.costBilledUsd).toBeNull();
+    expect(outcome.costEstimatedUsd).toBeNull();
   });
 });

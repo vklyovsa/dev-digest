@@ -93,28 +93,43 @@ export type MultiAgentRun = z.infer<typeof MultiAgentRun>;
 export const StatPoint = z.object({ label: z.string(), value: z.number() });
 export type StatPoint = z.infer<typeof StatPoint>;
 
+/** A cost figure split by source; the three parts add up to the figure. */
+export const CostSplit = z.object({
+  billed_usd: z.number(),
+  estimated_usd: z.number(),
+  unknown_usd: z.number(),
+});
+export type CostSplit = z.infer<typeof CostSplit>;
+
 export const AgentStats = z.object({
   agent_id: z.string(),
   agent_name: z.string(),
+  period: z.object({ from: z.string(), to: z.string() }),
   runs: z.number().int(),
-  findings_total: z.number().int(),
+  findings_total: z.number().int().optional(),
   /** accept-rate is the headline quality signal. 0..1 over acted findings. */
   accepted: z.number().int(),
   dismissed: z.number().int(),
-  pending: z.number().int(),
+  decisions: z.number().int(),
+  pending: z.number().int().optional(),
   accept_rate: z.number().nullable(),
-  dismiss_rate: z.number().nullable(),
-  avg_findings_per_run: z.number().nullable(),
+  dismiss_rate: z.number().nullable().optional(),
+  avg_findings_per_run: z.number().nullable().optional(),
   total_cost_usd: z.number().nullable(),
   avg_cost_usd: z.number().nullable(),
+  cost_split: CostSplit,
+  /** counted runs that have no cost. */
+  unpriced_runs: z.number().int(),
   avg_latency_ms: z.number().nullable(),
-  findings_by_severity: z.object({
-    CRITICAL: z.number().int(),
-    WARNING: z.number().int(),
-    SUGGESTION: z.number().int(),
-  }),
+  findings_by_severity: z
+    .object({
+      CRITICAL: z.number().int(),
+      WARNING: z.number().int(),
+      SUGGESTION: z.number().int(),
+    })
+    .optional(),
   /** recent runs for a small trend chart (oldest→newest). */
-  trend: z.array(StatPoint),
+  trend: z.array(StatPoint).optional(),
 });
 export type AgentStats = z.infer<typeof AgentStats>;
 

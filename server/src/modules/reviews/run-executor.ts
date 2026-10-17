@@ -408,7 +408,7 @@ export class ReviewRunExecutor {
           if (this.deps.runBus.isCancelled(runId)) throw new RunCancelledError();
         },
       });
-      const { tokensIn, tokensOut, grounding, costUsd } = outcome;
+      const { tokensIn, tokensOut, grounding, costUsd, costBilledUsd, costEstimatedUsd } = outcome;
 
       const keptFindings = outcome.review.findings;
 
@@ -444,6 +444,8 @@ export class ReviewRunExecutor {
         tokensIn,
         tokensOut,
         costUsd,
+        costBilledUsd,
+        costEstimatedUsd,
         findingsCount: findingRows.length,
         grounding,
         score: outcome.review.score,
