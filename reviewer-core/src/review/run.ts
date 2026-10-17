@@ -129,6 +129,8 @@ export interface ReviewOutcome {
   tokensIn: number;
   tokensOut: number;
   costUsd: number | null;
+  costBilledUsd: number | null;
+  costEstimatedUsd: number | null;
   /** Joined raw model outputs (for the run trace). */
   raw: string;
 }
@@ -179,6 +181,8 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
   let tokensIn = 0;
   let tokensOut = 0;
   let costUsd: number | null = 0;
+  let costBilledUsd: number | null = 0;
+  let costEstimatedUsd: number | null = 0;
   const raws: string[] = [];
 
   for (const [chunkIndex, chunk] of chunks.entries()) {
@@ -210,7 +214,14 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
     });
     tokensIn += res.tokensIn;
     tokensOut += res.tokensOut;
-    costUsd = costUsd == null || res.costUsd == null ? null : costUsd + res.costUsd;
+    if (costUsd == null || costBilledUsd == null || costEstimatedUsd == null || res.costUsd == null) {
+      costUsd = costBilledUsd = costEstimatedUsd = null;
+    } else {
+      const chunkBilled = res.costBilledUsd ?? 0;
+      costUsd += res.costUsd;
+      costBilledUsd += chunkBilled;
+      costEstimatedUsd += res.costEstimatedUsd ?? res.costUsd - chunkBilled;
+    }
     raws.push(res.raw);
     partials.push(res.data);
     emit('result', `${chunk.label}: ${res.data.findings.length} candidate finding(s)`);
@@ -243,6 +254,8 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
     tokensIn,
     tokensOut,
     costUsd,
+    costBilledUsd,
+    costEstimatedUsd,
     raw: raws.join('\n---\n'),
   };
 }

@@ -8,8 +8,15 @@ export interface AgentRef {
   name: string;
 }
 
+/** A cost figure split by source; `unknownUsd` is the cost of runs stored before the parts existed. */
+export interface CostParts {
+  billedUsd: number;
+  estimatedUsd: number;
+  unknownUsd: number;
+}
+
 /** Counted runs of one agent (null = agent deleted), grouped in SQL. */
-export interface RunAggregate {
+export interface RunAggregate extends CostParts {
   agentId: string | null;
   runs: number;
   /** Runs that have a cost. */
@@ -27,9 +34,19 @@ export interface DecisionAggregate {
   dismissed: number;
 }
 
-export interface ModelCost {
+export interface ModelCost extends CostParts {
   model: string | null;
   costUsd: number;
+}
+
+export interface SeriesCount {
+  bucket: number;
+  runs: number;
+}
+
+export interface PeriodAggregates {
+  runs: RunAggregate[];
+  decisions: DecisionAggregate[];
 }
 
 /** Read slice the performance service needs; implemented by the module's repository. */
@@ -43,6 +60,7 @@ export interface AgentPerformanceStore {
     agentId?: string,
   ): Promise<DecisionAggregate[]>;
   costByModel(workspaceId: string, range: PerfRange): Promise<ModelCost[]>;
+  runsSeries(workspaceId: string, range: PerfRange, bucketMs: number): Promise<SeriesCount[]>;
 }
 
 export interface AgentPerformanceDeps {

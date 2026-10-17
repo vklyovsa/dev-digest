@@ -39,3 +39,12 @@ export function estimateCost(model: string, tokensIn: number, tokensOut: number)
   if (!p) return null;
   return (tokensIn * p.in + tokensOut * p.out) / 1_000_000;
 }
+
+/** Cost parts for a provider that reports no bill: everything it costs is an estimate. */
+export function estimatedOnly(costUsd: number | null): {
+  costUsd: number | null;
+  costBilledUsd: number | null;
+  costEstimatedUsd: number | null;
+} {
+  return { costUsd, costBilledUsd: costUsd === null ? null : 0, costEstimatedUsd: costUsd };
+}

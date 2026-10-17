@@ -9,6 +9,7 @@ import type {
   ModelCost,
   PerfRange,
   RunAggregate,
+  SeriesCount,
 } from './types.js';
 
 export class AgentPerformanceRepository implements AgentPerformanceStore {
@@ -51,6 +52,9 @@ export class AgentPerformanceRepository implements AgentPerformanceStore {
         pricedRuns: sql<string>`count(${t.agentRuns.costUsd})`,
         doneRuns: sql<string>`count(*) filter (where ${t.agentRuns.status} = ${LATENCY_STATUS})`,
         totalCostUsd: sql<number | null>`sum(${t.agentRuns.costUsd})`,
+        billedUsd: sql<string>`coalesce(sum(${t.agentRuns.costBilledUsd}), 0)`,
+        estimatedUsd: sql<string>`coalesce(sum(${t.agentRuns.costEstimatedUsd}), 0)`,
+        unknownUsd: sql<string>`coalesce(sum(${t.agentRuns.costUsd}) filter (where ${t.agentRuns.costBilledUsd} is null and ${t.agentRuns.costEstimatedUsd} is null), 0)`,
         avgLatencyMs: sql<
           string | null
         >`avg(${t.agentRuns.durationMs}) filter (where ${t.agentRuns.status} = ${LATENCY_STATUS})`,
@@ -65,6 +69,9 @@ export class AgentPerformanceRepository implements AgentPerformanceStore {
       pricedRuns: Number(r.pricedRuns),
       doneRuns: Number(r.doneRuns),
       totalCostUsd: r.totalCostUsd === null ? null : Number(r.totalCostUsd),
+      billedUsd: Number(r.billedUsd),
+      estimatedUsd: Number(r.estimatedUsd),
+      unknownUsd: Number(r.unknownUsd),
       avgLatencyMs: r.avgLatencyMs === null ? null : Number(r.avgLatencyMs),
       lastRunAt: r.lastRunAt === null ? null : new Date(r.lastRunAt),
     }));
@@ -101,10 +108,34 @@ export class AgentPerformanceRepository implements AgentPerformanceStore {
       .select({
         model: t.agentRuns.model,
         costUsd: sql<number>`sum(${t.agentRuns.costUsd})`,
+        billedUsd: sql<string>`coalesce(sum(${t.agentRuns.costBilledUsd}), 0)`,
+        estimatedUsd: sql<string>`coalesce(sum(${t.agentRuns.costEstimatedUsd}), 0)`,
+        unknownUsd: sql<string>`coalesce(sum(${t.agentRuns.costUsd}) filter (where ${t.agentRuns.costBilledUsd} is null and ${t.agentRuns.costEstimatedUsd} is null), 0)`,
       })
       .from(t.agentRuns)
       .where(and(this.countedRuns(workspaceId, range), isNotNull(t.agentRuns.costUsd)))
       .groupBy(t.agentRuns.model);
-    return rows.map((r) => ({ model: r.model, costUsd: Number(r.costUsd) }));
+    return rows.map((r) => ({
+      model: r.model,
+      costUsd: Number(r.costUsd),
+      billedUsd: Number(r.billedUsd),
+      estimatedUsd: Number(r.estimatedUsd),
+      unknownUsd: Number(r.unknownUsd),
+    }));
+  }
+
+  async runsSeries(
+    workspaceId: string,
+    range: PerfRange,
+    bucketMs: number,
+  ): Promise<SeriesCount[]> {
+    const fromMs = range.from.getTime();
+    const bucket = sql<number>`floor((extract(epoch from ${t.agentRuns.ranAt}) * 1000 - ${fromMs}::double precision) / ${bucketMs}::double precision)::int`;
+    const rows = await this.db
+      .select({ bucket, runs: sql<string>`count(*)` })
+      .from(t.agentRuns)
+      .where(this.countedRuns(workspaceId, range))
+      .groupBy(sql`1`);
+    return rows.map((r) => ({ bucket: Number(r.bucket), runs: Number(r.runs) }));
   }
 }

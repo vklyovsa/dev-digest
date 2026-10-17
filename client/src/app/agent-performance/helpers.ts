@@ -1,6 +1,6 @@
-import type { AgentPerfRow } from "@devdigest/shared";
+import type { AgentPerf, AgentPerfRow, CostSplit } from "@devdigest/shared";
 import { formatUsd } from "@/components/run-cost/helpers";
-import { DAY_MS, DEFAULT_PERIOD, END_PARAM, PERIOD_PARAM, START_PARAM } from "./constants";
+import { DAY_MS, DEFAULT_PERIOD, HOUR_MS, END_PARAM, PERIOD_PARAM, START_PARAM } from "./constants";
 
 export type Period =
   | { kind: "1d" }
@@ -113,4 +113,38 @@ export function formatCost(usd: number | null | undefined): string {
     minimumFractionDigits: d,
     maximumFractionDigits: d,
   }).format(usd);
+}
+
+export type CostBasis = "billed" | "estimate" | "unknown" | "mixed";
+export type SplitKind = "billed" | "estimate" | "unknown";
+
+export function splitLines(split: CostSplit): { kind: SplitKind; usd: number }[] {
+  const parts: { kind: SplitKind; usd: number }[] = [
+    { kind: "billed", usd: split.billed_usd },
+    { kind: "estimate", usd: split.estimated_usd },
+    { kind: "unknown", usd: split.unknown_usd },
+  ];
+  return parts.filter((p) => p.usd > 0);
+}
+
+export function costBasis(split: CostSplit): CostBasis | null {
+  const lines = splitLines(split);
+  if (lines.length === 0) return null;
+  if (lines.length > 1) return "mixed";
+  return lines[0]!.kind;
+}
+
+export function signedCost(delta: number): { sign: "+" | "\u2212" | ""; amount: string } {
+  const sign = delta > 0 ? "+" : delta < 0 ? "\u2212" : "";
+  return { sign, amount: formatCost(Math.abs(delta)) };
+}
+
+export function seriesUnit(series: AgentPerf["runs_series"]): "hour" | "day" {
+  const [first, second] = series;
+  if (!first || !second) return "day";
+  return Date.parse(second.start) - Date.parse(first.start) === HOUR_MS ? "hour" : "day";
+}
+
+export function spanDays(period: AgentPerf["period"]): number {
+  return Math.round((Date.parse(period.to) - Date.parse(period.from)) / DAY_MS);
 }

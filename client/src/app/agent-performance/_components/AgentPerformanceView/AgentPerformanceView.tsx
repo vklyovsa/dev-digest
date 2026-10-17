@@ -80,7 +80,12 @@ export function AgentPerformanceView() {
   } else {
     body = (
       <>
-        <KpiCards summary={data.summary} periodLabel={periodLabel} />
+        <KpiCards
+          summary={data.summary}
+          series={data.runs_series}
+          period={data.period}
+          periodLabel={periodLabel}
+        />
         <AgentTable
           rows={data.agents}
           sortDir={sortDir}
@@ -100,7 +105,10 @@ export function AgentPerformanceView() {
     <AppShell crumb={[{ label: t("title") }]}>
       <div style={s.page}>
         <div style={s.header}>
-          <h1 style={s.h1}>{t("title")}</h1>
+          <div style={s.heading}>
+            <h1 style={s.h1}>{t("title")}</h1>
+            <p style={s.subtitle}>{t("subtitle")}</p>
+          </div>
           <PeriodPicker period={period} today={localToday(Date.now())} onSelect={onSelect} />
         </div>
         {body}

@@ -62,7 +62,9 @@ export class OpenRouterProvider implements LLMProvider {
     const messages = [...req.messages];
     let tokensIn = 0;
     let tokensOut = 0;
-    let costFromApi: number | null = null;
+    let billed = 0;
+    let estimated = 0;
+    let unpriced = false;
     let lastRaw = '';
 
     for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
@@ -91,11 +93,20 @@ export class OpenRouterProvider implements LLMProvider {
         throw new Error(`OpenRouter returned no choices for ${req.schemaName}${errMsg ? `: ${errMsg}` : ''}`);
       }
       lastRaw = choice.message?.content ?? '';
-      tokensIn += res.usage?.prompt_tokens ?? 0;
-      tokensOut += res.usage?.completion_tokens ?? 0;
-      // `usage.cost` is an OpenRouter extension (USD), absent from the OpenAI SDK type.
-      const apiCost = (res.usage as { cost?: number } | null | undefined)?.cost;
-      if (typeof apiCost === 'number') costFromApi = (costFromApi ?? 0) + apiCost;
+      const attemptIn = res.usage?.prompt_tokens ?? 0;
+      const attemptOut = res.usage?.completion_tokens ?? 0;
+      tokensIn += attemptIn;
+      tokensOut += attemptOut;
+      // `usage.cost` is an OpenRouter extension (USD), absent from the OpenAI SDK type,
+      // and third-party data: only a finite number >= 0 counts as billed.
+      const reported = (res.usage as { cost?: unknown } | null | undefined)?.cost;
+      if (typeof reported === 'number' && Number.isFinite(reported) && reported >= 0) {
+        billed += reported;
+      } else {
+        const est = this.estimateCost?.(req.model, attemptIn, attemptOut) ?? null;
+        if (est === null) unpriced = true;
+        else estimated += est;
+      }
 
       const parsed = parseWithRepair(req.schema, lastRaw);
       if (parsed.ok) {
@@ -104,7 +115,9 @@ export class OpenRouterProvider implements LLMProvider {
           model: req.model,
           tokensIn,
           tokensOut,
-          costUsd: costFromApi ?? this.estimateCost?.(req.model, tokensIn, tokensOut) ?? null,
+          costUsd: unpriced ? null : billed + estimated,
+          costBilledUsd: unpriced ? null : billed,
+          costEstimatedUsd: unpriced ? null : estimated,
           raw: lastRaw,
           attempts: attempt,
         };

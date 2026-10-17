@@ -1,5 +1,12 @@
 {
   "title": "Agent Performance",
+  "subtitle": "Which agents earn their keep — accept rate is the quality signal",
+  "basis": {
+    "billed": "Billed",
+    "estimate": "Estimate",
+    "unknown": "Unknown source",
+    "mixed": "Mixed"
+  },
   "period": {
     "label": "Period",
     "choices": {
@@ -27,7 +34,16 @@
     "mostActive": "Most-active agent ({period})",
     "decisionsAndRuns": "{decisions, plural, one {# decision} other {# decisions}} · {runs, plural, one {# run} other {# runs}}",
     "mostActiveSub": "{runs, plural, one {# run} other {# runs}} · {rate} accept",
-    "unpriced": "{count, plural, one {# run} other {# runs}} without a cost left out"
+    "unpriced": "{count, plural, one {# run} other {# runs}} without a cost left out",
+    "split": {
+      "billed": "Billed {amount}",
+      "estimate": "Estimate {amount}",
+      "unknown": "Unknown source {amount}"
+    },
+    "billedNote": "Billed is the cost the provider reported in its responses to DevDigest, not a figure read from the provider's account.",
+    "delta": "{sign}{amount} vs previous {days}d",
+    "noPrevious": "No earlier period to compare",
+    "series": "Runs per {unit, select, hour {hour} other {day}}, peak {peak, number}"
   },
   "table": {
     "agent": "Agent",
@@ -41,7 +57,9 @@
     "decisions": "{count, plural, one {# decision} other {# decisions}}",
     "smallSample": "small sample",
     "noRuns": "No runs in this period",
-    "deletedAgent": "Deleted agent"
+    "deletedAgent": "Deleted agent",
+    "trendUp": "up from {rate}",
+    "trendDown": "down from {rate}"
   },
   "format": {
     "count": "{value, number}",
@@ -55,10 +73,6 @@
     "byModel": "By model",
     "unknownModel": "Unknown model",
     "none": "No cost recorded for this period"
-  },
-  "estimate": {
-    "mark": "DevDigest estimate",
-    "note": "Computed by DevDigest from provider-reported or price-table costs — not billing data."
   },
   "states": {
     "loadError": "Could not load agent performance.",

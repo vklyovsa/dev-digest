@@ -1,11 +1,15 @@
 import { describe, it, expect } from "vitest";
 import {
+  costBasis,
   formatCost,
   localToday,
   parsePeriod,
   periodRange,
   periodSearch,
+  seriesUnit,
+  signedCost,
   sortByAcceptRate,
+  spanDays,
   validateCustom,
 } from "./helpers";
 
@@ -112,5 +116,55 @@ describe("formatCost", () => {
 
   it("shows a dash for a missing cost", () => {
     expect(formatCost(null)).toBe("—");
+  });
+});
+
+describe("costBasis", () => {
+  const split = (billed_usd: number, estimated_usd: number, unknown_usd: number) => ({
+    billed_usd,
+    estimated_usd,
+    unknown_usd,
+  });
+
+  it("names the one part that holds all of the cost", () => {
+    expect(costBasis(split(2, 0, 0))).toBe("billed");
+    expect(costBasis(split(0, 2, 0))).toBe("estimate");
+    expect(costBasis(split(0, 0, 2))).toBe("unknown");
+  });
+
+  it("is mixed when more than one part is above zero", () => {
+    expect(costBasis(split(1, 1, 0))).toBe("mixed");
+  });
+
+  it("is null when there is no cost", () => {
+    expect(costBasis(split(0, 0, 0))).toBeNull();
+  });
+});
+
+describe("signedCost", () => {
+  it("signs a rise with + and a fall with the minus sign", () => {
+    expect(signedCost(1.2)).toEqual({ sign: "+", amount: "$1.20" });
+    expect(signedCost(-1.2)).toEqual({ sign: "\u2212", amount: "$1.20" });
+  });
+
+  it("gives zero no sign", () => {
+    expect(signedCost(0).sign).toBe("");
+  });
+});
+
+describe("seriesUnit", () => {
+  it("is hour for one-hour buckets and day otherwise", () => {
+    const at = (ms: number) => ({ start: new Date(ms).toISOString(), runs: 0 });
+    expect(seriesUnit([at(0), at(3_600_000)])).toBe("hour");
+    expect(seriesUnit([at(0), at(DAY)])).toBe("day");
+    expect(seriesUnit([at(0)])).toBe("day");
+  });
+});
+
+describe("spanDays", () => {
+  it("rounds a 3-day range that crosses a DST change to 3", () => {
+    const from = new Date(2026, 2, 28).toISOString();
+    const to = new Date(2026, 2, 31).toISOString();
+    expect(spanDays({ from, to })).toBe(3);
   });
 });

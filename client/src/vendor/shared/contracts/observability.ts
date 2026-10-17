@@ -93,6 +93,14 @@ export type MultiAgentRun = z.infer<typeof MultiAgentRun>;
 export const StatPoint = z.object({ label: z.string(), value: z.number() });
 export type StatPoint = z.infer<typeof StatPoint>;
 
+/** A cost figure split by source; the three parts add up to the figure. */
+export const CostSplit = z.object({
+  billed_usd: z.number(),
+  estimated_usd: z.number(),
+  unknown_usd: z.number(),
+});
+export type CostSplit = z.infer<typeof CostSplit>;
+
 export const AgentStats = z.object({
   agent_id: z.string(),
   agent_name: z.string(),
@@ -109,6 +117,7 @@ export const AgentStats = z.object({
   avg_findings_per_run: z.number().nullable().optional(),
   total_cost_usd: z.number().nullable(),
   avg_cost_usd: z.number().nullable(),
+  cost_split: CostSplit,
   /** counted runs that have no cost. */
   unpriced_runs: z.number().int(),
   avg_latency_ms: z.number().nullable(),

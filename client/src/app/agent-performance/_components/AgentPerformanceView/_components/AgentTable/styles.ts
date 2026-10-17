@@ -37,6 +37,7 @@ export const s = {
     color: "var(--text-primary)",
   } satisfies CSSProperties,
   rate: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } satisfies CSSProperties,
+  basis: { display: "block", color: "var(--text-muted)", fontSize: 11.5 } satisfies CSSProperties,
   muted: { color: "var(--text-muted)", fontSize: 12 } satisfies CSSProperties,
   view: {
     all: "unset",

@@ -148,6 +148,8 @@ export class ReviewRepository {
       tokensOut: number;
       /** USD cost; null on failed/cancelled runs and on models with no price. */
       costUsd?: number | null;
+      costBilledUsd?: number | null;
+      costEstimatedUsd?: number | null;
       findingsCount: number;
       grounding: string;
       /** Review score (0-100); null on failed/cancelled runs. */

@@ -87,6 +87,9 @@ settled enough to move into `CLAUDE.md`.
 Quirks of dependencies, versions and tooling — what a library does that its docs
 do not say.
 
+- **A Drizzle select that groups by a bound-parameter expression answers 500 (`column ... must appear in the GROUP BY clause`): `groupBy(expr)` sends the expression with new `$n` placeholders, which Postgres does not match to the select list.** Seen in `AgentPerformanceRepository.runsSeries` (`src/modules/agent-performance/repository.ts`), where the bucket expression binds `fromMs` and `bucketMs`; every `/agents/performance` call failed until the group became `.groupBy(sql`1`)`.
+  → Group by ordinal position (`sql`1``) when the grouped expression carries bound values; the parameters stay bound, nothing is interpolated.
+
 - **Stryker 9.6.1 under pnpm needs `"plugins": ["@stryker-mutator/vitest-runner"]`, and a vitest config whose alias is built from `__dirname` breaks in its sandbox — both fail with a message that names neither cause.** (2026-10-12) Without `plugins`: `Cannot find TestRunner plugin "vitest"`. With the unit lane alias `path.resolve(__dirname, "../reviewer-core/src")` copied into `stryker.vitest.config.ts`, the config runs from `.stryker-tmp/sandbox-*` (two levels down), every test file that reaches `@devdigest/reviewer-core` fails to import, and Stryker prints only `No tests were executed`; a target with no import (`src/modules/eval/scoring.ts`) ran fine and hid it. `pnpm add -D --save-exact` exited non-zero with `ERR_PNPM_IGNORED_BUILDS` after writing `package.json` and the lockfile.
   → Keep both lines of `server/stryker.config.json` and the `packageRoot` branch of `server/stryker.vitest.config.ts`; debug an empty run by starting vitest by hand inside the kept sandbox folder.
 

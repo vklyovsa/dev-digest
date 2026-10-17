@@ -17,6 +17,8 @@ export const s = {
     flexWrap: "wrap",
   } satisfies CSSProperties,
   h1: { fontSize: 24, fontWeight: 700, letterSpacing: "-0.02em", margin: 0 } satisfies CSSProperties,
+  heading: { display: "grid", gap: 4, minWidth: 0 } satisfies CSSProperties,
+  subtitle: { margin: 0, fontSize: 13, color: "var(--text-muted)" } satisfies CSSProperties,
   kpiSkeleton: {
     display: "grid",
     gridTemplateColumns: "repeat(4, minmax(0, 1fr))",

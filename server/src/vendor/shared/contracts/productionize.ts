@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { Severity } from './findings.js';
+import { CostSplit } from './observability.js';
 
 /**
  * A6 — Productionize contracts (L08).
@@ -151,12 +152,15 @@ export const AgentPerfRow = z.object({
   decisions: z.number().int(),
   /** headline quality signal: accepted / decisions, 0..1 or null. */
   accept_rate: z.number().nullable(),
+  previous_accept_rate: z.number().nullable(),
+  accept_trend: z.enum(['up', 'down', 'flat']).nullable(),
   /** true when decisions is below the small-sample threshold. */
   small_sample: z.boolean(),
   dismiss_rate: z.number().nullable().optional(),
   avg_findings_per_run: z.number().nullable().optional(),
   total_cost_usd: z.number().nullable(),
   avg_cost_usd: z.number().nullable(),
+  cost_split: CostSplit,
   /** counted runs that have no cost. */
   unpriced_runs: z.number().int(),
   avg_latency_ms: z.number().nullable(),
@@ -178,17 +182,19 @@ export const PerfCostSegment = z.object({
   /** agent name or stored model; null for deleted agents and runs without a model. */
   label: z.string().nullable(),
   value: z.number().positive(),
+  cost_split: CostSplit,
 });
 export type PerfCostSegment = z.infer<typeof PerfCostSegment>;
 
 /** Response of GET /agents/performance. */
 export const AgentPerf = z.object({
   period: z.object({ from: z.string(), to: z.string() }),
-  cost_basis: z.literal('estimate'),
   min_decisions: z.number().int(),
   summary: z.object({
     runs: z.number().int(),
     total_cost_usd: z.number().nullable(),
+    cost_split: CostSplit,
+    cost_delta_usd: z.number().nullable(),
     unpriced_runs: z.number().int(),
     accepted: z.number().int(),
     decisions: z.number().int(),
@@ -202,6 +208,13 @@ export const AgentPerf = z.object({
   /** cost split by agent and by model (for the two cost-breakdown donuts). */
   cost_by_agent: z.array(PerfCostSegment.extend({ agent_id: z.string().nullable() })),
   cost_by_model: z.array(PerfCostSegment),
+  runs_series: z.array(z.object({ start: z.string(), runs: z.number().int() })),
+  previous: z.object({
+    from: z.string(),
+    to: z.string(),
+    runs: z.number().int(),
+    total_cost_usd: z.number().nullable(),
+  }),
 });
 export type AgentPerf = z.infer<typeof AgentPerf>;
 

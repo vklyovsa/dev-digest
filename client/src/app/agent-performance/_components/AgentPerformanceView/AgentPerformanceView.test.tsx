@@ -31,11 +31,12 @@ const json = (body: unknown, status = 200) =>
 function perf(runs = 12): AgentPerf {
   return {
     period: { from: "2026-09-17T00:00:00.000Z", to: "2026-10-17T00:00:00.000Z" },
-    cost_basis: "estimate",
     min_decisions: 5,
     summary: {
       runs,
       total_cost_usd: 1.5,
+      cost_split: { billed_usd: 0, estimated_usd: 1.5, unknown_usd: 0 },
+      cost_delta_usd: null,
       unpriced_runs: 0,
       accepted: 6,
       decisions: 8,
@@ -53,14 +54,19 @@ function perf(runs = 12): AgentPerf {
         avg_cost_usd: 0.125,
         avg_latency_ms: 4200,
         accept_rate: 0.75,
+        previous_accept_rate: null,
+        accept_trend: null,
+        cost_split: { billed_usd: 0, estimated_usd: 1.5, unknown_usd: 0 },
         accepted: 6,
         decisions: 8,
         small_sample: false,
         last_run_at: "2026-10-16T10:00:00Z",
       },
     ],
-    cost_by_agent: [{ label: "Security Reviewer", value: 1.5, agent_id: "a1" }],
-    cost_by_model: [{ label: "gpt-4.1", value: 1.5 }],
+    cost_by_agent: [{ label: "Security Reviewer", value: 1.5, agent_id: "a1", cost_split: { billed_usd: 0, estimated_usd: 1.5, unknown_usd: 0 } }],
+    cost_by_model: [{ label: "gpt-4.1", value: 1.5, cost_split: { billed_usd: 0, estimated_usd: 1.5, unknown_usd: 0 } }],
+    runs_series: [],
+    previous: { from: "2026-08-17T00:00:00.000Z", to: "2026-09-17T00:00:00.000Z", runs: 0, total_cost_usd: null },
   } as unknown as AgentPerf;
 }
 
@@ -112,6 +118,14 @@ describe("AgentPerformanceView", () => {
       from: new Date(NOW.getTime() - 30 * DAY).toISOString(),
       to: NOW.toISOString(),
     });
+  });
+
+  it("renders the subtitle right below the heading (AC-47)", async () => {
+    mount();
+    await screen.findAllByText("Security Reviewer");
+    const h1 = screen.getByRole("heading", { level: 1, name: "Agent Performance" });
+    const sub = screen.getByText("Which agents earn their keep — accept rate is the quality signal");
+    expect(h1.nextElementSibling).toBe(sub);
   });
 
   it("fetches once per selection and mirrors it to the URL", async () => {

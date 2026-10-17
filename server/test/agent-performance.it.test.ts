@@ -27,6 +27,7 @@ const win = (n: number) => ({
   to: new Date(WIN_FROM(n) + 10 * DAY),
 });
 const at = (n: number, day: number) => new Date(WIN_FROM(n) + day * DAY);
+const before = (n: number, day: number) => new Date(WIN_FROM(n) - 10 * DAY + day * DAY);
 
 let seq = 0;
 
@@ -106,6 +107,8 @@ d('Agent Performance (Testcontainers pg)', () => {
     ranAt: Date;
     status?: string;
     costUsd?: number | null;
+    costBilledUsd?: number | null;
+    costEstimatedUsd?: number | null;
     model?: string | null;
     durationMs?: number | null;
     ws?: string;
@@ -119,6 +122,8 @@ d('Agent Performance (Testcontainers pg)', () => {
         ranAt: r.ranAt,
         status: r.status ?? 'done',
         costUsd: r.costUsd ?? null,
+        costBilledUsd: r.costBilledUsd ?? null,
+        costEstimatedUsd: r.costEstimatedUsd ?? null,
         model: r.model === undefined ? 'gpt-4o-mini' : r.model,
         durationMs: r.durationMs ?? null,
         source: 'local',
@@ -161,11 +166,13 @@ d('Agent Performance (Testcontainers pg)', () => {
     const w = win(n);
     return `from=${encodeURIComponent(w.from.toISOString())}&to=${encodeURIComponent(w.to.toISOString())}`;
   };
-  const perf = async (n: number): Promise<AgentPerf> => {
-    const res = await app.inject({ method: 'GET', url: `/agents/performance?${query(n)}` });
+  const perfRange = async (from: Date, to: Date): Promise<AgentPerf> => {
+    const qs = `from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`;
+    const res = await app.inject({ method: 'GET', url: `/agents/performance?${qs}` });
     expect(res.statusCode).toBe(200);
     return res.json() as AgentPerf;
   };
+  const perf = (n: number): Promise<AgentPerf> => perfRange(win(n).from, win(n).to);
   const stats = (agentId: string, n: number) =>
     app.inject({ method: 'GET', url: `/agents/${agentId}/stats?${query(n)}` });
   const rowOf = (p: AgentPerf, id: string): AgentPerfRow => {
@@ -174,6 +181,12 @@ d('Agent Performance (Testcontainers pg)', () => {
     return row!;
   };
   const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
+  const splitSum = (s: { billed_usd: number; estimated_usd: number; unknown_usd: number }) =>
+    s.billed_usd + s.estimated_usd + s.unknown_usd;
+  const decide = (accepted: number, dismissed: number, when: Date): FindingSpec[] => [
+    ...Array.from({ length: accepted }, () => ({ accepted: when })),
+    ...Array.from({ length: dismissed }, () => ({ dismissed: when })),
+  ];
 
   it('counts done, failed and cancelled runs in [from, to) and nothing else', async () => {
     const n = 0;
@@ -403,6 +416,159 @@ d('Agent Performance (Testcontainers pg)', () => {
         dismissed: row.dismissed,
         accept_rate: row.accept_rate,
       });
+    }
+  });
+
+  it('splits cost into billed, estimated and unknown, and keeps every split equal to its figure', async () => {
+    const n = 15;
+    const a = await mkAgent('SplitA');
+    const b = await mkAgent('SplitB');
+    await mkRun({ agentId: a.id, ranAt: at(n, 1), costUsd: 0.004, costBilledUsd: 0.004, costEstimatedUsd: 0, model: 'm1' });
+    await mkRun({ agentId: a.id, ranAt: at(n, 2), costUsd: 0.003, costBilledUsd: 0.001, costEstimatedUsd: 0.002, model: 'm1' });
+    await mkRun({ agentId: b.id, ranAt: at(n, 3), costUsd: 0.01, model: 'm2' });
+    await mkRun({ agentId: b.id, ranAt: at(n, 4), costUsd: 0.002, costBilledUsd: 0, costEstimatedUsd: 0.002, model: 'm2' });
+
+    const p = await perf(n);
+    const rowA = rowOf(p, a.id);
+    expect(rowA.cost_split.billed_usd).toBeCloseTo(0.005, 10);
+    expect(rowA.cost_split.estimated_usd).toBeCloseTo(0.002, 10);
+    expect(rowA.cost_split.unknown_usd).toBe(0);
+    const rowB = rowOf(p, b.id);
+    expect(rowB.cost_split.unknown_usd).toBeCloseTo(0.01, 10);
+    expect(rowB.cost_split.estimated_usd).toBeCloseTo(0.002, 10);
+
+    for (const r of p.agents) expect(splitSum(r.cost_split)).toBeCloseTo(r.total_cost_usd ?? 0, 10);
+    for (const s of [...p.cost_by_agent, ...p.cost_by_model]) {
+      expect(splitSum(s.cost_split)).toBeCloseTo(s.value, 10);
+    }
+    expect(splitSum(p.summary.cost_split)).toBeCloseTo(p.summary.total_cost_usd as number, 10);
+    expect(p.summary.cost_split.billed_usd).toBeCloseTo(sum(p.agents.map((r) => r.cost_split.billed_usd)), 10);
+    expect(p.summary.cost_split.estimated_usd).toBeCloseTo(sum(p.agents.map((r) => r.cost_split.estimated_usd)), 10);
+    expect(p.summary.cost_split.unknown_usd).toBeCloseTo(0.01, 10);
+    const total = p.summary.total_cost_usd as number;
+    expect(sum(p.agents.map((r) => r.total_cost_usd ?? 0))).toBeCloseTo(total, 10);
+    expect(sum(p.cost_by_agent.map((s) => s.value))).toBeCloseTo(total, 10);
+    expect(sum(p.cost_by_model.map((s) => s.value))).toBeCloseTo(total, 10);
+  });
+
+  it('reports the cost of a run stored without parts as unknown and never writes the parts', async () => {
+    const n = 16;
+    const a = await mkAgent('Earlier');
+    const id = await mkRun({ agentId: a.id, ranAt: at(n, 1), costUsd: 0.02 });
+
+    const p = await perf(n);
+    expect(rowOf(p, a.id).cost_split).toEqual({ billed_usd: 0, estimated_usd: 0, unknown_usd: 0.02 });
+    expect((await stats(a.id, n)).statusCode).toBe(200);
+
+    const [stored] = await pg.handle.db.select().from(t.agentRuns).where(eq(t.agentRuns.id, id));
+    expect(stored!.costUsd).toBe(0.02);
+    expect(stored!.costBilledUsd).toBeNull();
+    expect(stored!.costEstimatedUsd).toBeNull();
+  });
+
+  it('computes the previous period by the same rules as the selected one', async () => {
+    const n = 17;
+    const w = win(n);
+    const a = await mkAgent('Prev');
+    await mkRun({ agentId: a.id, ranAt: at(n, 1), costUsd: 0.02 });
+    await mkRun({ agentId: a.id, ranAt: before(n, 1), costUsd: 0.005, status: 'failed' });
+    await mkRun({ agentId: a.id, ranAt: before(n, 2), costUsd: 0.001, status: 'running' });
+    await mkRun({ agentId: null, ranAt: before(n, 3), costUsd: 0.004 });
+
+    const p = await perf(n);
+    const previous = await perfRange(new Date(w.from.getTime() - 10 * DAY), w.from);
+    expect(p.previous).toEqual({
+      from: previous.period.from,
+      to: previous.period.to,
+      runs: previous.summary.runs,
+      total_cost_usd: previous.summary.total_cost_usd,
+    });
+    expect(p.previous.runs).toBe(2);
+    expect(p.previous.total_cost_usd).toBeCloseTo(0.009, 10);
+  });
+
+  it('returns consecutive run buckets that add up to the runs of the period', async () => {
+    const n = 18;
+    const w = win(n);
+    const a = await mkAgent('Series');
+    await mkRun({ agentId: a.id, ranAt: new Date(at(n, 1).getTime() + 5 * 3_600_000) });
+    await mkRun({ agentId: a.id, ranAt: new Date(at(n, 1).getTime() + 6 * 3_600_000) });
+    await mkRun({ agentId: a.id, ranAt: new Date(at(n, 2).getTime() + 3_600_000) });
+
+    const day = await perfRange(at(n, 1), at(n, 2));
+    expect(day.runs_series).toHaveLength(24);
+    expect(day.runs_series[0]!.start).toBe(at(n, 1).toISOString());
+    expect(day.runs_series[5]!.runs).toBe(1);
+    expect(day.runs_series[6]!.runs).toBe(1);
+    expect(sum(day.runs_series.map((b) => b.runs))).toBe(day.summary.runs);
+
+    const three = await perfRange(w.from, at(n, 3));
+    expect(three.runs_series.map((b) => b.runs)).toEqual([0, 2, 1]);
+
+    const ten = await perf(n);
+    expect(ten.runs_series).toHaveLength(10);
+    expect(sum(ten.runs_series.map((b) => b.runs))).toBe(ten.summary.runs);
+
+    const month = await perfRange(w.from, new Date(w.from.getTime() + 30 * DAY));
+    expect(month.runs_series).toHaveLength(30);
+    expect(sum(month.runs_series.map((b) => b.runs))).toBe(month.summary.runs);
+  });
+
+  it('reports the cost change against the previous period, null when either period has no cost', async () => {
+    const a = await mkAgent('Delta');
+    await mkRun({ agentId: a.id, ranAt: at(19, 1), costUsd: 0.02 });
+    await mkRun({ agentId: a.id, ranAt: before(19, 1), costUsd: 0.005 });
+    expect((await perf(19)).summary.cost_delta_usd).toBeCloseTo(0.015, 10);
+
+    await mkRun({ agentId: a.id, ranAt: at(20, 1), costUsd: 0.02 });
+    expect((await perf(20)).summary.cost_delta_usd).toBeNull();
+
+    await mkRun({ agentId: a.id, ranAt: before(21, 1), costUsd: 0.02 });
+    await mkRun({ agentId: a.id, ranAt: at(21, 1), costUsd: null });
+    expect((await perf(21)).summary.cost_delta_usd).toBeNull();
+  });
+
+  it('gives an accept trend of up, down, flat or null per agent', async () => {
+    const n = 22;
+    const mk = async (name: string, cur: [number, number], prev?: [number, number]) => {
+      const agent = await mkAgent(name);
+      const run = await mkRun({ agentId: agent.id, ranAt: at(n, 1) });
+      await mkFindings(run, agent.id, decide(cur[0], cur[1], at(n, 2)));
+      if (prev) {
+        const pr = await mkRun({ agentId: agent.id, ranAt: before(n, 1) });
+        await mkFindings(pr, agent.id, decide(prev[0], prev[1], before(n, 2)));
+      }
+      return agent;
+    };
+    const up = await mk('TrendUp', [8, 2], [5, 5]);
+    const down = await mk('TrendDown', [5, 5], [8, 2]);
+    const flat = await mk('TrendFlat', [7, 3], [7, 3]);
+    const noPrev = await mk('TrendNoPrev', [8, 2]);
+    const small = await mk('TrendSmall', [2, 1], [5, 5]);
+
+    const p = await perf(n);
+    expect(rowOf(p, up.id).accept_trend).toBe('up');
+    expect(rowOf(p, up.id).previous_accept_rate).toBeCloseTo(0.5, 10);
+    expect(rowOf(p, down.id).accept_trend).toBe('down');
+    expect(rowOf(p, flat.id).accept_trend).toBe('flat');
+    expect(rowOf(p, noPrev.id).accept_trend).toBeNull();
+    expect(rowOf(p, noPrev.id).previous_accept_rate).toBeNull();
+    expect(rowOf(p, small.id).accept_trend).toBeNull();
+  });
+
+  it('serves a stats cost split equal to the agent row split', async () => {
+    const n = 23;
+    const a = await mkAgent('StatsSplitA');
+    const b = await mkAgent('StatsSplitB');
+    await mkRun({ agentId: a.id, ranAt: at(n, 1), costUsd: 0.003, costBilledUsd: 0.001, costEstimatedUsd: 0.002 });
+    await mkRun({ agentId: a.id, ranAt: at(n, 2), costUsd: 0.01 });
+    await mkRun({ agentId: b.id, ranAt: at(n, 3), costUsd: null });
+
+    const p = await perf(n);
+    for (const row of p.agents.filter((r) => r.agent_id !== null)) {
+      const res = await stats(row.agent_id as string, n);
+      expect(res.statusCode).toBe(200);
+      expect((res.json() as AgentStats).cost_split).toEqual(row.cost_split);
     }
   });
 

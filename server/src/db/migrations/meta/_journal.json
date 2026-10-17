@@ -141,6 +141,13 @@
       "when": 1791908162620,
       "tag": "0019_skill_evals",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792252839498,
+      "tag": "0020_far_hiroim",
+      "breakpoints": true
     }
   ]
 }

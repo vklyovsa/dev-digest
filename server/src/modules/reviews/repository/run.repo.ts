@@ -149,6 +149,8 @@ export async function completeAgentRun(
     tokensOut: number;
     /** USD cost; null on failed/cancelled runs and on models with no price. */
     costUsd?: number | null;
+    costBilledUsd?: number | null;
+    costEstimatedUsd?: number | null;
     findingsCount: number;
     grounding: string;
     /** Review score (0-100); null on failed/cancelled runs. */
@@ -167,6 +169,8 @@ export async function completeAgentRun(
       tokensIn: values.tokensIn,
       tokensOut: values.tokensOut,
       costUsd: values.costUsd ?? null,
+      costBilledUsd: values.costBilledUsd ?? null,
+      costEstimatedUsd: values.costEstimatedUsd ?? null,
       findingsCount: values.findingsCount,
       grounding: values.grounding,
       score: values.score ?? null,

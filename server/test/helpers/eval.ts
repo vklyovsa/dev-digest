@@ -210,6 +210,8 @@ export class SilentEvalLLM extends MockLLMProvider {
       tokensIn: 10,
       tokensOut: 5,
       costUsd: 0.001,
+      costBilledUsd: 0,
+      costEstimatedUsd: 0.001,
       raw: '{}',
       attempts: 1,
     };

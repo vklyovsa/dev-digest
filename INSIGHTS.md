@@ -104,6 +104,9 @@ Dead ends and anti-patterns: what was tried, why it failed, what to do instead.
 Conventions and architectural decisions found while working here, before they are
 settled enough to move into `CLAUDE.md`.
 
+- **Corrected 2026-10-17: the cost source IS recorded now — `agent_runs.cost_billed_usd` and `cost_estimated_usd` (`server/src/db/schema/runs.ts`, migration `0020`) split `cost_usd`; the "needs a new column first" line above is out of date.** `OpenRouterProvider.completeStructured` counts an attempt as billed only for a finite `usage.cost` >= 0 and estimates the rest; OpenAI/Anthropic report everything as estimated (`estimatedOnly`); null on rows stored before `0020` means unknown source.
+  → Read billed vs estimated from the two columns; a run with a null part is unknown-source, not zero.
+
 - **Corrected 2026-10-17: run cost IS persisted now — `agent_runs.cost_usd` is back (`server/src/db/schema/runs.ts:22`) and `run-executor.ts:446` writes `outcome.costUsd`; the entry "Run cost is already plumbed end-to-end — only the sink was removed" is out of date.** The stored value is mixed: `reviewer-core/src/llm/openrouter.ts:107` returns OpenRouter's `usage.cost` when the API sends it and the PriceBook estimate otherwise, and no column records which one a row holds. SPEC-11 (Agent Performance) therefore labels every cost "DevDigest estimate".
   → Read `cost_usd` as an estimate; a view that must separate billed from estimated cost needs a new column for the cost source first.
 

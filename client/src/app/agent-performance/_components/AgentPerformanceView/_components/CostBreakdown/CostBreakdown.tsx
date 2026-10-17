@@ -2,9 +2,9 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import type { PerfCostSegment } from "@devdigest/shared";
-import { Badge, Card, Donut } from "@devdigest/ui";
-import { formatCost } from "../../../../helpers";
+import type { CostSplit, PerfCostSegment } from "@devdigest/shared";
+import { Card, Donut } from "@devdigest/ui";
+import { costBasis, formatCost } from "../../../../helpers";
 import { TruncatedText } from "../../../TruncatedText";
 
 const PALETTE = ["#ef4444", "#f59e0b", "#3b82f6", "#10b981", "#8b5cf6", "#ec4899", "#14b8a6", "#94a3b8"];
@@ -23,13 +23,24 @@ const block: React.CSSProperties = { display: "flex", alignItems: "center", gap:
 const legend: React.CSSProperties = { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 8, flex: 1, minWidth: 0 };
 const item: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "9px minmax(0, 1fr) auto",
+  gridTemplateColumns: "9px minmax(0, 1fr) auto auto",
   alignItems: "center",
   gap: 10,
   fontSize: 13,
 };
 
-function Chart({ heading, segments }: { heading: string; segments: { label: string; value: number }[] }) {
+function Chart({
+  heading,
+  segments,
+}: {
+  heading: string;
+  segments: { label: string; value: number; split: CostSplit }[];
+}) {
+  const t = useTranslations("agentPerformance");
+  const basisOf = (split: CostSplit) => {
+    const basis = costBasis(split);
+    return basis === null ? "" : t(`basis.${basis}`);
+  };
   const colored = segments.map((seg, i) => ({ ...seg, color: PALETTE[i % PALETTE.length] as string }));
   return (
     <Card style={{ minWidth: 0 }}>
@@ -46,6 +57,7 @@ function Chart({ heading, segments }: { heading: string; segments: { label: stri
               <span className="mono tnum" style={{ fontWeight: 600 }}>
                 {formatCost(seg.value)}
               </span>
+              <span style={note}>{basisOf(seg.split)}</span>
             </li>
           ))}
         </ul>
@@ -68,8 +80,6 @@ export function CostBreakdown({
     <section>
       <div style={head}>
         <h2 style={{ ...title, margin: 0 }}>{t("cost.title")}</h2>
-        <Badge>{t("estimate.mark")}</Badge>
-        <span style={note}>{t("estimate.note")}</span>
       </div>
       {totalCostUsd === null ? (
         <p style={note}>{t("cost.none")}</p>
@@ -77,11 +87,11 @@ export function CostBreakdown({
         <div style={grid}>
           <Chart
             heading={t("cost.byAgent")}
-            segments={byAgent.map((x) => ({ label: x.label ?? t("table.deletedAgent"), value: x.value }))}
+            segments={byAgent.map((x) => ({ label: x.label ?? t("table.deletedAgent"), value: x.value, split: x.cost_split }))}
           />
           <Chart
             heading={t("cost.byModel")}
-            segments={byModel.map((x) => ({ label: x.label ?? t("cost.unknownModel"), value: x.value }))}
+            segments={byModel.map((x) => ({ label: x.label ?? t("cost.unknownModel"), value: x.value, split: x.cost_split }))}
           />
         </div>
       )}

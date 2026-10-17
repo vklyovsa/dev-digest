@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import type { AgentPerfRow } from "@devdigest/shared";
 import { Badge } from "@devdigest/ui";
 import { formatRunTime } from "@/components/eval-runs";
-import { formatCost, sortByAcceptRate, type SortDir } from "../../../../helpers";
+import { costBasis, formatCost, sortByAcceptRate, type SortDir } from "../../../../helpers";
 import { TruncatedText } from "../../../TruncatedText";
 import { s } from "./styles";
 
@@ -31,12 +31,7 @@ export function AgentTable({
           <tr>
             <th style={{ ...s.th, width: "24%" }}>{t("table.agent")}</th>
             <th style={s.th}>{t("table.runs")}</th>
-            <th style={{ ...s.th, width: "15%" }}>
-              <div>{t("table.avgCost")}</div>
-              <div style={{ marginTop: 4 }}>
-                <Badge style={{ whiteSpace: "normal", textTransform: "none", fontSize: 11 }}>{t("estimate.mark")}</Badge>
-              </div>
-            </th>
+            <th style={{ ...s.th, width: "15%" }}>{t("table.avgCost")}</th>
             <th style={s.th}>{t("table.avgDuration")}</th>
             <th style={{ ...s.th, width: "20%" }} aria-sort={sortDir === "desc" ? "descending" : "ascending"}>
               <button type="button" style={s.sortBtn} onClick={onToggleSort}>
@@ -49,6 +44,8 @@ export function AgentTable({
         </thead>
         <tbody>
           {sorted.map((r) => {
+            const basis = costBasis(r.cost_split);
+            const trend = r.accept_trend === "up" || r.accept_trend === "down" ? r.accept_trend : null;
             const name = r.agent_id === null ? t("table.deletedAgent") : (r.agent_name ?? t("table.deletedAgent"));
             return (
               <tr key={r.agent_id ?? "deleted"}>
@@ -65,7 +62,14 @@ export function AgentTable({
                       {t("format.count", { value: r.runs })}
                     </td>
                     <td className="tnum" style={s.td}>
-                      {r.avg_cost_usd === null ? none : formatCost(r.avg_cost_usd)}
+                      {r.avg_cost_usd === null ? (
+                        none
+                      ) : (
+                        <>
+                          {formatCost(r.avg_cost_usd)}
+                          {basis !== null && <span style={s.basis}>{t(`basis.${basis}`)}</span>}
+                        </>
+                      )}
                     </td>
                     <td className="tnum" style={s.td}>
                       {r.avg_latency_ms === null
@@ -75,6 +79,14 @@ export function AgentTable({
                     <td className="tnum" style={s.td}>
                       <div style={s.rate}>
                         <span>{r.accept_rate === null ? none : t("format.rate", { value: r.accept_rate })}</span>
+                        {trend !== null && r.previous_accept_rate !== null && (
+                          <span style={s.muted}>
+                            <span aria-hidden="true">{trend === "up" ? "↑" : "↓"} </span>
+                            {t(trend === "up" ? "table.trendUp" : "table.trendDown", {
+                              rate: t("format.rate", { value: r.previous_accept_rate }),
+                            })}
+                          </span>
+                        )}
                         <span style={s.muted}>{t("table.decisions", { count: r.decisions })}</span>
                         {r.small_sample && <Badge>{t("table.smallSample")}</Badge>}
                       </div>

@@ -17,9 +17,12 @@ function row(over: Partial<AgentPerfRow> = {}): AgentPerfRow {
     dismissed: 3,
     decisions: 12,
     accept_rate: 0.75,
+    previous_accept_rate: null,
+    accept_trend: null,
     small_sample: false,
     total_cost_usd: 0.6,
     avg_cost_usd: 0.05,
+    cost_split: { billed_usd: 0, estimated_usd: 0.6, unknown_usd: 0 },
     unpriced_runs: 0,
     avg_latency_ms: 6200,
     last_run_at: "2026-10-10T10:00:00Z",
@@ -59,8 +62,7 @@ describe("AgentTable", () => {
     const heads = screen.getAllByRole("columnheader").map((h) => h.textContent ?? "");
     expect(heads[0]).toBe("Agent");
     expect(heads[1]).toBe("Runs");
-    expect(heads[2]).toContain("Avg cost");
-    expect(heads[2]).toContain("DevDigest estimate");
+    expect(heads[2]).toBe("Avg cost");
     expect(heads[3]).toBe("Avg duration");
     expect(heads[4]).toContain("Accept rate");
     expect(heads[5]).toBe("Last run");
@@ -121,6 +123,37 @@ describe("AgentTable", () => {
     expect(screen.queryByText(/0%/)).toBeNull();
     expect(screen.queryByText(/\$0/)).toBeNull();
     expect(screen.getByRole("button", { name: "View Security Reviewer" })).toBeTruthy();
+  });
+
+  it("labels the cost basis of each row (AC-53)", () => {
+    const split = (billed_usd: number, estimated_usd: number, unknown_usd: number) => ({
+      billed_usd,
+      estimated_usd,
+      unknown_usd,
+    });
+    mount([
+      row({ agent_id: "b", agent_name: "B", cost_split: split(0.6, 0, 0) }),
+      row({ agent_id: "e", agent_name: "E", cost_split: split(0, 0.6, 0) }),
+      row({ agent_id: "u", agent_name: "U", cost_split: split(0, 0, 0.6) }),
+      row({ agent_id: "m", agent_name: "M", cost_split: split(0.3, 0.3, 0) }),
+    ]);
+    for (const word of ["Billed", "Estimate", "Unknown source", "Mixed"]) {
+      expect(screen.getAllByText(word)).toHaveLength(1);
+    }
+    expect(screen.queryByText("DevDigest estimate")).toBeNull();
+  });
+
+  it("shows the earlier rate next to an up or down trend, nothing for flat or null (AC-63)", () => {
+    mount([
+      row({ agent_id: "u", agent_name: "Up", accept_rate: 0.8, previous_accept_rate: 0.64, accept_trend: "up" }),
+      row({ agent_id: "d", agent_name: "Down", accept_rate: 0.5, previous_accept_rate: 0.7, accept_trend: "down" }),
+      row({ agent_id: "f", agent_name: "Flat", accept_rate: 0.6, previous_accept_rate: 0.6, accept_trend: "flat" }),
+      row({ agent_id: "n", agent_name: "None" }),
+    ]);
+    expect(screen.getByText(/up from 64%/)).toBeTruthy();
+    expect(screen.getByText(/down from 70%/)).toBeTruthy();
+    expect(screen.getAllByText(/ from /)).toHaveLength(2);
+    expect(document.querySelectorAll('[aria-hidden="true"]')).toHaveLength(2);
   });
 
   it("exposes a long name in full on hover (AC-43)", () => {
