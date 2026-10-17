@@ -1,0 +1,141 @@
+# Harness evals, workflow tier — the Claude Code harness itself (@devdigest/evals):
+# the instructions a session loads (CLAUDE.md → AGENTS.md) and the routing they
+# produce. Model-backed, on OpenRouter, so it runs only for a PR that touches the
+# harness and only when that change reaches this tier (evals/scripts/ci-detect.mjs).
+#
+# Jobs:
+#  - workflow: tool tier, through the LiteLLM proxy (evals/proxy/) that
+#    translates the Agent SDK's Anthropic wire format. Reported but NOT blocking
+#    (continue-on-error): the cases were calibrated on Claude models and their
+#    pass rate on the model below has not been measured yet.
+#
+# Models are the `env` block. To switch one: edit the default here, set a
+# repository variable of the same name (Settings → Secrets and variables →
+# Actions → Variables), or pass the input on a manual run.
+#
+# Needs the OPENROUTER_API_KEY secret. Without it (a fork PR gets no secrets)
+# the model jobs are skipped with a warning.
+name: eval-workflow
+
+on:
+  pull_request:
+    paths:
+      - '.claude/**'
+      - '**/CLAUDE.md'
+      - '**/AGENTS.md'
+      # Docs the workflow cases expect a session to read; evals/src/ci-detect.test.ts
+      # fails when a case names one that is missing here.
+      - 'TESTING.md'
+      - 'client/docs/findings-surfaces.md'
+      - 'server/docs/pr-list-read-model.md'
+      - 'evals/**'
+      - '.github/workflows/eval-workflow.yml'
+  workflow_dispatch:
+    inputs:
+      workflow_model:
+        description: OpenRouter slug for the workflow tier
+        type: string
+      judge_model:
+        description: OpenRouter slug for the judge
+        type: string
+
+env:
+  # The only cheap model measured to dispatch a subagent (evals/README.md).
+  EVAL_MODEL_WORKFLOW: ${{ inputs.workflow_model || vars.EVAL_MODEL_WORKFLOW || 'google/gemini-2.5-flash' }}
+  EVAL_JUDGE_MODEL: ${{ inputs.judge_model || vars.EVAL_JUDGE_MODEL || 'deepseek/deepseek-v4-flash' }}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run_workflow: ${{ steps.detect.outputs.run_workflow }}
+      has_key: ${{ steps.key.outputs.present }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # A manual run has no base to diff against, so it runs every suite.
+      - id: detect
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ -n "$BASE_SHA" ]; then
+            CHANGED_FILES="$(git diff --name-only "$BASE_SHA...HEAD")"
+            export CHANGED_FILES
+          else
+            export RUN_ALL=true
+          fi
+          node evals/scripts/ci-detect.mjs
+
+      - id: key
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          if [ -n "$OPENROUTER_API_KEY" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=eval-workflow::OPENROUTER_API_KEY is not set (missing secret, or a fork PR): the model-backed eval jobs are skipped."
+          fi
+
+  workflow:
+    name: workflow tier
+    needs: detect
+    if: needs.detect.outputs.has_key == 'true' && needs.detect.outputs.run_workflow == 'true'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: evals
+    env:
+      EVAL_BACKEND: openrouter
+      OPENROUTER_BASE_URL: http://localhost:4000
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: evals/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Start the LiteLLM proxy
+        run: pnpm proxy:up
+
+      - name: Run evals
+        env:
+          EVAL_MODEL: ${{ env.EVAL_MODEL_WORKFLOW }}
+        run: pnpm exec vitest run workflow/ --no-file-parallelism --retry 1 --testTimeout 480000
+
+      - name: Proxy logs
+        if: failure()
+        run: docker compose -f proxy/docker-compose.yml logs --tail 100
+
+      - name: Stop the proxy
+        if: always()
+        run: pnpm proxy:down
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-workflow
+          path: evals/results/
+          if-no-files-found: ignore
+          retention-days: 14

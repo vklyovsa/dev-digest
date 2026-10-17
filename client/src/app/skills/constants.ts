@@ -9,14 +9,14 @@ export interface SkillTab {
 }
 
 /**
- * The five tabs backed by real data. The design also sketches an "Evals" tab;
- * it is intentionally absent — eval cases are a separate feature and a tab that
- * invents numbers is worse than a tab that is not there.
+ * The six tabs backed by real data. Evals shows the skill's stored cases and
+ * stored runs; the usage metrics of the Stats tab stay out of it.
  */
 export const SKILL_TABS: readonly SkillTab[] = [
   { key: "config", labelKey: "detail.tabs.config", icon: "Settings" },
   { key: "context", labelKey: "detail.tabs.context", icon: "Folder" },
   { key: "preview", labelKey: "detail.tabs.preview", icon: "Eye" },
+  { key: "evals", labelKey: "detail.tabs.evals", icon: "FlaskConical" },
   { key: "stats", labelKey: "detail.tabs.stats", icon: "BarChart" },
   { key: "versions", labelKey: "detail.tabs.versions", icon: "History" },
 ];

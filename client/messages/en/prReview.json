@@ -9,7 +9,18 @@
     "replyToAuthor": "Reply to author",
     "replyPlaceholder": "Reply to the author about this finding…",
     "sendReply": "Send reply",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "evalCase": {
+      "action": "Turn into eval case",
+      "titleAccepted": "Create a 'must find' eval case from this finding",
+      "titleDismissed": "Create a 'must NOT comment' eval case from this dismissal",
+      "undecidedHint": "Accept or dismiss the finding first",
+      "createdMustFind": "Created a 'must find' eval case.",
+      "createdMustNotFlag": "Created a 'must NOT comment' eval case.",
+      "loading": "Preparing the eval case…",
+      "alreadyExists": "This finding already has an eval case.",
+      "openEvals": "Open the Evals tab"
+    }
   },
   "trifecta": {
     "lethal": "LETHAL TRIFECTA — ALL 3 PRESENT",

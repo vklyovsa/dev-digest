@@ -11,6 +11,8 @@
     "arch:check": "depcruise src --config .dependency-cruiser.cjs",
     "arch:graph": "depcruise src --config .dependency-cruiser.cjs --output-type dot",
     "test": "vitest run",
+    "verify:l06": "vitest run src/modules/eval/ test/eval-",
+    "mutation:eval-helpers": "stryker run stryker.config.json",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts"
@@ -40,6 +42,8 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@stryker-mutator/core": "9.6.1",
+    "@stryker-mutator/vitest-runner": "9.6.1",
     "@testcontainers/postgresql": "^10.16.0",
     "@types/node": "^22.10.0",
     "drizzle-kit": "^0.30.1",

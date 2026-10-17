@@ -1,0 +1,161 @@
+# Harness evals, skills tier — the Claude Code harness itself (@devdigest/evals):
+# the skills under .claude/skills/. Model-backed, on OpenRouter, so it runs only
+# for a PR that touches the harness and only the suites that change reaches
+# (evals/scripts/ci-detect.mjs). A changed skill with no written evals is logged
+# as SKIP, never failed.
+#
+# Jobs:
+#  - static: typecheck, the SKILL.md structure gate, unit tests. No model.
+#  - skills: content tier, straight to OpenRouter.
+#
+# Models are the `env` block. To switch one: edit the default here, set a
+# repository variable of the same name (Settings → Secrets and variables →
+# Actions → Variables), or pass the input on a manual run.
+#
+# Needs the OPENROUTER_API_KEY secret. Without it (a fork PR gets no secrets)
+# the model jobs are skipped with a warning.
+name: eval-skills
+
+on:
+  pull_request:
+    paths:
+      - '.claude/**'
+      - '**/CLAUDE.md'
+      - '**/AGENTS.md'
+      # Docs the workflow cases expect a session to read; evals/src/ci-detect.test.ts
+      # fails when a case names one that is missing here.
+      - 'TESTING.md'
+      - 'client/docs/findings-surfaces.md'
+      - 'server/docs/pr-list-read-model.md'
+      - 'evals/**'
+      - '.github/workflows/eval-skills.yml'
+  workflow_dispatch:
+    inputs:
+      skills_model:
+        description: OpenRouter slug for the skills tier
+        type: string
+      judge_model:
+        description: OpenRouter slug for the judge
+        type: string
+
+env:
+  EVAL_MODEL_SKILLS: ${{ inputs.skills_model || vars.EVAL_MODEL_SKILLS || 'deepseek/deepseek-v4-flash' }}
+  # DeepSeek as the judge: 3/3 cases and valid quoted verdicts on skills/dependency-checker (2026-10-12),
+  # at 120-190 s per case — hence the longer test timeout of the skills tier below.
+  EVAL_JUDGE_MODEL: ${{ inputs.judge_model || vars.EVAL_JUDGE_MODEL || 'deepseek/deepseek-v4-flash' }}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      skills: ${{ steps.detect.outputs.skills }}
+      has_key: ${{ steps.key.outputs.present }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # A manual run has no base to diff against, so it runs every suite.
+      - id: detect
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ -n "$BASE_SHA" ]; then
+            CHANGED_FILES="$(git diff --name-only "$BASE_SHA...HEAD")"
+            export CHANGED_FILES
+          else
+            export RUN_ALL=true
+          fi
+          node evals/scripts/ci-detect.mjs
+
+      - id: key
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          if [ -n "$OPENROUTER_API_KEY" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=eval-skills::OPENROUTER_API_KEY is not set (missing secret, or a fork PR): the model-backed eval jobs are skipped."
+          fi
+
+  static:
+    name: static gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: evals
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: evals/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm typecheck
+
+      - run: pnpm eval:quality
+
+      - run: pnpm exec vitest run src/
+
+  skills:
+    name: skill · ${{ matrix.skill }}
+    needs: [detect, static]
+    if: needs.detect.outputs.has_key == 'true' && needs.detect.outputs.skills != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        skill: ${{ fromJSON(needs.detect.outputs.skills) }}
+    defaults:
+      run:
+        working-directory: evals
+    env:
+      EVAL_BACKEND: openrouter
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: evals/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Run evals
+        env:
+          EVAL_MODEL: ${{ env.EVAL_MODEL_SKILLS }}
+          SKILL: ${{ matrix.skill }}
+        run: pnpm exec vitest run "skills/$SKILL/" --testTimeout 480000
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-skills-${{ matrix.skill }}
+          path: evals/results/
+          if-no-files-found: ignore
+          retention-days: 14

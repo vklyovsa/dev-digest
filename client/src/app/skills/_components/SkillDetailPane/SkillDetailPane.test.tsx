@@ -5,6 +5,7 @@ import { NextIntlClientProvider } from "next-intl";
 import type { Skill } from "@devdigest/shared";
 import skills from "../../../../../messages/en/skills.json";
 import context from "../../../../../messages/en/context.json";
+import evalMessages from "../../../../../messages/en/eval.json";
 import { ToastProvider } from "@/lib/toast";
 
 const push = vi.fn();
@@ -65,6 +66,10 @@ const fetchMock = vi.fn(async (input: RequestInfo | URL): Promise<Response> => {
   const { pathname } = new URL(String(input));
   if (pathname === "/repos/r1/context") return json({ roots: ["specs"], documents: [] });
   if (pathname === "/skills/sk-1/context") return json({ paths: [] });
+  if (pathname === "/skills/sk-1/eval-cases") return json([]);
+  if (pathname === "/skills/sk-1/eval-runs") return json([]);
+  if (pathname === "/skills/sk-1/agents") return json([]);
+  if (pathname === "/agents") return json([]);
   throw new Error(`unexpected request ${pathname}`);
 });
 
@@ -72,7 +77,7 @@ function renderPane() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <NextIntlClientProvider locale="en" messages={{ skills, context }}>
+      <NextIntlClientProvider locale="en" messages={{ skills, context, eval: evalMessages }}>
         <ToastProvider>
           <SkillDetailPane />
         </ToastProvider>
@@ -148,5 +153,20 @@ describe("SkillDetailPane — Context tab", () => {
     search = new URLSearchParams("tab=context");
     renderPane();
     expect(screen.getByRole("heading", { name: context.skillTab.title })).toBeInTheDocument();
+  });
+});
+
+describe("SkillDetailPane — Evals tab", () => {
+  beforeEach(() => {
+    realDetail = true;
+    search = new URLSearchParams("tab=evals");
+  });
+
+  it("shows the Evals tab for ?tab=evals, and again after a remount (AC-38)", async () => {
+    renderPane();
+    expect(await screen.findByText(evalMessages.skillEvals.emptyTitle)).toBeInTheDocument();
+    cleanup();
+    renderPane();
+    expect(await screen.findByText(evalMessages.skillEvals.emptyTitle)).toBeInTheDocument();
   });
 });

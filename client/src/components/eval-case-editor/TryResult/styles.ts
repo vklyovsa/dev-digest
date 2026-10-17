@@ -1,0 +1,45 @@
+import type { CSSProperties } from "react";
+
+export const s = {
+  box: (color: string, bg: string): CSSProperties => ({
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr)",
+    gap: 8,
+    padding: "12px 14px",
+    borderRadius: 9,
+    border: `1px solid ${color}`,
+    background: bg,
+    fontSize: 13,
+    color: "var(--text-secondary)",
+    overflowWrap: "anywhere",
+    minWidth: 0,
+  }),
+  head: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, minWidth: 0 } satisfies CSSProperties,
+  verdict: (color: string): CSSProperties => ({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    color,
+    fontWeight: 700,
+  }),
+  label: { fontWeight: 600, color: "var(--text-primary)" } satisfies CSSProperties,
+  stale: { color: "var(--text-muted)", fontStyle: "italic" } satisfies CSSProperties,
+  list: {
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr)",
+    gap: 6,
+    margin: 0,
+    padding: 0,
+    listStyle: "none",
+  } satisfies CSSProperties,
+  item: { display: "flex", flexWrap: "wrap", gap: 8, minWidth: 0 } satisfies CSSProperties,
+  mono: { fontFamily: "var(--font-mono, monospace)" } satisfies CSSProperties,
+  error: {
+    padding: "10px 12px",
+    borderRadius: 7,
+    border: "1px solid var(--crit)",
+    background: "var(--crit-bg)",
+    color: "var(--text-primary)",
+    overflowWrap: "anywhere",
+  } satisfies CSSProperties,
+} as const;

@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { FindingRecord } from "@devdigest/shared";
 import messages from "../../../../../../../../messages/en/prReview.json";
 import { FindingCard } from "./FindingCard";
@@ -26,11 +27,15 @@ const FINDING: FindingRecord = {
   dismissed_at: null,
 };
 
+const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
 function renderWithIntl(ui: React.ReactElement) {
   return render(
-    <NextIntlClientProvider locale="en" messages={{ prReview: messages }}>
-      {ui}
-    </NextIntlClientProvider>,
+    <QueryClientProvider client={qc}>
+      <NextIntlClientProvider locale="en" messages={{ prReview: messages }}>
+        {ui}
+      </NextIntlClientProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -70,9 +75,11 @@ describe("FindingCard — no shorthand/longhand style conflict", () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     const { rerender } = renderWithIntl(<FindingCard f={FINDING} focused={false} />);
     rerender(
-      <NextIntlClientProvider locale="en" messages={{ prReview: messages }}>
-        <FindingCard f={FINDING} focused />
-      </NextIntlClientProvider>,
+      <QueryClientProvider client={qc}>
+        <NextIntlClientProvider locale="en" messages={{ prReview: messages }}>
+          <FindingCard f={FINDING} focused />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
     );
     expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();

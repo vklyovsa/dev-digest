@@ -42,6 +42,9 @@ settled enough to move into `CLAUDE.md`.
 Quirks of dependencies, versions and tooling — what a library does that its docs
 do not say.
 
+- **`qc.setDefaultOptions({ queries: { retry: false } })` on a client from `createQueryClient()` REPLACES the whole `queries` defaults, so `staleTime: 30_000` is lost and every later observer of a key refetches on mount.** (2026-10-12) In `AgentEvalView.test.tsx` the run list was fetched twice (`AgentEvalView` and `RunHistory` both call `useEvalRuns`), which looked like a component reading the list twice; with `staleTime: 30_000` repeated in the call it was once.
+  → In a test that counts requests, repeat `staleTime` in `setDefaultOptions`, or build the client with `new QueryClient({ defaultOptions })`; compare against the order of `fetchMock.mock.calls` before blaming the component.
+
 - **A vitest name-fragment filter also matches DIRECTORY names, so a fragment equal to a component folder pulls in every suite beneath it.** (2026-10-05, vitest 2.1.9) `check-code.sh client -- PrBriefSummary BriefRiskAreas BriefReviewFocus OverviewTab` reported `Test Files 6 passed`, not the 4 the plan expected: `OverviewTab` also matched the two `BlastRadiusCard` suites under `…/OverviewTab/_components/`; `vitest run … OverviewTab.test` ran exactly 4.
   → Filter a parent component by its file name (`OverviewTab.test`), not its folder name, and compare `Test Files N` with the suites you meant to run before reading a count as proof.
 
@@ -78,6 +81,12 @@ do not say.
 
 Error or symptom → cause → fix, one entry each, so the next occurrence is a lookup
 instead of an investigation.
+
+- **The Evals tab overflowed its pane sideways — the fourth tile, the chart and the row buttons cut off, a case name squeezed into a one-word column — while every component test was green: a CSS grid child has `min-width: auto`, so one long `file:line` path widened the whole stack.** (2026-10-12) Seen only on a headless screenshot of the real page (`agent-browser open <url>`, `agent-browser screenshot <png>`; it also takes `snapshot -i`, `fill @ref`, `find role button click --name "…"`); jsdom computes no layout. Fixed with `gridTemplateColumns: "minmax(0, 1fr)"` on the stack and the list and `flexWrap` + `minWidth: 0` + `overflowWrap: "anywhere"` on the row (`EvalsTab/styles.ts`, `CaseList/styles.ts`).
+  → Give every grid that holds user- or repo-supplied text a `minmax(0, 1fr)` track, and take one screenshot of a new screen at the pane width it really gets before calling it done.
+
+- **`No QueryClient set` in `FindingsPanel.test.tsx` (6 tests) and `DiffTab.test.tsx` (15) the moment `FindingCard` renders a component that calls a TanStack hook.** (2026-10-12) `FindingCard`'s expanded body now holds `EvalCaseAction` (`useCreateEvalCase` -> `useQueryClient`); both parents render the card (the first card of a panel is `defaultExpanded`) in tests that wrap only `NextIntlClientProvider` and mock `lib/hooks/reviews`. `check-code.sh client -- FindingCard.test` alone stays green, so a brief limited to the `FindingCard/` folder passes its own check.
+  → Put every test file that renders `FindingCard` transitively (`grep -rln "FindingsPanel\|FindingCard\|DiffTab" client/src --include=*.test.tsx`) into the same stage as the hook and give each a `QueryClientProvider`, or `vi.mock("@/lib/hooks/evals")`.
 
 - **The PR page renders blank and unstyled (plain blue links, empty body) right after `pnpm build` in `client/` — the build overwrote `client/.next` under the running `next dev`.** (2026-09-28) `next dev` and `next build` share `.next` (`next.config.mjs` sets no `distDir`); `client/.next/BUILD_ID` with a fresh timestamp next to a live `next dev -p 3000` is the tell. Only stopping the stack, `rm -rf client/.next` and restarting brought it back.
   → Never build in the live `client/` while the stack runs: `rsync -a --exclude .next --exclude node_modules client/ /tmp/x/`, `ln -s "$PWD/client/node_modules" /tmp/x/node_modules`, `/tmp/x/node_modules/.bin/next build`, then delete the copy.

@@ -26,3 +26,13 @@ test-results/
 
 # pr-self-review verdict artifacts (local only)
 .claude/pr-self-review/
+
+# commit-gate stamp of the last green test check (local only)
+.claude/commit-gate/
+
+# skill-creator eval runs (local only); the eval set itself lives in <skill>/evals/
+.claude/skills/*-workspace/
+
+# Stryker mutation run (local only): sandbox and reports
+server/.stryker-tmp/
+server/reports/

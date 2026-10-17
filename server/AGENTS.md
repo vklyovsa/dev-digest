@@ -40,6 +40,7 @@ integration `pnpm exec vitest run .it.test` (needs Docker) · both `pnpm test`
   untrusted data unlike skills, why derivation is lazy, the cross-repo policy).
 - Debugging what went into a prompt, or touching `PROMPT_LOG` →
   `docs/prompt-logging.md` (never log section text; `verbose` is development-only).
+- Running or reading the mutation run (Stryker, local only) → `docs/mutation-testing.md`.
 - Deeper background on a subsystem → `docs/`.
 
 ## Conventions

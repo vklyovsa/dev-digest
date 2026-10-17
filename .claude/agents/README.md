@@ -76,6 +76,7 @@ with `AskUserQuestion` and never answers them itself. A new
 | [test-writer](test-writer.md) | Writes client / server / reviewer-core tests from the plan's ACs and the spec (not from the current code), with the skills `routing.md` names, and runs them | sonnet | Read, Grep, Glob, Edit, Write, Bash, Skill | Agent, WebSearch, WebFetch, NotebookEdit; `write-scope-guard --profile tests` | A plan + stages, ACs without test evidence, or files + behaviours | Test report: tests written, static checks, test runs (passed/failed/skipped), gaps for the implementer |
 | [plan-verifier](plan-verifier.md) | Traceability check: every plan item (§0–8) and every spec requirement / AC / non-goal → done, partial, missing or deviated, with `file:line`; plus changes no plan item covers | sonnet | Read, Grep, Glob, Bash | Write, Edit, MultiEdit, NotebookEdit, Skill, Agent, Web*; `readonly-guard --allow-tests` | `specs/<slug>-plan.md` (+ spec, + implementation report) | Verification report: spec → plan → code, plan items, ACs, unplanned changes, needs a test run, not verifiable |
 | [architecture-reviewer](architecture-reviewer.md) | Architecture-boundary review of the diff: onion layering (depcruise and beyond), client placement and imports, path aliases, the two `@devdigest/shared` copies | sonnet | Read, Grep, Glob, Bash, Skill; preloads `onion-architecture`, `frontend-ui-architecture` | Write, Edit, MultiEdit, NotebookEdit, Agent, Web*; `readonly-guard` | The open diff (optional base, plan, report) | Findings in the shared contract + checks run + JSON |
+| [architecture-reviewer-lite](architecture-reviewer-lite.md) | **Eval-only experiment** — `architecture-reviewer` with the rule citation made optional, for the A/B in `evals/agents/architecture-reviewer-lite/`; never dispatched for a real review | sonnet | same as `architecture-reviewer` | same as `architecture-reviewer` | An inline diff from the eval case | Same report; `Rule:` / `rule_source` optional |
 | [security-reviewer](security-reviewer.md) | Exploitable vulnerabilities only: attacker-controlled source → sink, with band, confidence, CWE/OWASP and an exploit path. Not the product's Security Reviewer (`docs/agent-prompts/`) | opus | Read, Grep, Glob, Bash, Skill; preloads `security` | Write, Edit, MultiEdit, NotebookEdit, Agent, Web*; `readonly-guard` | The open diff (optional base, plan, report) | Findings in the shared contract + threat model + surfaces examined + JSON |
 | [doc-writer](doc-writer.md) | Documents implemented features in the right place (`docs/`, package `docs/`, READMEs, `TESTING.md`) with Mermaid diagrams, and links them from `AGENTS.md` Read when | sonnet | Read, Grep, Glob, Edit, Write, Bash, Skill; preloads `mermaid-diagram` | Agent, WebSearch, WebFetch, NotebookEdit; `write-scope-guard --profile docs` | Subject + plan / spec / report / files | Documentation report: placement, files, links, checks, code-vs-plan discrepancies |
 
@@ -158,8 +159,8 @@ CRITICAL there.
 ## Guards
 
 `PreToolUse` hooks declared in each agent's frontmatter; active only while that agent runs, on
-top of the project hook in `../settings.json` (`guard-pr.sh`). All three share
-[`scripts/guard-lib.sh`](scripts/guard-lib.sh).
+top of the two project hooks in `../settings.json` (`guard-pr.sh`, `commit-gate.sh`). All three
+share [`scripts/guard-lib.sh`](scripts/guard-lib.sh).
 
 | Guard | Used by | Allows | Blocks |
 |---|---|---|---|
@@ -184,6 +185,7 @@ Check a change to the guards or agents without running them as hooks:
 
 ```bash
 .claude/agents/scripts/check-guards.sh          # every row of scripts/guard-cases.tsv
+.claude/agents/scripts/check-commit-gate.sh     # the commit gate: its case table, the test check, the hook entry
 .claude/agents/scripts/check-agents.sh          # frontmatter, skills, hooks, this catalog
 .claude/agents/scripts/check-spec.sh <spec.md>  # a spec against specs/TEMPLATE.md
 .claude/agents/scripts/check-code.sh server     # typecheck, layering and tests of a package

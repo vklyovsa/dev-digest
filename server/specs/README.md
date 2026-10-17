@@ -21,3 +21,4 @@ One file per unit of work: what we intend to build, written **before** we build 
   breakdown + previews that `GET /repos/:id/pulls` returns per PR.
 - [`skills-module.md`](skills-module.md) — the skills module: CRUD, versions, the
   import extractor, and the port a review run reads skills through.
+- [`2026-10-12-mutation-testing-on-one-file.md`](2026-10-12-mutation-testing-on-one-file.md) — SPEC-08: Mutation testing on one file — a local mutation run on the eval scoring module of SPEC-03, one surviving mutant killed by one added test, and the before / after record (server).

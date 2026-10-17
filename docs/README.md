@@ -7,6 +7,10 @@ explains **why** something is built the way it is.
 
 - [`agent-prompts/`](agent-prompts/) — system prompts for the built-in reviewer
   agents, plus [choosing a model](agent-prompts/choosing-a-model.md).
+- [`eval-pipeline.md`](eval-pipeline.md) — regression protection for a reviewer agent and for a skill: cases,
+  runs, scoring in code, the Evals tab and Eval Dashboard, operations, known limits.
+- [`commit-gate.md`](commit-gate.md) — the hook that refuses a `git commit` from a Claude Code
+  session until the touched packages are proven green: decision, stamp, override, limits, caught case.
 - `design/` — UI prototypes and visual references.
 - [`retro/`](retro/README.md) — retrospectives of multi-agent runs: what each run cost,
   where agents struggled, what was proposed (`retro/ledger/`, written only by the

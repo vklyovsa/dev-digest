@@ -4,6 +4,8 @@ import { NextIntlClientProvider } from "next-intl";
 import type { Agent } from "@devdigest/shared";
 import messages from "../../../../../../messages/en/agents.json";
 import context from "../../../../../../messages/en/context.json";
+import evalMessages from "../../../../../../messages/en/eval.json";
+import common from "../../../../../../messages/en/common.json";
 import { ToastProvider } from "@/lib/toast";
 
 // Mock the data hooks so the editor renders without a network/query client.
@@ -30,6 +32,13 @@ vi.mock("../../../../../lib/hooks/core", () => ({
     isError: false,
     refetch: vi.fn(),
   }),
+}));
+vi.mock("@/lib/hooks/evals", () => ({
+  useEvalCases: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
+  useEvalRuns: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
+  useDeleteEvalCase: () => ({ mutate: vi.fn(), reset: vi.fn(), isPending: false, error: null }),
+  useStartEvalRun: () => ({ mutate: vi.fn(), isPending: false, error: null }),
+  useEvalCompare: () => ({ data: undefined, isLoading: false, error: null }),
 }));
 vi.mock("@/lib/repo-context", () => ({
   useActiveRepo: () => ({ activeRepo: { id: "r1", full_name: "acme/payments-api" }, reposLoaded: true }),
@@ -58,7 +67,7 @@ const AGENT: Agent = {
 
 function renderWithIntl(ui: React.ReactElement) {
   return render(
-    <NextIntlClientProvider locale="en" messages={{ agents: messages, context }}>
+    <NextIntlClientProvider locale="en" messages={{ agents: messages, context, eval: evalMessages, common }}>
       <ToastProvider>{ui}</ToastProvider>
     </NextIntlClientProvider>,
   );
@@ -96,6 +105,34 @@ describe("Agent Editor — Context tab", () => {
   it("shows the Context tab, and not the Config fields, when tab is context (AC-29)", () => {
     renderWithIntl(<AgentEditor agent={AGENT} tab="context" onTab={() => {}} />);
     expect(screen.getByRole("heading", { name: context.agentTab.title })).toBeInTheDocument();
+    expect(screen.queryByText("Save agent")).not.toBeInTheDocument();
+  });
+});
+
+describe("Agent Editor — Evals tab (AC-21)", () => {
+  const tabLabels = () =>
+    Array.from(screen.getByRole("button", { name: "Config" }).parentElement!.children).map((b) => b.textContent);
+
+  it("is the fourth tab, after Context", () => {
+    renderWithIntl(<AgentEditor agent={AGENT} tab="config" onTab={() => {}} />);
+    expect(tabLabels().slice(0, 4)).toEqual(["Config", "Skills", "Context", "Evals"]);
+  });
+
+  it("asks for tab=evals when it is clicked", () => {
+    const onTab = vi.fn();
+    renderWithIntl(<AgentEditor agent={AGENT} tab="config" onTab={onTab} />);
+    fireEvent.click(screen.getByRole("button", { name: "Evals" }));
+    expect(onTab).toHaveBeenCalledWith("evals");
+  });
+
+  it("is a tab the page accepts from ?tab=", () => {
+    expect(TAB_KEYS).toContain("evals");
+  });
+
+  it("shows the Evals tab, and not the Config fields, when tab is evals", () => {
+    renderWithIntl(<AgentEditor agent={AGENT} tab="evals" onTab={() => {}} />);
+    expect(screen.getByText(evalMessages.evalsTab.metricsTitle)).toBeInTheDocument();
+    expect(screen.getByText(evalMessages.evalsTab.emptyCases)).toBeInTheDocument();
     expect(screen.queryByText("Save agent")).not.toBeInTheDocument();
   });
 });

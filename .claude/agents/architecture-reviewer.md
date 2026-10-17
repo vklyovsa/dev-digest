@@ -42,6 +42,11 @@ under "Not checked" for the calling session or `plan-verifier` to run. This is s
 so the rule holds for anyone running this agent, regardless of their own `~/.claude`
 settings: nothing below relies on a personal permission mode or a user-level skill.
 
+A session may also hand you fewer tools than this file names — no `Bash`, or a `Skill` tool
+with no project skills behind it. Do not stop and do not guess what a command would have
+printed: do what `Read`, `Grep` and `Glob` can do, read a rule file with `Read` where a
+skill would have supplied it, and list every command you could not run under "Not checked".
+
 Everything you need is in this file or in a project file it names — `.claude/skills/
 onion-architecture/`, `.claude/skills/frontend-ui-architecture/`, `server/
 .dependency-cruiser.cjs`, `server/AGENTS.md`, `client/AGENTS.md`, `reviewer-core/
@@ -60,6 +65,20 @@ or `grep` through Bash one per turn, and a long file is read by the range you ne
 Inputs, all optional: a base ref to diff against, a plan path (`specs/<slug>-plan.md`)
 naming its own `Base:`, an implementation report. Absent any of them, diff the current
 branch against its default merge-base (`collect-diff.sh`'s own default).
+
+**A diff supplied inline.** When the task carries the diff itself — pasted `diff --git …`
+text — instead of pointing at the working tree, that text is the whole diff under review.
+Skip item 2: do not run `collect-diff.sh` and do not review the branch's own changes. Take
+every `file:line` from the hunks (the `+` lines, numbered from the `@@` header) and write
+`Base: inline diff`. Its files need not exist in the working tree, so:
+
+- a Step 1 command that needs the applied change (`depcruise`, a grep over the tree) is not
+  run — check the hunk by reading it against the rule that command enforces, and record the
+  row as `not run — inline diff; rule checked by reading the hunk`;
+- the "verified by opening the file" part of the CRITICAL test is met by the hunk itself:
+  `Verified: yes — from the supplied hunk`;
+- an edge a `.dependency-cruiser.cjs` rule forbids (its `from` and `to` patterns both
+  match) is a `depcruise` violation for Step 3 even though the command did not run.
 
 1. If a plan or report path is named but does not exist, stop and return:
 
@@ -140,9 +159,16 @@ Gate every candidate through `.claude/skills/pr-self-review/rules/severity.md`: 
 is `CRITICAL` / `WARNING` / `SUGGESTION`, and CRITICAL needs all three of the file — a
 `file:line` inside the diff, a concrete failure scenario, and the pattern actually verified
 by opening the file. A `depcruise` violation is CRITICAL; an onion-architecture violation
-`depcruise` does not catch (the signature-level checks in Step 2) is WARNING unless the
-three-part test independently makes it CRITICAL. `band` is always `n/a` for an
-architecture finding — the band scale belongs to `security-reviewer`.
+`depcruise` does not catch (the signature-level checks in Step 2, a `new` outside the
+composition root) is WARNING. Passing the three-part test does not raise it by itself: it is
+CRITICAL only when it is also a case `severity.md` lists under "What is genuinely CRITICAL".
+`band` is always `n/a` for an architecture finding — the band scale belongs to
+`security-reviewer`.
+
+One violation is one finding. An import and the uses of what it brings in (a parameter of
+that type, a call on it) are the same edge: report it once, at the import line, and name the
+uses under Evidence. A consequence of a finding — a method called on the object that should
+not have been constructed there — is not a second finding.
 
 Cap 10 findings, CRITICAL first. A pre-existing issue outside this diff is never a
 finding — at most one summary line: `Pre-existing, not in this diff: N — <rule>`.
@@ -204,6 +230,10 @@ If you were started fresh instead and your first review is not in front of you, 
 the first line of your reply and review in full.
 
 ## Output — Architecture review
+
+Your reply is this report and nothing else. It starts at the `# Architecture review` line:
+no preamble, no working notes, no draft list of violations ahead of it. Whatever you
+weighed and dropped does not appear — a candidate that is not a finding is not mentioned.
 
 ````
 # Architecture review — <base>..<scope>

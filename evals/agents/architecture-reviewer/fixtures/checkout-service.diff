@@ -1,0 +1,37 @@
+diff --git a/server/src/domain/checkout/pricing.ts b/server/src/domain/checkout/pricing.ts
+index c7d5384..dcff1f9 100644
+--- a/server/src/domain/checkout/pricing.ts
++++ b/server/src/domain/checkout/pricing.ts
+@@ -1,9 +1,13 @@
++import type { FastifyReply } from "fastify";
++
+ export interface CheckoutOrder {
+   id: string;
+   subtotalCents: number;
+   discountCents: number;
+ }
+ 
+-export function priceOrder(order: CheckoutOrder): number {
+-  return Math.max(0, order.subtotalCents - order.discountCents);
++export function priceOrder(order: CheckoutOrder, reply?: FastifyReply): number {
++  const totalCents = Math.max(0, order.subtotalCents - order.discountCents);
++  reply?.header("x-checkout-total", String(totalCents));
++  return totalCents;
+ }
+diff --git a/server/src/modules/checkout/service.ts b/server/src/modules/checkout/service.ts
+index 8ebe634..21aa419 100644
+--- a/server/src/modules/checkout/service.ts
++++ b/server/src/modules/checkout/service.ts
+@@ -1,8 +1,12 @@
+ import { priceOrder, type CheckoutOrder } from "../../domain/checkout/pricing.js";
++import { PgCheckoutRepository } from "./repository.js";
+ 
+ export class CheckoutService {
++  private readonly orders = new PgCheckoutRepository();
++
+   async checkout(order: CheckoutOrder): Promise<{ totalCents: number }> {
+     const totalCents = priceOrder(order);
++    await this.orders.saveTotal(order.id, totalCents);
+     return { totalCents };
+   }
+ }

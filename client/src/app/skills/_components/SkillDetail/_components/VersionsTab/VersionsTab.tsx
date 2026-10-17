@@ -9,7 +9,7 @@ import type { Skill } from "@devdigest/shared";
 import { useRestoreSkillVersion, useSkillVersions } from "@/lib/hooks/skills";
 import { useToast } from "@/lib/toast";
 import { approxTokens } from "@/lib/tokens";
-import { collapseUnchanged, diffLines, diffStat } from "./helpers";
+import { collapseUnchanged, diffLines, diffStat } from "@/lib/text-diff";
 import { s } from "./styles";
 
 export function VersionsTab({ skill }: { skill: Skill }) {

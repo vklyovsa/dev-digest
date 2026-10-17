@@ -78,35 +78,65 @@ Read the file that matches what you are touching:
 |---|---|
 | deciding where code belongs, a new module | `rules/layers.md` |
 | `routes.ts`, HTTP status codes, SSE, job handlers | `rules/fastify-transport.md` |
+| throwing or mapping an error, a `4xx` anywhere | `rules/errors.md` |
 | `repository.ts`, Drizzle queries, transactions, row types | `rules/drizzle-persistence.md` |
 | a service constructor, `Container`, a new adapter | `rules/ports-and-di.md` |
 | Zod schemas, `@devdigest/shared`, wire shapes | `rules/zod-contracts.md` |
 | `reviewer-core/`, `server/src/domain/` | `rules/domain-purity.md` |
 | writing tests for any of the above | `rules/testing.md` |
 | CI, dependency-cruiser, verifying a change | `rules/enforcement.md` |
+| reviewing someone's diff or a PR for layering | `rules/review-report.md`, `rules/tracing.md` |
 
 Worked before/after refactors: `examples.md`. Sources: `references.md`.
 
 ## Pre-flight checklist
 
-Run through this before finishing any backend change. Each item maps to a
-dependency-cruiser rule in `rules/enforcement.md`.
+Run through this before finishing any backend change. Each item has an ID so a review
+can cite it; where dependency-cruiser checks the same thing, its rule name
+(`rules/enforcement.md`) is the better citation.
 
-- [ ] No `routes.ts` imports `drizzle-orm`, `../../db/schema.js` or `../../db/rows.js`.
-- [ ] No `routes.ts` calls an adapter: no `container.github()`, `container.llm()`,
-      `container.git`, `container.codeIndex`, `container.embedder()`, `container.secrets`.
-      It calls one service method. (dependency-cruiser sees imports, not property
-      access, so this one is checked by review and by the grep in `rules/enforcement.md`.)
-- [ ] No `service.ts` imports `drizzle-orm` or the Drizzle schema.
-- [ ] No constructor under `src/modules/**` takes `Container`; it takes named ports.
-- [ ] No public method signature exposes a `*Row` type (`typeof table.$inferSelect`).
-- [ ] Every new external capability has a port in `vendor/shared/adapters.ts`, an
+- [ ] **OA-1** No `routes.ts` imports `drizzle-orm`, `../../db/schema.js` or `../../db/rows.js`.
+- [ ] **OA-2** No `routes.ts` reaches past a service through the container: no adapter
+      (`container.github()`, `container.llm()`, `container.git`, `container.codeIndex`,
+      `container.embedder()`, `container.secrets`), no repository (`container.<x>Repo`),
+      no `container.db`. It calls one service method. (dependency-cruiser sees imports,
+      not property access, so this one is checked by review and by the grep in
+      `rules/enforcement.md`.)
+- [ ] **OA-3** No `service.ts` imports `drizzle-orm` or the Drizzle schema.
+- [ ] **OA-4** No constructor under `src/modules/**` takes `Container`; it takes named ports.
+- [ ] **OA-5** No public method signature exposes a Drizzle row (`typeof table.$inferSelect`) —
+      under any name: a `*Row` type, an alias, a `ReturnType<…>` of a repository method,
+      or an un-annotated repository method whose result flows out unmapped.
+- [ ] **OA-6** Every new external capability has a port in `vendor/shared/adapters.ts`, an
       implementation in `src/adapters/`, and a mock in `src/adapters/mocks.ts`.
-- [ ] Nothing in `reviewer-core/src` or `server/src/domain/` imports fastify, drizzle,
+- [ ] **OA-7** Nothing in `reviewer-core/src` or `server/src/domain/` imports fastify, drizzle,
       postgres, octokit, simple-git, an LLM SDK, a `node:` builtin, or reads `process.env`.
-- [ ] Module A does not import module B's `repository.ts` or `helpers.ts`; shared
+- [ ] **OA-8** Module A does not import module B's `repository.ts` or `helpers.ts`; shared
       repositories are resolved from the composition root.
-- [ ] A business rule can be tested without starting Postgres.
+- [ ] **OA-9** A business rule lives in a service or the domain — not in a route — and can
+      be tested without starting Postgres.
+- [ ] **OA-10** A use case fails with an `AppError` (or subclass) from `platform/errors.ts`:
+      no `throw new Error(...)` under `src/modules/**`, and no route writes an error
+      response by hand (`reply.status(4xx).send(...)`). See `rules/errors.md`.
+- [ ] **OA-11** The rules follow the role, not the file name: code that takes the
+      `Container`, a `FastifyRequest` or a `reply` is transport wherever it lives
+      (`handlers.ts`, `controller.ts`), and OA-1, OA-2, OA-9 apply to it.
+- [ ] **OA-12** `helpers.ts` and `constants.ts` are pure — no I/O, no `process.env`, no clock
+      or randomness, directly or through a function they call. Time arrives as a parameter.
+- [ ] **OA-13** No adapter class is constructed outside `platform/container.ts` — not in a
+      service, and not in a factory function inside a module.
+
+OA-5 and OA-11 to OA-13 cannot be seen by dependency-cruiser or by a one-line grep: they
+show only when a type, a call or a `new` is followed across files. `rules/tracing.md`
+has the four traces; run them on every review, including when `./check.sh` is green.
+
+## Reviewing a change
+
+When the task is to review rather than to build, the answer follows
+`rules/review-report.md`: a **Must fix** table where every row cites a rule (a
+dependency-cruiser rule name or an `OA-n` ID above) with `path:line`, a **Fine as is**
+list, the checks actually run, and a final `Verdict: BLOCK — <n> must-fix` or
+`Verdict: PASS` line. Read that file and `rules/tracing.md` before writing the review.
 
 ## State of the tree
 

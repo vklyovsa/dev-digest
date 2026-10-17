@@ -28,7 +28,7 @@
     "loadError": "Could not load this skill.",
     "version": "v{version}",
     "delete": "Delete skill",
-    "deleteConfirm": "Delete skill \"{name}\"? Agents that link it lose it immediately.",
+    "deleteConfirm": "Delete skill \"{name}\"? Agents that link it lose it immediately. Its eval cases and eval runs are deleted with it.",
     "notFound": {
       "title": "Skill not found",
       "body": "It may have been deleted."
@@ -37,6 +37,7 @@
       "config": "Config",
       "context": "Context",
       "preview": "Preview",
+      "evals": "Evals",
       "stats": "Stats",
       "versions": "Versions"
     },

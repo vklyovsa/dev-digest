@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
 import { NextIntlClientProvider, type AbstractIntlMessages } from "next-intl";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { FindingRecord, PrFile, PrReviewComment, ReviewRecord, SmartDiff } from "@devdigest/shared";
 import { markCatalog, unmarkedStrings } from "@/test/catalog-probe";
 import brief from "../../../../../../../../messages/en/brief.json";
@@ -121,16 +122,18 @@ function renderTab(
 ) {
   const { target, files = FILES, catalog = { prReview, shell, brief } } = opts;
   return render(
-    <NextIntlClientProvider locale="en" messages={catalog}>
-      <DiffTab
-        prId="pr1"
-        files={files}
-        canComment
-        repoFullName="acme/payments-api"
-        headSha="abc1234"
-        target={target}
-      />
-    </NextIntlClientProvider>,
+    <QueryClientProvider client={new QueryClient()}>
+      <NextIntlClientProvider locale="en" messages={catalog}>
+        <DiffTab
+          prId="pr1"
+          files={files}
+          canComment
+          repoFullName="acme/payments-api"
+          headSha="abc1234"
+          target={target}
+        />
+      </NextIntlClientProvider>
+    </QueryClientProvider>,
   );
 }
 

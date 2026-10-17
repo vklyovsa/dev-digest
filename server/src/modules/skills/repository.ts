@@ -225,12 +225,26 @@ export class SkillsRepository {
     });
   }
 
+  /** Delete a skill (scoped to workspace). Versions, agent links and eval runs
+   *  cascade; the skill's eval cases (no foreign key on `owner_id`) go in the
+   *  same transaction, as `AgentsRepository.deleteById` does for an agent's. */
   async deleteById(workspaceId: string, id: string): Promise<boolean> {
-    const rows = await this.db
-      .delete(t.skills)
-      .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.id, id)))
-      .returning({ id: t.skills.id });
-    return rows.length > 0;
+    return this.db.transaction(async (tx) => {
+      await tx
+        .delete(t.evalCases)
+        .where(
+          and(
+            eq(t.evalCases.workspaceId, workspaceId),
+            eq(t.evalCases.ownerKind, 'skill'),
+            eq(t.evalCases.ownerId, id),
+          ),
+        );
+      const rows = await tx
+        .delete(t.skills)
+        .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.id, id)))
+        .returning({ id: t.skills.id });
+      return rows.length > 0;
+    });
   }
 
   // ---- skill_versions (append-only body history) --------------------------

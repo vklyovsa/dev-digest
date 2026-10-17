@@ -21,21 +21,23 @@ the Fastify API. `next-intl` for copy, vendored design system for components.
 
 ## Read when
 
-- Adding or changing a route → `README.md` § "UI route map" for the route → API pairing.
-- Reaching for a UI primitive → `src/vendor/ui/README.md` (import from the
+Paths in this section are from the repository root.
+
+- Adding or changing a route → `client/README.md` § "UI route map" for the route → API pairing.
+- Reaching for a UI primitive → `client/src/vendor/ui/README.md` (import from the
   `@devdigest/ui` barrel, never from a layer file).
-- Writing a component test → `../TESTING.md` § "What each suite covers".
-- A journey needs real browser coverage instead → `../e2e/AGENTS.md`.
-- Changing what the API returns → `../server/AGENTS.md` (contracts live in two copies).
-- Working from a spec → `specs/<feature>.md`, before the first edit.
-- Something behaves inexplicably → `INSIGHTS.md` (§ What Doesn't Work, § Recurring Errors).
-- You learned something non-obvious → append it to the matching `INSIGHTS.md` section.
-- Touching anything that renders findings → `docs/findings-surfaces.md` first:
+- Writing a component test → `TESTING.md` § "What each suite covers".
+- A journey needs real browser coverage instead → `e2e/AGENTS.md`.
+- Changing what the API returns → `server/AGENTS.md` (contracts live in two copies).
+- Working from a spec → `client/specs/<feature>.md`, before the first edit.
+- Something behaves inexplicably → `client/INSIGHTS.md` (§ What Doesn't Work, § Recurring Errors).
+- You learned something non-obvious → append it to the matching `client/INSIGHTS.md` section.
+- Touching anything that renders findings → `client/docs/findings-surfaces.md` first:
   five screens, four data sources.
-- Working on `/skills` or the agent's Skills tab → `docs/skills-ui.md`
+- Working on `/skills` or the agent's Skills tab → `client/docs/skills-ui.md`
   (the list lives in the layout, `/skills/:id` is the pane; the tabs that exist on
   purpose; the two-step import).
-- Deeper background on a surface → `docs/`.
+- Deeper background on a surface → `client/docs/`.
 - React, Next and Testing Library rules load on demand from `.claude/skills/` —
   not restated here.
 

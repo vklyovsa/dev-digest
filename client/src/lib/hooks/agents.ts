@@ -6,6 +6,7 @@ import { api } from "../api";
 import type {
   Agent,
   AgentSkillLink,
+  CiFailOn,
   ContextAttachments,
   ModelInfo,
   Provider,
@@ -69,6 +70,51 @@ export function useUpdateAgent() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, patch }: UpdateAgentInput) => api.put<Agent>(`/agents/${id}`, patch),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["agents"] });
+      qc.setQueryData(["agent", data.id], data);
+    },
+  });
+}
+
+/** One `agent_versions` snapshot as `GET /agents/:id/versions/:version` returns it. */
+interface AgentVersionSnapshot {
+  agent_id: string;
+  version: number;
+  config: {
+    provider: Provider;
+    model: string;
+    system_prompt: string;
+    output_schema?: unknown;
+    strategy: ReviewStrategy;
+    ci_fail_on: CiFailOn;
+    repo_intel: boolean;
+    skills: string[];
+  };
+  created_at: string;
+}
+
+/**
+ * Make a past version's configuration the agent's current one. It is a plain agent update
+ * carrying the snapshot's seven values, so the server records it as a NEW version; the skill
+ * links are left as they are.
+ */
+export function usePromoteAgentVersion(agentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (version: number) => {
+      const { config } = await api.get<AgentVersionSnapshot>(`/agents/${agentId}/versions/${version}`);
+      return api.put<Agent>(`/agents/${agentId}`, {
+        provider: config.provider,
+        model: config.model,
+        system_prompt: config.system_prompt,
+        strategy: config.strategy,
+        output_schema: config.output_schema,
+        ci_fail_on: config.ci_fail_on,
+        repo_intel: config.repo_intel,
+      });
+    },
+    meta: { inlineError: true },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["agents"] });
       qc.setQueryData(["agent", data.id], data);

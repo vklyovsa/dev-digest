@@ -1,16 +1,21 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { FindingRecord } from "@devdigest/shared";
 import messages from "../../../../../../../../messages/en/prReview.json";
 
+const actionMutate = vi.hoisted(() => vi.fn());
 vi.mock("../../../../../../../lib/hooks/reviews", () => ({
-  useFindingAction: () => ({ mutate: vi.fn(), isPending: false }),
+  useFindingAction: () => ({ mutate: actionMutate, isPending: false }),
 }));
 
 import { FindingsPanel } from "./FindingsPanel";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  actionMutate.mockClear();
+});
 
 function finding(
   o: Partial<FindingRecord> & { id: string; severity: FindingRecord["severity"] },
@@ -43,9 +48,11 @@ const FINDINGS: FindingRecord[] = [
 
 function renderWithIntl(ui: React.ReactElement) {
   return render(
-    <NextIntlClientProvider locale="en" messages={{ prReview: messages }}>
-      {ui}
-    </NextIntlClientProvider>,
+    <QueryClientProvider client={new QueryClient()}>
+      <NextIntlClientProvider locale="en" messages={{ prReview: messages }}>
+        {ui}
+      </NextIntlClientProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -119,5 +126,35 @@ describe("FindingsPanel — severity counters", () => {
     renderWithIntl(<FindingsPanel findings={[FINDINGS[1]!]} prId="pr1" />);
     expect(screen.getByText("1 WARNING")).toBeInTheDocument();
     expect(screen.queryByText(/CRITICAL/)).not.toBeInTheDocument();
+  });
+});
+
+describe("FindingsPanel — shortcuts while a dialog is open", () => {
+  it("acts on the focused finding when no dialog is open", () => {
+    renderWithIntl(<FindingsPanel findings={FINDINGS} prId="pr1" />);
+    fireEvent.keyDown(document.body, { key: "a" });
+    expect(actionMutate).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores a keydown whose target is a select inside a dialog", () => {
+    renderWithIntl(<FindingsPanel findings={FINDINGS} prId="pr1" />);
+    const dialog = document.createElement("div");
+    dialog.setAttribute("role", "dialog");
+    const select = document.createElement("select");
+    dialog.appendChild(select);
+    document.body.appendChild(dialog);
+    fireEvent.keyDown(select, { key: "a" });
+    dialog.remove();
+    expect(actionMutate).not.toHaveBeenCalled();
+  });
+
+  it("ignores a keydown on the body while any dialog is open (REC1)", () => {
+    renderWithIntl(<FindingsPanel findings={FINDINGS} prId="pr1" />);
+    const dialog = document.createElement("div");
+    dialog.setAttribute("role", "dialog");
+    document.body.appendChild(dialog);
+    fireEvent.keyDown(document.body, { key: "d" });
+    dialog.remove();
+    expect(actionMutate).not.toHaveBeenCalled();
   });
 });

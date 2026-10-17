@@ -15,7 +15,7 @@ the detail page had no list beside it. Both are now one route family.
   survives navigation between its child routes, so moving from one skill to the
   next keeps the list mounted — search text and scroll position included. That
   was the only reason selection had ever lived in the query string.
-- `/skills` shows "Select a skill"; `/skills/[id]?tab=<config|preview|stats|versions>`
+- `/skills` shows "Select a skill"; `/skills/[id]?tab=<config|context|preview|evals|stats|versions>`
   shows `SkillDetail` in the right pane. Clicking a card PUSHES `/skills/:id`
   (one history entry per skill); switching tabs REPLACES it.
 - The pane reads the skill out of the same cached `useSkills()` list the left
@@ -30,16 +30,31 @@ the detail page had no list beside it. Both are now one route family.
 | Tab | Source of every number on it |
 |---|---|
 | Config | the row itself |
+| Context | the project-context documents attached to the skill |
 | Preview | `skill.body`, rendered — nothing re-fetched |
+| Evals | stored `eval_cases` and `eval_runs` of the skill (`GET` only on open) |
 | Stats | `agent_skills` (used-by) + `ceil(chars/4)` (prompt size) |
 | Versions | `skill_versions` |
 
-The design also sketches an **Evals** tab and three metrics — pull frequency,
-accept rate, findings per skill. They are not implemented, and that is a
-decision rather than a gap: nothing records which skill produced which finding,
-so those numbers could only be invented. A tab that lies is worse than a tab
-that is missing. If per-skill attribution ever lands (a `finding.skill_id`),
-Stats is where it goes.
+The design also sketches three metrics — pull frequency, accept rate, findings
+per skill. They are not implemented, and that is a decision rather than a gap:
+nothing records which skill produced which finding, so those numbers could only
+be invented. A tab that lies is worse than a tab that is missing. If per-skill
+attribution ever lands (a `finding.skill_id`), Stats is where it goes.
+
+The **Evals** tab (`_components/SkillDetail/_components/EvalsTab/`) shows no
+invented number either: it lists the skill's own cases and the scores of its
+stored runs. A skill has no model or prompt, so every run goes through a **host
+agent** picked on the tab (linked agents first; the host of the newest run is
+preselected) with only this skill's saved body as the skill block. A disabled
+skill can be evaluated, and the tab says so. The same tiles, run history and
+compare view as the agent's Evals tab are reused; the compare view diffs the two
+skill bodies and has no Promote — the Versions tab already restores a body. No
+trend chart. With no agent in the workspace, cases can be created but run
+controls are disabled with a hint. Deleting a skill deletes its cases and runs;
+the confirm dialog says so. The case list is shared with the agent tab
+(`src/components/eval-case-list/`). Mechanics, routes and limits:
+[`docs/eval-pipeline.md`](../../docs/eval-pipeline.md) § Skill evals.
 
 ## The description field is the interface
 

@@ -86,14 +86,24 @@ is exactly right — the core-purity rules live in the server config.
 1. `pnpm exec depcruise src --config .dependency-cruiser.cjs` — must print
    `no dependency violations found`.
 2. `pnpm typecheck` in `server/`, plus `reviewer-core/` if a shared type moved.
-3. Walk the `SKILL.md` pre-flight checklist for the signature-level rules the graph
+3. Walk the `SKILL.md` pre-flight checklist (`OA-1` … `OA-13`) for the rules the graph
    cannot see.
-4. Check that no route calls an adapter. The graph cannot see this one: a route
-   reaches an adapter by PROPERTY access on the container it already holds, not by an
-   import. This must print nothing:
+4. Check that no route reaches past a service (OA-2). The graph cannot see this one:
+   a route reaches an adapter or a repository by PROPERTY access on the container it
+   already holds, not by an import. This must print nothing:
 
    ```bash
-   grep -nE "container\.(github\(|llm\(|git\b|codeIndex|embedder\(|secrets)" src/modules/*/routes.ts
+   grep -nE "container\.(github\(|llm\(|git\b|codeIndex|embedder\(|secrets|db\b|\w+Repo\b)" src/modules/*/routes.ts
    ```
+
+5. Check the error taxonomy (OA-10, `rules/errors.md`). Both must print nothing:
+
+   ```bash
+   grep -rnE "throw new Error\(" src/modules
+   grep -nE "reply\.(status|code)\((4|5)[0-9]{2}\)" src/modules/*/routes.ts
+   ```
+
+6. Run the four traces in `rules/tracing.md` (OA-5, OA-11, OA-12, OA-13). Nothing above
+   can see what they look for; a green run of steps 1–5 says nothing about them.
 
 Report what actually ran. A check that was not executed is not evidence.

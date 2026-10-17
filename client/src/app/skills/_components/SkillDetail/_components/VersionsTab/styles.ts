@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import type { DiffOp } from "./helpers";
+import type { DiffOp } from "@/lib/text-diff";
 
 /** Co-located styles for the skill VersionsTab. */
 export const s = {

@@ -7,7 +7,7 @@ describe("skill addresses", () => {
   });
 
   it("opens Config when the requested tab does not exist", () => {
-    expect(skillHref("abc", "evals")).toBe("/skills/abc?tab=config");
+    expect(skillHref("abc", "usage")).toBe("/skills/abc?tab=config");
     expect(resolveSkillTab(null)).toBe("config");
   });
 

@@ -9,7 +9,7 @@ import { useTranslations } from "next-intl";
 import type { PrFile } from "@/lib/types";
 import { type DiffCommentApi } from "../comments";
 import { type DiffFindingsApi } from "../findings";
-import { type DiffTarget } from "../target";
+import { type DiffRange, type DiffTarget } from "../target";
 import { s } from "../styles";
 import { FileCard } from "../FileCard";
 
@@ -18,11 +18,13 @@ export function DiffViewer({
   commenting,
   findings,
   target,
+  range,
 }: {
   files: PrFile[];
   commenting?: DiffCommentApi;
   findings?: DiffFindingsApi;
   target?: DiffTarget;
+  range?: DiffRange;
 }) {
   const t = useTranslations("shell");
   if (!files || files.length === 0) {
@@ -37,6 +39,7 @@ export function DiffViewer({
           commenting={commenting}
           findings={findings}
           target={target?.path === f.path ? target : undefined}
+          range={range?.path === f.path ? range : undefined}
         />
       ))}
     </div>
