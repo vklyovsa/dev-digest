@@ -1,16 +1,19 @@
+import { readFileSync } from 'node:fs';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { HttpDevDigestApi } from './api/http-client.js';
-import { loadConfig } from './config.js';
+import { loadConfig, parseServerVersion } from './config.js';
 import { createStderrLogger } from './log.js';
 import { createServer } from './server.js';
 
 async function main(): Promise<void> {
   const log = createStderrLogger();
   const config = loadConfig(process.env);
+  const version = parseServerVersion(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
   const server = createServer({
     api: new HttpDevDigestApi(config.apiUrl),
     apiUrl: config.apiUrl,
     runBudgetMs: config.runBudgetMs,
+    version,
     log,
   });
 

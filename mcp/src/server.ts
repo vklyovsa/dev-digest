@@ -7,7 +7,7 @@ import {
   INSTRUCTIONS,
   LIST_AGENTS,
   RUN_AGENT_ON_PR,
-  SERVER_INFO,
+  SERVER_NAME,
   getBlastRadiusShape,
   getConventionsShape,
   getFindingsShape,
@@ -26,6 +26,7 @@ export interface ServerOptions {
   api: DevDigestApi;
   apiUrl: string;
   runBudgetMs: number;
+  version: string;
   log: Logger;
 }
 
@@ -38,8 +39,8 @@ const spec = ({ title, description, annotations }: ToolDefinition): ToolSpec => 
 });
 
 export function createServer(opts: ServerOptions): McpServer {
-  const { api, apiUrl, runBudgetMs, log } = opts;
-  const server = new McpServer(SERVER_INFO, { instructions: INSTRUCTIONS });
+  const { api, apiUrl, runBudgetMs, version, log } = opts;
+  const server = new McpServer({ name: SERVER_NAME, version }, { instructions: INSTRUCTIONS });
   const result = (tool: ToolDefinition['name'], run: () => Promise<unknown>) =>
     toToolResult(run, { tool, apiUrl, log });
 

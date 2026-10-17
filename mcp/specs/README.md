@@ -17,4 +17,5 @@ One file per unit of work: what we intend to build, written **before** we build 
 
 ## Open specs
 
-_None yet._
+- [`2026-10-17-server-version-from-package-json.md`](2026-10-17-server-version-from-package-json.md) — SPEC-11: the MCP server reports `serverInfo.version` from `mcp/package.json` instead of a hard-coded `0.0.0`, one place to bump (mcp).
+- [`2026-10-17-server-build-info.md`](2026-10-17-server-build-info.md) — SPEC-12: MCP server build info — the SPEC-11 version-from-package.json requirements plus a build identity an operator can read; relation to SPEC-11 and what a build is are open (mcp).

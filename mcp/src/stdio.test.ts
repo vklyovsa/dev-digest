@@ -1,5 +1,8 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -10,6 +13,9 @@ import { INSTRUCTIONS, TOOL_NAMES } from './definitions.js';
 const PACKAGE_DIR = fileURLToPath(new URL('..', import.meta.url));
 const ENTRY_ARGS = ['--import', 'tsx', 'src/index.ts'];
 const UNREACHABLE = 'http://127.0.0.1:1';
+const PACKAGE_VERSION = (
+  JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }
+).version;
 
 const childEnv = (extra: Record<string, string>): Record<string, string> => ({
   PATH: process.env.PATH ?? '',
@@ -41,6 +47,7 @@ describe('the real stdio entry with the API down', () => {
     await client.connect(transport);
 
     expect(client.getServerVersion()?.name).toBe('devdigest-mcp');
+    expect(client.getServerVersion()?.version).toBe(PACKAGE_VERSION);
     expect(client.getInstructions()).toBe(INSTRUCTIONS);
 
     const { tools } = await client.listTools();
@@ -61,6 +68,31 @@ describe('the real stdio entry with the API down', () => {
     const events = lines.map((line) => (JSON.parse(line) as { event: string }).event);
     expect(events).toContain('server.ready');
     expect(events).toContain('tool.api_error');
+  });
+
+  it('reports the package.json version when started from another working directory, as registered (AC-4, EC-1)', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'devdigest-mcp-cwd-'));
+    try {
+      const transport = new StdioClientTransport({
+        command: join(PACKAGE_DIR, 'node_modules/.bin/tsx'),
+        args: [join(PACKAGE_DIR, 'src/index.ts')],
+        cwd,
+        env: childEnv({ DEVDIGEST_API_URL: UNREACHABLE }),
+        stderr: 'pipe',
+      });
+      const client = new Client({ name: 'stdio-test', version: '0.0.0' });
+      const problems: Error[] = [];
+      client.onerror = (err) => problems.push(err);
+      open.push(client);
+
+      await client.connect(transport);
+
+      expect(client.getServerVersion()?.version).toBe(PACKAGE_VERSION);
+      expect(problems).toEqual([]);
+    } finally {
+      await Promise.all(open.splice(0).map((client) => client.close()));
+      rmSync(cwd, { recursive: true, force: true });
+    }
   });
 
   it('exits 0 when the client closes stdin', async () => {

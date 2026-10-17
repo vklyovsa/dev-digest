@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loadConfig } from './config.js';
+import { loadConfig, parseServerVersion } from './config.js';
 import { RUN_BUDGET_MS_DEFAULT, RUN_BUDGET_MS_MAX, RUN_BUDGET_MS_MIN } from './constants.js';
 
 describe('loadConfig', () => {
@@ -91,5 +91,19 @@ describe('loadConfig', () => {
 
     expect(config).toEqual({ apiUrl: 'http://127.0.0.1:3001', runBudgetMs: 30_000 });
     expect([...new Set(read)].sort()).toEqual(['DEVDIGEST_API_URL', 'DEVDIGEST_MCP_RUN_TIMEOUT_MS']);
+  });
+});
+
+describe('parseServerVersion', () => {
+  it('returns the version character for character', () => {
+    expect(parseServerVersion('{"version":"1.2.0-rc.1+abc"}')).toBe('1.2.0-rc.1+abc');
+  });
+
+  it.each([
+    ['no version', '{"name":"x"}'],
+    ['a non-string version', '{"version":3}'],
+    ['invalid JSON', 'not json'],
+  ])('throws naming mcp/package.json for %s', (_label, text) => {
+    expect(() => parseServerVersion(text)).toThrow(/mcp\/package\.json/);
   });
 });

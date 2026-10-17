@@ -3,6 +3,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { parseServerVersion } from './config.js';
 import { INSTRUCTIONS_MAX_CHARS, PROGRESS_INTERVAL_MS, TOOLS_LIST_MAX_CHARS } from './constants.js';
 import { INSTRUCTIONS, TOOL_DEFINITIONS, TOOL_NAMES } from './definitions.js';
 import { ApiError } from './errors.js';
@@ -20,6 +21,7 @@ import {
 } from './testing/fake-api.js';
 
 const API_URL = 'http://127.0.0.1:3001';
+const PACKAGE_VERSION = parseServerVersion(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
 const EXPECTED_LENGTHS = {
   list_agents: 207,
@@ -67,7 +69,14 @@ function world(): FakeDevDigestApi {
 }
 
 async function connect(api: FakeDevDigestApi = world(), over: Partial<ServerOptions> = {}) {
-  const server = createServer({ api, apiUrl: API_URL, runBudgetMs: 5_000, log: silent, ...over });
+  const server = createServer({
+    api,
+    apiUrl: API_URL,
+    runBudgetMs: 5_000,
+    log: silent,
+    version: PACKAGE_VERSION,
+    ...over,
+  });
   const [serverSide, clientSide] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: 'test-client', version: '0.0.0' });
   await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
@@ -225,6 +234,12 @@ describe('initialize', () => {
       version: string;
     };
     expect(client.getServerVersion()).toMatchObject({ name: 'devdigest-mcp', version: packageJson.version });
+  });
+
+  it('reports the version it is given and no other (AC-3)', async () => {
+    const { client } = await connect(world(), { version: '9.9.9-from-manifest' });
+
+    expect(client.getServerVersion()).toMatchObject({ name: 'devdigest-mcp', version: '9.9.9-from-manifest' });
   });
 });
 

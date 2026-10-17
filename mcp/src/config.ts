@@ -1,4 +1,8 @@
+import { z } from 'zod';
 import { RUN_BUDGET_MS_DEFAULT, RUN_BUDGET_MS_MAX, RUN_BUDGET_MS_MIN } from './constants.js';
+
+const PackageManifest = z.object({ version: z.string() });
+type PackageManifest = z.infer<typeof PackageManifest>;
 
 export interface Config {
   readonly apiUrl: string;
@@ -42,6 +46,21 @@ function parseRunBudget(raw: string | undefined): number {
     throw new Error(`${RUN_TIMEOUT_VAR} must be a whole number of milliseconds.`);
   }
   return Math.min(RUN_BUDGET_MS_MAX, Math.max(RUN_BUDGET_MS_MIN, Number(value)));
+}
+
+export function parseServerVersion(manifestText: string): string {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(manifestText);
+  } catch {
+    throw new Error('mcp/package.json is not valid JSON.');
+  }
+  const parsed = PackageManifest.safeParse(raw);
+  if (!parsed.success) {
+    throw new Error('mcp/package.json has no "version" string.');
+  }
+  const manifest: PackageManifest = parsed.data;
+  return manifest.version;
 }
 
 export function loadConfig(env: Env): Config {
