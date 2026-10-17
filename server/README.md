@@ -77,6 +77,7 @@ flowchart TB
   subgraph Agents["Agents & skills"]
     agents["agents<br/>/agents · /agents/:id · /agents/:id/skills"]
     skills["skills<br/>/skills · /skills/:id · /skills/:id/versions<br/>/skills/community · /skills/import(/preview)"]
+    agentPerformance["agent-performance<br/>GET /agents/performance · GET /agents/:id/stats (from, to; read-only)"]
   end
   subgraph Eval["Eval pipeline"]
     evalMod["eval — see docs/eval-pipeline.md<br/>GET /findings/:id/eval-case-draft · POST /findings/:id/eval-case (body)<br/>/agents/:id/eval-cases · POST /agents/:id/eval-cases/try (no write) · /eval-cases/:id<br/>/agents/:id/eval-runs(/compare) · /eval-runs/:id · /eval/dashboard<br/>skills: GET·POST /skills/:id/eval-cases · POST /skills/:id/eval-cases/try (no write) · GET·POST /skills/:id/eval-runs (host_agent_id) · GET /skills/:id/eval-runs/compare"]

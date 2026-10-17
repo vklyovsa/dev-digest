@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import type {
   Agent,
+  AgentPerf,
   AgentSkillLink,
   CiFailOn,
   ContextAttachments,
@@ -25,6 +26,17 @@ export function useAgent(id: string | null | undefined) {
     queryKey: ["agent", id],
     queryFn: () => api.get<Agent>(`/agents/${id}`),
     enabled: !!id,
+  });
+}
+
+export function useAgentPerformance(range: { from: string; to: string } | null) {
+  return useQuery({
+    queryKey: ["agent-performance", range?.from, range?.to],
+    queryFn: () =>
+      api.get<AgentPerf>(
+        `/agents/performance?from=${encodeURIComponent(range!.from)}&to=${encodeURIComponent(range!.to)}`,
+      ),
+    enabled: !!range,
   });
 }
 

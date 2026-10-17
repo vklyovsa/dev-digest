@@ -47,6 +47,8 @@ import { BriefService } from '../modules/brief/service.js';
 import { ReviewService } from '../modules/reviews/service.js';
 import { EvalRepository } from '../modules/eval/repository.js';
 import { EvalService } from '../modules/eval/service.js';
+import { AgentPerformanceRepository } from '../modules/agent-performance/repository.js';
+import { AgentPerformanceService } from '../modules/agent-performance/service.js';
 import type { RepoIntel } from '../modules/repo-intel/types.js';
 import { RepoIntelService } from '../modules/repo-intel/service.js';
 import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph/index.js';
@@ -116,6 +118,7 @@ export class Container {
   private _contextRepo?: ContextRepository;
   private _briefRepo?: BriefRepository;
   private _evalRepo?: EvalRepository;
+  private _agentPerformanceRepo?: AgentPerformanceRepository;
   private _pullsService?: PullsService;
   private _pollingService?: PollingService;
   private _settingsService?: SettingsService;
@@ -127,6 +130,7 @@ export class Container {
   private _briefService?: BriefService;
   private _reviewService?: ReviewService;
   private _evalService?: EvalService;
+  private _agentPerformanceService?: AgentPerformanceService;
   private logger: ContainerLogger = SILENT_LOGGER;
   private _repoIntel?: RepoIntel;
   private _depgraph?: DepGraph;
@@ -201,6 +205,10 @@ export class Container {
 
   get evalRepo(): EvalRepository {
     return (this._evalRepo ??= new EvalRepository(this.db));
+  }
+
+  get agentPerformanceRepo(): AgentPerformanceRepository {
+    return (this._agentPerformanceRepo ??= new AgentPerformanceRepository(this.db));
   }
 
   // Use cases. Each takes named ports, never this container — the constructor
@@ -302,6 +310,12 @@ export class Container {
       findings: this.reviewService,
       llm: (id) => this.llm(id),
       log: this.logger,
+    }));
+  }
+
+  get agentPerformanceService(): AgentPerformanceService {
+    return (this._agentPerformanceService ??= new AgentPerformanceService({
+      store: this.agentPerformanceRepo,
     }));
   }
 

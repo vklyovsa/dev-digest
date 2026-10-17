@@ -13,11 +13,13 @@ export function Donut({
   size = 130,
   stroke = 22,
   valuePrefix = "$",
+  hideLegend = false,
 }: {
   segments: DonutSegment[];
   size?: number;
   stroke?: number;
   valuePrefix?: string;
+  hideLegend?: boolean;
 }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
@@ -40,6 +42,7 @@ export function Donut({
           ))}
         </Pie>
       </PieChart>
+      {!hideLegend && (
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {segments.map((s, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
@@ -52,6 +55,7 @@ export function Donut({
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 }
