@@ -83,6 +83,7 @@ result in the conversation, or it is `n/a`.
 node .claude/skills/workflow-retro/scripts/collect-run.mjs            # this session
 node .claude/skills/workflow-retro/scripts/collect-run.mjs --list     # recent sessions
 node .claude/skills/workflow-retro/scripts/collect-run.mjs --session <id> [--json] [--top 20]
+node .claude/skills/workflow-retro/scripts/collect-run.mjs --root <worktree> --session <id>  # a session that ran in another checkout
 ```
 
 It reads the transcripts Claude Code keeps per session and prints tables only:

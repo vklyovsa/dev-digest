@@ -38,6 +38,22 @@ fi
 GATE_RE='(^|[;&|(]|&&|\|\|)[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*(env[[:space:]]+([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*)?gh[[:space:]]+pr[[:space:]]+(create|ready)([[:space:]]|$)'
 grep -Eq "$GATE_RE" <<<"$CMD" || exit 0
 
+# The verdict covers this checkout's code only: a PR opened with -R/--repo in a repository
+# that is none of this checkout's remotes (a demo or target repo) is not this code's PR.
+target_repo="$(grep -Eo '(-R|--repo)([[:space:]]+|=)[^[:space:];&|)]+' <<<"$CMD" | head -1 | sed -E 's/^(-R|--repo)([[:space:]]+|=)//')"
+if [[ -n "$target_repo" ]]; then
+  norm_repo() { sed -E 's#\.git$##; s#^.*[:/]([^/:]+/[^/]+)$#\1#' <<<"$1" | tr '[:upper:]' '[:lower:]'; }
+  target_norm="$(norm_repo "$target_repo")"
+  own=0
+  while read -r url; do
+    [[ -n "$url" && "$(norm_repo "$url")" == "$target_norm" ]] && own=1
+  done < <(git remote -v 2>/dev/null | awk '{print $2}' | sort -u)
+  if [[ "$own" -eq 0 ]]; then
+    echo "pr-self-review: $target_norm is not a remote of this checkout — gate not applied" >&2
+    exit 0
+  fi
+fi
+
 if [[ "${PR_SELF_REVIEW_OVERRIDE:-}" == "1" ]] || grep -q 'PR_SELF_REVIEW_OVERRIDE=1' <<<"$CMD"; then
   echo "pr-self-review: gate bypassed via PR_SELF_REVIEW_OVERRIDE=1" >&2
   exit 0

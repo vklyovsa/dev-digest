@@ -156,6 +156,9 @@ Rules for this step:
   there, is theirs: report it, do not chase it.
 - A `SKIP` line means no test ran — integration tests self-skip without Docker — so it is
   not proof: report it as skipped, and say that they did not execute.
+- A new route page under `client/src/app/`: `grep -rl AppShell` over a sibling route's
+  files. When the siblings render inside `AppShell`, yours does too — a page without it
+  loses the sidebar and the header, and no typecheck or existing test notices.
 - Then walk the acceptance criteria your stages cover, one by one, and point at the test or
   `file:line` that proves each.
 - Your check ends at "the plan is implemented and its checks pass". Layering judgements

@@ -7,10 +7,13 @@ import { basename, isAbsolute, join, relative } from 'node:path';
 const USAGE = `collect-run.mjs — measure one Claude Code session from its transcripts.
 
 Usage:
-  collect-run.mjs [--session <id>] [--json] [--top <n>]
-  collect-run.mjs --list
+  collect-run.mjs [--root <dir>] [--session <id>] [--json] [--top <n>]
+  collect-run.mjs [--root <dir>] --list
 
-  --session <id>  session to measure (default: the most recently written one)
+  --root <dir>    the checkout whose sessions to read (default: this one) — e.g. a git
+                  worktree whose headless /implement session ran there
+  --session <id>  session to measure (default: the most recently written one); an id
+                  that is not under this checkout is looked up in every project folder
   --list          the ten most recent sessions of this project, newest first
   --json          exact numbers as JSON instead of Markdown tables
   --top <n>       rows in the file tables (default 15)
@@ -43,10 +46,23 @@ function repoRoot() {
   }
 }
 
-const ROOT = repoRoot();
+const rootArg = valueOf('--root');
+const ROOT = rootArg
+  ? execFileSync('git', ['-C', rootArg, 'rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim()
+  : repoRoot();
 const CONFIG_DIR = process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude');
-const PROJECT_DIR = join(CONFIG_DIR, 'projects', ROOT.replace(/[^a-zA-Z0-9]/g, '-'));
+const PROJECTS = join(CONFIG_DIR, 'projects');
+let PROJECT_DIR = join(PROJECTS, ROOT.replace(/[^a-zA-Z0-9]/g, '-'));
 const TOP = Number(valueOf('--top')) || 15;
+
+const wanted = valueOf('--session');
+if (wanted && !existsSync(join(PROJECT_DIR, `${wanted}.jsonl`)) && existsSync(PROJECTS)) {
+  const owner = readdirSync(PROJECTS).find((dir) => existsSync(join(PROJECTS, dir, `${wanted}.jsonl`)));
+  if (owner) {
+    PROJECT_DIR = join(PROJECTS, owner);
+    console.error(`collect-run: session found under projects/${owner}; pass --root <that checkout> to keep its paths repository-relative`);
+  }
+}
 
 if (!existsSync(PROJECT_DIR)) fail(`no transcripts for this repository under ${PROJECT_DIR}`);
 
