@@ -17,6 +17,8 @@ Change any of them by editing the spec it belongs to.
 | O-7 | Specs approval | Set `Status: approved` without a review stop (user's instruction) |
 | O-8 | Spec file names | Repo convention `specs/2026-10-18-<slug>.md`, not the lab's `specs/<slug>.md` |
 | O-9 | Retro ledger location | `docs/retro/ledger/` (repo convention), not the lab's `docs/retros/ledger.md` |
+| O-11 | Implementers launched from the main session are blocked by the guards (`CLAUDE_PROJECT_DIR` = main checkout, worktree = "outside the repository") | One headless `claude -p "/implement …"` session per worktree, as the lab prescribes; logs in `../l07-logs/` |
+| O-12 | `/implement` asks the user at caps / blockers | Headless note: take the recommended option, record it in the report; fix loop capped at 2 rounds / 2 fix subagents per feature |
 | O-10 | OpenRouter budget | Same volume as earlier runs: 23 runs ≈ $0.17 total so far, biggest session 9 runs ≈ $0.11 → aim at ≤ 15 paid runs for the whole lab |
 
 ## SPEC-11 Multi-Agent Review (`specs/2026-10-18-multi-agent-review.md`)
@@ -83,3 +85,16 @@ Change any of them by editing the spec it belongs to.
 | B-28 | Scaffolds | Only `ExportWizardSteps`; `LiveLogStream`, `AutoTriggerStatus` unused |
 | B-29 | Base branch | `main` |
 | B-30 | Fork PRs | Out of scope; appear as `failed` runs |
+
+## Implementation plans
+
+| # | Question | Taken |
+|---|---|---|
+| P-A1 | Who applies migration `0020` to `devdigest_review` (guard blocks implementers) | Main session, after A's `/implement` run |
+| P-A2 | Planner REC1: poll `useMultiAgentRun` every 4 s while a column runs | Accepted |
+| P-A3 | Planner REC2: fix EC-11 wording ("as on the PR page" was wrong) | Accepted, spec edited |
+| P-A4 | Planner REC3: index on `agent_runs(multi_agent_run_id)` | Declined — NG-9 / NFR-7 kept, no spec change |
+| P-B1 | Who adds the "CI Runs" nav item (needs A's GLOBAL group) | Main session after A merges and B is updated |
+| P-B2 | Files outside both ownership lists: `container.ts`, `server/package.json` + lockfile (`yaml`, `fflate`), `client/src/components/ci-runs/` | Accepted |
+| P-B3 | F1: runner shipped as one `.devdigest/runner/index.js`, may need `package.json` / chunks | Plan default; revisit only if the demo run fails at runner start |
+| P-B4 | F2: a `failed` CI run of a deleted agent drops out of CI Runs | Plan default |

@@ -53,7 +53,7 @@ vi.mock("./_components/PrDetailHeader", () => ({
 }));
 vi.mock("./_components/OverviewTab", () => ({ OverviewTab: () => <div>overview tab</div> }));
 vi.mock("./_components/FindingsTab", () => ({ FindingsTab: () => <div>findings tab</div> }));
-vi.mock("./_components/RunTraceDrawer", () => ({ default: () => null }));
+vi.mock("@/components/run-trace-drawer", () => ({ default: () => null }));
 vi.mock("./_components/DiffTab", () => ({
   DiffTab: (props: NonNullable<typeof diffProps>) => {
     diffProps = props;
