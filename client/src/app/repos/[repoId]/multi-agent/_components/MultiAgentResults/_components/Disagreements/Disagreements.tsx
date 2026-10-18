@@ -44,7 +44,7 @@ export function Disagreements({ groups, columns }: { groups: FindingGroup[]; col
                     {tk.verdict === "ignored" ? (
                       <span style={s.didNotFlag}>{t("conflicts.didNotFlag")}</span>
                     ) : isKnownSeverity(tk.verdict) ? (
-                      <SeverityBadge severity={tk.verdict as Severity} compact />
+                      <SeverityBadge severity={tk.verdict as Severity} />
                     ) : (
                       <span style={s.didNotFlag}>{tk.verdict}</span>
                     )}
