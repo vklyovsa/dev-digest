@@ -77,6 +77,7 @@ export const CiFile = z.object({
   path: z.string(),
   contents: z.string(),
   editable: z.boolean().default(true),
+  size_bytes: z.number().int(),
 });
 export type CiFile = z.infer<typeof CiFile>;
 
@@ -104,6 +105,7 @@ export const AgentManifest = z.object({
   // CI gate policy (see CiFailOn) — when the posted review should BLOCK
   // (REQUEST_CHANGES + fail the check) vs just comment. Default: block on critical.
   ci_fail_on: CiFailOn.default('critical'),
+  version: z.number().int().nullish(),
 });
 export type AgentManifest = z.infer<typeof AgentManifest>;
 /** Caller-facing input type — `.default()` fields stay optional. */
@@ -111,12 +113,14 @@ export type AgentManifestInput = z.input<typeof AgentManifest>;
 
 /** Request body for `POST /agents/:id/export-ci`. */
 export const CiExportInput = z.object({
-  repo: z.string().min(1), // "owner/name"
-  target: CiTarget.default('gha'),
-  /** "open_pr" opens a PR with the files; "files" just returns/persists them. */
-  action: z.enum(['open_pr', 'files']).default('open_pr'),
+  repo: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9-]*\/(?!\.\.?$)[A-Za-z0-9._-]+$/), // "owner/name"
+  target: z.literal('gha').default('gha'),
   post_as: z.enum(['github_review', 'pr_comment', 'none']).default('github_review'),
-  triggers: z.array(z.string()).default(['opened', 'synchronize', 'reopened']),
+  triggers: z
+    .array(z.enum(['opened', 'synchronize', 'reopened']))
+    .min(1)
+    .default(['opened', 'synchronize']),
+  workflow_yaml: z.string().max(100_000).nullish(),
   base: z.string().default('main'),
 });
 export type CiExportInput = z.infer<typeof CiExportInput>;
@@ -130,6 +134,9 @@ export const CiInstallation = z.object({
   repo: z.string(),
   target_type: CiTarget,
   installed_at: z.string(),
+  latest_run_status: z.string().nullable(),
+  latest_run_at: z.string().nullable(),
+  manifest_version: z.number().int().nullable(),
 });
 export type CiInstallation = z.infer<typeof CiInstallation>;
 
@@ -157,6 +164,12 @@ export const CiRun = z.object({
   source: z.string().nullable(),
   agent: z.string().nullish(),
   duration_s: z.number().nullish(),
+  repo: z.string(),
+  agent_id: z.string().nullable(),
+  verdict: Verdict.nullable(),
+  critical: z.number().int().nullable(),
+  warning: z.number().int().nullable(),
+  suggestion: z.number().int().nullable(),
 });
 export type CiRun = z.infer<typeof CiRun>;
 
@@ -174,8 +187,29 @@ export const CiResultArtifact = z.object({
   agent: z.string(),
   version: z.string().nullish(),
   pr_number: z.number().int().nullish(),
+  head_sha: z.string().regex(/^[0-9a-f]{40}$/),
+  repository_id: z.number().int(),
+  verdict: Verdict,
+  blockers: z.number().int(),
+  model: z.string(),
+  manifest_version: z.number().int().nullable(),
 });
 export type CiResultArtifact = z.infer<typeof CiResultArtifact>;
+
+/** Response of `POST /ci/sync`. */
+export const CiSyncResult = z.object({
+  ingested: z.number().int(),
+  skipped: z.number().int(),
+  failed: z.number().int(),
+  rejected: z.array(
+    z.object({
+      run_url: z.string(),
+      reason: z.enum(['schema', 'head_sha_mismatch', 'repository_mismatch', 'artifact_unreadable']),
+    }),
+  ),
+  errors: z.array(z.object({ repo: z.string(), message: z.string() })),
+});
+export type CiSyncResult = z.infer<typeof CiSyncResult>;
 
 // ===========================================================================
 // Conformance (PRD ↔ PR) — API record (the analysis shape is `Conformance`)

@@ -18,6 +18,8 @@ import type {
   CommitFilesPayload,
   IssueMeta,
   MergedPullWithFiles,
+  WorkflowRunSummary,
+  RunArtifactSummary,
   GitClient,
   CloneOptions,
   UnifiedDiff,
@@ -129,6 +131,12 @@ export interface MockGitHubOptions {
   comments?: PrReviewComment[];
   /** Merged PRs returned by listMergedPullsWithFiles. */
   mergedPulls?: MergedPullWithFiles[];
+  repositoryId?: number;
+  workflowRuns?: WorkflowRunSummary[];
+  /** Artifacts by workflow run id. */
+  artifacts?: Record<number, RunArtifactSummary[]>;
+  /** Archive bytes by artifact id. */
+  artifactZips?: Record<number, Uint8Array>;
 }
 
 export class MockGitHubClient implements GitHubClient {
@@ -244,6 +252,26 @@ export class MockGitHubClient implements GitHubClient {
 
   async currentLogin(): Promise<string> {
     return this.opts.login ?? 'mock-user';
+  }
+
+  async getRepositoryId(_repo: RepoRef): Promise<number> {
+    return this.opts.repositoryId ?? 1;
+  }
+
+  async listCompletedWorkflowRuns(
+    _repo: RepoRef,
+    _workflowFile: string,
+    limit: number,
+  ): Promise<WorkflowRunSummary[]> {
+    return (this.opts.workflowRuns ?? []).slice(0, limit);
+  }
+
+  async listRunArtifacts(_repo: RepoRef, runId: number): Promise<RunArtifactSummary[]> {
+    return this.opts.artifacts?.[runId] ?? [];
+  }
+
+  async downloadArtifact(_repo: RepoRef, artifactId: number): Promise<Uint8Array> {
+    return this.opts.artifactZips?.[artifactId] ?? new Uint8Array();
   }
 }
 
