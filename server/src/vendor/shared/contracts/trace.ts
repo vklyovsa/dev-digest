@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { Verdict } from './findings.js';
 
 /**
  * Run trace. The ENTIRE trace of one run is persisted as a SINGLE
@@ -100,6 +101,22 @@ export const RunTrace = z.object({
   /** Optional: traces stored before project context carry no such key. */
   specs_docs: z.array(SpecDocRead).optional(),
   log: z.array(RunLogLine),
+  ci: z
+    .object({
+      repo: z.string(),
+      repository_id: z.number().int(),
+      pr_number: z.number().int(),
+      head_sha: z.string(),
+      run_url: z.string(),
+      manifest_version: z.number().int().nullable(),
+      model: z.string(),
+      runner_version: z.string().nullable(),
+      verdict: Verdict,
+      critical: z.number().int(),
+      warning: z.number().int(),
+      suggestion: z.number().int(),
+    })
+    .optional(),
 });
 export type RunTrace = z.infer<typeof RunTrace>;
 

@@ -1,6 +1,6 @@
 /* AgentEditor — the agent's config (model + system prompt), the skills it
-   loads, the project documents it receives and its eval cases. Stats/CI arrive
-   with their own lessons. Tab state lives in ?tab= so a link to a specific tab survives a
+   loads, the project documents it receives, its eval cases and its CI exports. Stats arrives
+   with its own lesson. Tab state lives in ?tab= so a link to a specific tab survives a
    reload. */
 "use client";
 
@@ -8,6 +8,7 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { Tabs } from "@devdigest/ui";
 import type { Agent } from "@devdigest/shared";
+import { CiTab } from "./_components/CiTab";
 import { ConfigTab } from "./_components/ConfigTab";
 import { ContextTab } from "./_components/ContextTab";
 import { EvalsTab } from "./_components/EvalsTab";
@@ -33,6 +34,8 @@ export function AgentEditor({ agent, tab, onTab }: { agent: Agent; tab: string; 
           <ContextTab key={agent.id} agent={agent} />
         ) : tab === "evals" ? (
           <EvalsTab key={agent.id} agent={agent} />
+        ) : tab === "ci" ? (
+          <CiTab key={agent.id} agent={agent} />
         ) : (
           <ConfigTab key={agent.id} agent={agent} />
         )}

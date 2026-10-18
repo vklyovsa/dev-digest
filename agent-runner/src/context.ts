@@ -30,6 +30,10 @@ export interface PrContext {
   /** True when the PR head is a fork — informational only; the workflow
    *  itself is responsible for never scheduling this job for fork PRs. */
   isFork: boolean;
+  /** Head commit SHA of the PR, from the event payload. */
+  headSha: string;
+  /** Numeric GitHub repository id, from the event payload. */
+  repositoryId: number;
 }
 
 interface PullRequestEventPayload {
@@ -37,8 +41,9 @@ interface PullRequestEventPayload {
     number?: number;
     title?: string;
     body?: string | null;
-    head?: { repo?: { fork?: boolean } | null };
+    head?: { sha?: string; repo?: { fork?: boolean } | null };
   };
+  repository?: { id?: number };
 }
 
 function readEventPayload(
@@ -83,6 +88,15 @@ export function resolvePrContext(
     );
   }
 
+  const headSha = pr?.head?.sha;
+  if (typeof headSha !== 'string' || !/^[0-9a-f]{40}$/.test(headSha)) {
+    throw new RunnerError('The pull_request event payload has no valid pull_request.head.sha');
+  }
+  const repositoryId = event?.repository?.id;
+  if (typeof repositoryId !== 'number' || !Number.isInteger(repositoryId) || repositoryId <= 0) {
+    throw new RunnerError('The pull_request event payload has no valid repository.id');
+  }
+
   return {
     owner,
     repo,
@@ -90,5 +104,7 @@ export function resolvePrContext(
     title: pr?.title ?? '',
     body: pr?.body ?? '',
     isFork: pr?.head?.repo?.fork ?? false,
+    headSha,
+    repositoryId,
   };
 }

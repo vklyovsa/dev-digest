@@ -19,6 +19,8 @@ See also: `insights/gotchas.md` for known quirks at project start.
 
 ## Tool & Library Notes
 
+2026-10-18 — Correction to the first What Works entry: `pnpm build` is NOT a single file. `dist/` holds `index.js` (1554 kB), `300.index.js` (6 kB lazy chunk) and `package.json` (`{"type":"module"}`); the chunk name changes with the bundle (was `310`). Shipping only `index.js` (SPEC-12 AC-4) relies on Node ESM syntax detection and on never loading the chunk. ref: agent-runner/dist
+
 2026-07-08 — `@vercel/ncc` versions jump from `0.38.4` straight to `0.43.0`/`0.44.x` on npm (no `0.39`–`0.42` releases). A `^0.38.3` semver range resolves to `0.38.4`, not the newer `0.44.x` line — pin explicitly if the newer major-minor is desired. ref: agent-runner/package.json:15
 
 ## Recurring Errors & Fixes

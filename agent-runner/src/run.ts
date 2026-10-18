@@ -7,6 +7,7 @@ import { resolvePrContext, type CiEnv } from './context.js';
 import { parseUnifiedDiff, stripIgnoredFiles } from './diff.js';
 import { fetchPrDiff, postGithubReview, postPrComment, type FetchLike } from './github.js';
 import { buildResultArtifact } from './artifact.js';
+import { redactSecrets } from './redact.js';
 import { RunnerError } from './errors.js';
 
 /**
@@ -80,6 +81,12 @@ export interface RunCiFailure {
 
 export type RunCiResult = RunCiSuccess | RunCiFailure;
 
+const VERDICT_BY_EVENT = {
+  APPROVE: 'approve',
+  REQUEST_CHANGES: 'request_changes',
+  COMMENT: 'comment',
+} as const;
+
 export async function runCi(deps: RunCiDeps): Promise<RunCiResult> {
   const readFile = deps.readFile ?? readFileSync;
   const readDir = deps.readDir ?? readdirSync;
@@ -145,8 +152,18 @@ export async function runCi(deps: RunCiDeps): Promise<RunCiResult> {
       durationMs,
       agent: manifest.name,
       prNumber: ctx.prNumber,
+      headSha: ctx.headSha,
+      repositoryId: ctx.repositoryId,
+      verdict: VERDICT_BY_EVENT[payload.event],
+      blockers,
+      model: manifest.model,
+      manifestVersion: manifest.version ?? null,
     });
     writeFile(deps.resultPath, `${JSON.stringify(artifact, null, 2)}\n`);
+
+    const secrets = [deps.env.OPENROUTER_API_KEY, deps.env.GITHUB_TOKEN];
+    payload.body = redactSecrets(payload.body, secrets);
+    for (const comment of payload.comments ?? []) comment.body = redactSecrets(comment.body, secrets);
 
     // 7. Post per `post_as` (AC-24).
     if (deps.postAs === 'github_review') {
@@ -167,7 +184,10 @@ export async function runCi(deps: RunCiDeps): Promise<RunCiResult> {
   } catch (err) {
     // Hard-fail (Q5): non-zero exit, nothing posted, no artifact, no synthetic
     // review skeleton — regardless of which stage above threw.
-    const message = err instanceof Error ? err.message : String(err);
+    const message = redactSecrets(err instanceof Error ? err.message : String(err), [
+      deps.env.OPENROUTER_API_KEY,
+      deps.env.GITHUB_TOKEN,
+    ]);
     return { exitCode: 1, artifact: null, posted: null, error: message };
   }
 }
