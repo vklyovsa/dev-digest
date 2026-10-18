@@ -27,7 +27,7 @@ owns the merge gate. Run both if you want both — they are deliberately separat
 | Path | What happens |
 |---|---|
 | `/pr-self-review [--base <ref>] [--scope branch\|working] [--force] [--tests]` | full run |
-| `gh pr create` / `gh pr ready` | `scripts/guard-pr.sh` (PreToolUse hook) refuses with `exit 2` unless a fresh, non-blocking verdict exists |
+| `gh pr create` / `gh pr ready` | `scripts/guard-pr.sh` (PreToolUse hook) refuses with `exit 2` unless a fresh, non-blocking verdict exists; a `-R/--repo` naming a repository that is none of this checkout's remotes is not gated |
 
 The hook never runs the review — it only reads the artifact. When it fires, run this skill.
 

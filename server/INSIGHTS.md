@@ -116,6 +116,9 @@ do not say.
 Error or symptom → cause → fix, one entry each, so the next occurrence is a lookup
 instead of an investigation.
 
+- **Export to CI answering 502 "Resource not accessible by personal access token" means the studio fine-grained PAT lacks write access to the target repository, not a bug in `commitFiles`.** (2026-10-18) The token in `~/.devdigest/secrets.json` read the public demo repo fine (200) but `POST /repos/<owner>/<repo>/git/blobs` answered 403 until the repo was added to the token with Contents, Pull requests and Workflows read-write plus Actions read; then 201 and the export PR opened. The workflow run on the export PR itself always fails with `Cannot find module .devdigest/runner/index.js` (it checks out the base SHA, which has no runner yet) and is stored as a `failed` `ci_runs` row with no PR number.
+  → Probe write access with a throwaway `git/blobs` POST before exporting to a new repo; ignore the red check on the export PR.
+
 - **Corrected 2026-10-05: the `/tmp` tsconfig recipe needs `typeRoots`, and it is the calling session that runs it.** Without `"typeRoots": ["<abs>/server/node_modules/@types"]` in `compilerOptions`, `server/node_modules/.bin/tsc -p /tmp/<cfg>.json` stops at `error TS2688: Cannot find type definition file for 'node'` (exit 2); with it the same config over `src/**` plus eight test files exits 0 with no output. Run that way for all five server briefs of `specs/2026-10-05-pr-brief-plan.md`, because `implementer-guard.sh` refuses an implementer's write outside the repository.
   → Put `typeRoots` into the throwaway config; in a plan, give the type-check of new server test files to the calling session or to §6, never to an implementer's Done-when.
 

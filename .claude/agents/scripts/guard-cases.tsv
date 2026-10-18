@@ -219,3 +219,18 @@ readonly-guard	--allow-tests	cmd	.claude/agents/scripts/check-code.sh server > o
 write-scope-guard	--profile tests	cmd	.claude/agents/scripts/check-code.sh server -- test/x.test.ts	0
 write-scope-guard	--profile docs	cmd	.claude/agents/scripts/check-code.sh server	2
 write-scope-guard	--profile specs	cmd	.claude/agents/scripts/check-code.sh server	2
+# write-scope-guard --profile plans — implementation-planner writes its plan file only
+write-scope-guard	--profile plans	path	specs/2026-10-18-export-to-ci-plan.md	0
+write-scope-guard	--profile plans	path	specs/run-cost-plan.md	0
+write-scope-guard	--profile plans	path	server/specs/2026-10-18-x-plan.md	0
+write-scope-guard	--profile plans	path	specs/2026-10-18-export-to-ci.md	2
+write-scope-guard	--profile plans	path	specs/README.md	2
+write-scope-guard	--profile plans	path	server/src/modules/ci/service.ts	2
+write-scope-guard	--profile plans	path	docs/x-plan.md	2
+write-scope-guard	--profile plans	path	specs/../server/src/x-plan.md	2
+write-scope-guard	--profile plans	cmd	grep -n "^## " specs/2026-10-18-export-to-ci.md	0
+write-scope-guard	--profile plans	cmd	echo x > specs/2026-10-18-x-plan.md	2
+write-scope-guard	--profile plans	cmd	git commit -m x	2
+write-scope-guard	--profile plans	tool	NotebookEdit	2
+write-scope-guard	--profile tests	path	agent-runner/src/ci-artifact.test.ts	0
+write-scope-guard	--profile tests	path	agent-runner/src/run.ts	2

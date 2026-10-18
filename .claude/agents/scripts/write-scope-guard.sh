@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
 # PreToolUse(Bash|Edit|MultiEdit|Write|NotebookEdit) gate for the agents that write only one
-# kind of file: test-writer (--profile tests), doc-writer (--profile docs) and spec-creator
-# (--profile specs).
+# kind of file: test-writer (--profile tests), doc-writer (--profile docs), spec-creator
+# (--profile specs) and implementation-planner (--profile plans).
 # Edit/Write: a path ALLOWLIST per profile. Bash: the shared denylist (git history, PRs,
 # dev-DB writes, the Docker volume) plus installs, the dev/e2e stacks, project-wide
 # formatting and file-mutating commands. The specs profile is stricter on Bash: it hands
 # every command to readonly-guard.sh --bash-only, an allowlist. On files it admits a dated
 # spec in a spec folder — a new one, or an existing one whose header says `Status: draft`
-# — and that folder's README.md.
+# — and that folder's README.md. The plans profile is as strict on Bash and admits only an
+# Implementation Plan (`<slug>-plan.md`) in a spec folder.
 #
-#   write-scope-guard.sh --profile tests|docs|specs                    # hook mode, payload on stdin
-#   write-scope-guard.sh --profile tests|docs|specs --check "<cmd>"
-#   write-scope-guard.sh --profile tests|docs|specs --check-path "<p>"
-#   write-scope-guard.sh --profile tests|docs|specs --check-tool <Tool>
+#   write-scope-guard.sh --profile tests|docs|specs|plans                    # hook mode, payload on stdin
+#   write-scope-guard.sh --profile tests|docs|specs|plans --check "<cmd>"
+#   write-scope-guard.sh --profile tests|docs|specs|plans --check-path "<p>"
+#   write-scope-guard.sh --profile tests|docs|specs|plans --check-tool <Tool>
 set -uo pipefail
 trap 'rc=$?; [[ $rc == 0 || $rc == 2 ]] || { echo "BLOCKED: ${0##*/} failed (exit $rc), so it fails closed." >&2; exit 2; }' EXIT
 
@@ -30,14 +31,16 @@ source "${BASH_SOURCE[0]%/*}/guard-lib.sh" || exit 2
 case "$PROFILE" in
   tests|docs) ;;
   specs) GUARD_HINT='Say so in your report: a change outside the spec folders belongs to another agent or to the user.' ;;
-  *) block "every tool call" "write-scope-guard needs --profile tests, --profile docs or --profile specs." ;;
+  plans) GUARD_HINT='Say so in your report: the planner writes its plan file and nothing else.' ;;
+  *) block "every tool call" "write-scope-guard needs --profile tests, --profile docs, --profile specs or --profile plans." ;;
 esac
 
-TEST_PATHS='^(client/src/.+\.test\.tsx?|client/src/test/.+|server/test/.+|server/src/.+\.test\.ts|reviewer-core/test/.+|reviewer-core/src/.+\.test\.ts|(server|reviewer-core)/tsconfig\.test-check\.json)$'
+TEST_PATHS='^(client/src/.+\.test\.tsx?|client/src/test/.+|server/test/.+|server/src/.+\.test\.ts|reviewer-core/test/.+|reviewer-core/src/.+\.test\.ts|agent-runner/src/.+\.test\.ts|(server|reviewer-core)/tsconfig\.test-check\.json)$'
 DOC_PATHS='^(docs/[^/]+\.md|(server|client|reviewer-core|e2e)/docs/[^/]+\.md|README\.md|(server|client|reviewer-core|e2e)/README\.md|server/src/modules/[^/]+/README\.md|TESTING\.md|AGENTS\.md|(server|client|reviewer-core|e2e)/AGENTS\.md)$'
 SPEC_DIRS='(specs|server/specs|client/specs|reviewer-core/specs|mcp/specs)'
 SPEC_FILE="^${SPEC_DIRS}/[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9]+(-[a-z0-9]+)*\.md\$"
 SPEC_INDEX="^${SPEC_DIRS}/README\.md\$"
+PLAN_FILE="^${SPEC_DIRS}/([0-9]{4}-[0-9]{2}-[0-9]{2}-)?[a-z0-9]+(-[a-z0-9]+)*-plan\.md\$"
 TEST_THROWAWAY='^(rm)([[:space:]]+-f)?[[:space:]]+(\./)?(server|reviewer-core)/tsconfig\.test-check\.json$|^rm([[:space:]]+-f)?[[:space:]]+(\./)?tsconfig\.test-check\.json$'
 RUNNERS='^((pnpm|npm|yarn)[[:space:]]+(run[[:space:]]+)?(test|e2e)([[:space:]:]|$)|(pnpm[[:space:]]+exec|npx|pnpm|yarn)[[:space:]]+(vitest|jest|playwright)([[:space:]]|$)|vitest([[:space:]]|$))'
 
@@ -89,7 +92,7 @@ check_segment() {
 check_command() {
   local cmd="$1" seg
   [[ -z "$cmd" ]] && return 0
-  if [[ "$PROFILE" == specs ]]; then
+  if [[ "$PROFILE" == specs || "$PROFILE" == plans ]]; then
     "${BASH_SOURCE[0]%/*}/readonly-guard.sh" --bash-only --check "$cmd" || exit 2
     return 0
   fi
@@ -111,12 +114,17 @@ check_path() {
   if grep -Eq '(^|/)INSIGHTS\.md$' <<<"$rel"; then
     block "$rel" "INSIGHTS.md is append-only through .claude/skills/engineering-insights/scripts/append-insight.sh."
   fi
+  if [[ "$PROFILE" == plans ]]; then
+    grep -Eq "$PLAN_FILE" <<<"$rel" \
+      || block "$rel" "implementation-planner writes only its Implementation Plan: <spec-name>-plan.md beside the spec in specs/, server/specs/, client/specs/, reviewer-core/specs/ or mcp/specs/."
+    return 0
+  fi
   if [[ "$PROFILE" == specs ]]; then
     grep -Eq "$SPEC_INDEX" <<<"$rel" && return 0
     grep -Eq "$SPEC_FILE" <<<"$rel" \
       || block "$rel" "spec-creator writes specs only: <YYYY-MM-DD>-<feature-slug>.md in specs/, server/specs/, client/specs/, reviewer-core/specs/ or mcp/specs/, plus that folder's README.md (the Open specs list)."
     grep -Eq -- '-plan\.md$' <<<"$rel" \
-      && block "$rel" "an Implementation Plan is saved from implementation-planner's output; spec-creator does not write it."
+      && block "$rel" "an Implementation Plan is written by implementation-planner; spec-creator does not write it."
     # The header is everything above the first `## ` heading; only its Status line counts.
     if [[ -e "$ROOT/$rel" ]] \
       && [[ "$(sed -n '/^## /q;p' "$ROOT/$rel" | grep -m1 -E '^Status:' | sed -E 's/[[:space:]]+$//')" != "Status: draft" ]]; then

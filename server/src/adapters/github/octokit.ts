@@ -12,6 +12,8 @@ import type {
   CommitFilesPayload,
   IssueMeta,
   MergedPullWithFiles,
+  WorkflowRunSummary,
+  RunArtifactSummary,
 } from '@devdigest/shared';
 import { withRetry, withTimeout } from '../../platform/resilience.js';
 import {
@@ -294,16 +296,39 @@ export class OctokitGitHubClient implements GitHubClient {
 
           // New tree layered on the parent's tree (so unrelated files are kept).
           const parentCommit = await g.getCommit({ owner, repo: name, commit_sha: parentSha });
+          const written = new Set(payload.files.map((f) => f.path));
+          const removals: { path: string; mode: '100644'; type: 'blob'; sha: null }[] = [];
+          if (payload.prune?.length) {
+            const existing = await g.getTree({
+              owner,
+              repo: name,
+              tree_sha: parentCommit.data.tree.sha,
+              recursive: 'true',
+            });
+            for (const entry of existing.data.tree) {
+              if (
+                entry.type === 'blob' &&
+                entry.path &&
+                !written.has(entry.path) &&
+                payload.prune.some((prefix) => entry.path!.startsWith(prefix))
+              ) {
+                removals.push({ path: entry.path, mode: '100644', type: 'blob', sha: null });
+              }
+            }
+          }
           const tree = await g.createTree({
             owner,
             repo: name,
             base_tree: parentCommit.data.tree.sha,
-            tree: payload.files.map((f) => ({
-              path: f.path,
-              mode: '100644',
-              type: 'blob',
-              content: f.contents,
-            })),
+            tree: [
+              ...payload.files.map((f) => ({
+                path: f.path,
+                mode: '100644' as const,
+                type: 'blob' as const,
+                content: f.contents,
+              })),
+              ...removals,
+            ],
           });
 
           const commit = await g.createCommit({
@@ -393,5 +418,74 @@ export class OctokitGitHubClient implements GitHubClient {
       withTimeout(this.octokit.rest.users.getAuthenticated(), TIMEOUT),
     );
     return res.data.login;
+  }
+
+  async getRepositoryId(repo: RepoRef): Promise<number> {
+    const res = await withRetry(() =>
+      withTimeout(this.octokit.rest.repos.get({ owner: repo.owner, repo: repo.name }), TIMEOUT),
+    );
+    return res.data.id;
+  }
+
+  async listCompletedWorkflowRuns(
+    repo: RepoRef,
+    workflowFile: string,
+    limit: number,
+  ): Promise<WorkflowRunSummary[]> {
+    const res = await withRetry(() =>
+      withTimeout(
+        this.octokit.rest.actions.listWorkflowRuns({
+          owner: repo.owner,
+          repo: repo.name,
+          workflow_id: workflowFile,
+          status: 'completed',
+          per_page: limit,
+        }),
+        TIMEOUT,
+      ),
+    );
+    return res.data.workflow_runs.map((r) => ({
+      id: r.id,
+      htmlUrl: r.html_url,
+      headSha: r.head_sha,
+      prNumber: r.pull_requests?.[0]?.number ?? null,
+      startedAt: r.run_started_at ?? r.created_at,
+      headRepositoryId: r.head_repository?.id ?? null,
+      event: r.event,
+    }));
+  }
+
+  async listRunArtifacts(repo: RepoRef, runId: number): Promise<RunArtifactSummary[]> {
+    const res = await withRetry(() =>
+      withTimeout(
+        this.octokit.rest.actions.listWorkflowRunArtifacts({
+          owner: repo.owner,
+          repo: repo.name,
+          run_id: runId,
+        }),
+        TIMEOUT,
+      ),
+    );
+    return res.data.artifacts.map((a) => ({
+      id: a.id,
+      name: a.name,
+      sizeInBytes: a.size_in_bytes,
+      expired: a.expired,
+    }));
+  }
+
+  async downloadArtifact(repo: RepoRef, artifactId: number): Promise<Uint8Array> {
+    const res = await withRetry(() =>
+      withTimeout(
+        this.octokit.rest.actions.downloadArtifact({
+          owner: repo.owner,
+          repo: repo.name,
+          artifact_id: artifactId,
+          archive_format: 'zip',
+        }),
+        TIMEOUT,
+      ),
+    );
+    return new Uint8Array(res.data as ArrayBuffer);
   }
 }

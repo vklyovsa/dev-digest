@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, within } from "@testing-library/react";
 import { Sidebar } from "@devdigest/ui";
 import shell from "../../../messages/en/shell.json";
 import { activeKeyFor } from "./helpers";
@@ -28,6 +28,24 @@ describe("Project Context navigation", () => {
     render(<Sidebar ctx={{ repoId: "r1", activeKey }} />);
     const row = (name: string) => screen.getByRole("link", { name }).firstElementChild;
     expect(row("Project Context")).toHaveStyle({ fontWeight: 600 });
+    expect(row("Pull Requests")).toHaveStyle({ fontWeight: 500 });
+  });
+});
+
+describe("Multi-Agent Review navigation", () => {
+  it("AC-49: shows Multi-Agent Review in the GLOBAL section, links to /repos/:repoId/multi-agent and marks it active on that path", () => {
+    render(<Sidebar ctx={{ repoId: "r1" }} />);
+    const link = screen.getByRole("link", { name: "Multi-Agent Review" });
+    expect(link).toHaveAttribute("href", "/repos/r1/multi-agent");
+    expect(within(link.parentElement as HTMLElement).getByText("GLOBAL")).toBeInTheDocument();
+    cleanup();
+
+    for (const path of ["/repos/r1/multi-agent", "/repos/r1/multi-agent/run1"]) {
+      expect(activeKeyFor(path)).toBe("multi-agent");
+    }
+    render(<Sidebar ctx={{ repoId: "r1", activeKey: activeKeyFor("/repos/r1/multi-agent") }} />);
+    const row = (name: string) => screen.getByRole("link", { name }).firstElementChild;
+    expect(row("Multi-Agent Review")).toHaveStyle({ fontWeight: 600 });
     expect(row("Pull Requests")).toHaveStyle({ fontWeight: 500 });
   });
 });

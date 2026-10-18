@@ -119,7 +119,7 @@ export class ReviewRunExecutor {
     // to "reviewing without it" (`info`, not `error`; see 4.0's Live Log table).
     const intent = await this.resolveIntent(workspaceId, pull, runLog, correlationId, logger);
 
-    for (const { agent, runId } of jobs) {
+    await Promise.all(jobs.map(async ({ agent, runId }) => {
       const agentStart = Date.now();
       logger?.info(
         { runId, agent: agent.name, provider: agent.provider, model: agent.model, prId: pull.id },
@@ -156,7 +156,7 @@ export class ReviewRunExecutor {
           `review: agent "${agent.name}" ${cancelled ? 'cancelled' : 'failed'}`,
         );
       }
-    }
+    }));
   }
 
   /**

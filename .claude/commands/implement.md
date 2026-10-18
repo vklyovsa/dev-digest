@@ -36,6 +36,11 @@ Arguments: $ARGUMENTS
    briefs of one or two, in order, one track.
 3. Stop and say what is missing when:
    - there is no plan file → "run `implementation-planner` on the approved spec first";
+   - the plan lies in another git worktree (`git -C "$(dirname <plan>)" rev-parse
+     --show-toplevel` is not this repository's root) → the guards and `check-code.sh` take
+     the root from `CLAUDE_PROJECT_DIR`, so every implementer write there is refused. Print
+     `cd <worktree> && claude -p "/implement <plan> …"` (or "open a session in
+     `<worktree>`") and dispatch nothing;
    - the plan's `Source:` is a spec with a `Status:` line that is not `approved`;
    - §7 holds a `[blocking]` line tagged `[→ spec-creator]` for a stage of this run → a gap
      in the requirements is settled in the spec, never by a question here: "send it to

@@ -362,7 +362,10 @@ first line of your reply and redo Steps 0–2 — answers do not replace reading
    guessed or copied one, then the feature's name in kebab-case
    (`2026-10-04-blast-radius.md`). The title line carries the same name in words. No
    `SPEC-NN` in the name, and a revision never renames the file.
-3. **Spec ID.** What `.claude/agents/scripts/check-spec.sh --next-id` prints.
+3. **Spec ID.** The ID the brief assigns, when it names one (`Spec ID: SPEC-NN`) — the
+   calling session assigns IDs when it runs two or more spec-creators at once, because
+   `--next-id` only sees spec files already on disk and hands the same ID to each. Otherwise
+   what `.claude/agents/scripts/check-spec.sh --next-id` prints.
 4. **Header.** `Status: draft`. `Supersedes:` names the replaced spec, or `none`.
 5. **Sections.** Every heading of `specs/TEMPLATE.md`, in its order, with its IDs and its
    exact line formats — the checker parses them.

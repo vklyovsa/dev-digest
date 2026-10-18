@@ -51,6 +51,9 @@ Approaches and solutions that held up, with the context that made them work.
 Dead ends and anti-patterns: what was tried, why it failed, what to do instead.
 **The highest-value section and the one most often left empty. Fill it.**
 
+- **Project implementers cannot be dispatched from a session opened in the main checkout into a `git worktree`: every guard and `check-code.sh` take the root from `CLAUDE_PROJECT_DIR`, so writes into `../<worktree>` are refused as outside the repository.** (2026-10-18, L07) `guard-lib.sh:9`; the planner flagged it before any write. A Bash call `cd ../<worktree> && claude -p "/implement <plan> …" --permission-mode bypassPermissions --output-format stream-json --verbose > log` ran each build to completion with no variables unset (Claude Code 2.1.295); those headless sessions ran on Sonnet while the interactive one was Opus, and `collect-run.mjs --session <id>` finds them only when started from inside that worktree (it keys the transcript folder on `git rev-parse`).
+  → For a worktree fan-out, start one headless `/implement` per worktree from the main session and poll its stream-json log; never brief implementers across worktrees.
+
 - **A per-brief filtered check stays green while parallel implementers break each other — run the whole package once every parallel track has landed.** (2026-10-13) Stage 11 of `specs/2026-10-13-eval-case-modal-plan.md` made "Run after saving" on by default in `client/src/components/eval-case-editor/CaseEditorDialog.tsx`, so a save keeps the dialog open; `EvalsTab.test.tsx` and `EvalCaseAction.test.tsx`, owned by two other tracks, failed only in the full `check-code.sh client` run, and `RunHistory.test.tsx` failed because `CompareRunsDialog` gained a read of the agent.
   → After the last parallel brief, run `.claude/agents/scripts/check-code.sh <package>` unfiltered before any review; in a test, look for the request among all `fetchMock.mock.calls`, never `calls.at(-1)`.
 

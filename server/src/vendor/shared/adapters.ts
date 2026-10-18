@@ -138,6 +138,8 @@ export interface CommitFilesPayload {
   base: string;
   message: string;
   files: CommitFile[];
+  /** Path prefixes whose existing blobs are deleted unless rewritten by `files`. */
+  prune?: string[];
 }
 
 /** A merged PR with the paths it changed (first page of files only). */
@@ -149,6 +151,24 @@ export interface MergedPullWithFiles {
   files: string[];
   /** True when the PR changed more files than were fetched. */
   filesTruncated: boolean;
+}
+
+/** A completed GitHub Actions workflow run. */
+export interface WorkflowRunSummary {
+  id: number;
+  htmlUrl: string;
+  headSha: string;
+  prNumber: number | null;
+  startedAt: string;
+  headRepositoryId: number | null;
+  event: string;
+}
+
+export interface RunArtifactSummary {
+  id: number;
+  name: string;
+  sizeInBytes: number;
+  expired: boolean;
 }
 
 export interface GitHubClient {
@@ -177,6 +197,15 @@ export interface GitHubClient {
   listMergedPullsWithFiles(repo: RepoRef, limit: number): Promise<MergedPullWithFiles[]>;
   /** GET /user — for "posting as @user". */
   currentLogin(): Promise<string>;
+  getRepositoryId(repo: RepoRef): Promise<number>;
+  /** Most recent completed runs of one workflow file, newest first. */
+  listCompletedWorkflowRuns(
+    repo: RepoRef,
+    workflowFile: string,
+    limit: number,
+  ): Promise<WorkflowRunSummary[]>;
+  listRunArtifacts(repo: RepoRef, runId: number): Promise<RunArtifactSummary[]>;
+  downloadArtifact(repo: RepoRef, artifactId: number): Promise<Uint8Array>;
 }
 
 // ---------- Git (simple-git, heavy) ----------
