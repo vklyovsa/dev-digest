@@ -19,6 +19,10 @@ Change any of them by editing the spec it belongs to.
 | O-9 | Retro ledger location | `docs/retro/ledger/` (repo convention), not the lab's `docs/retros/ledger.md` |
 | O-11 | Implementers launched from the main session are blocked by the guards (`CLAUDE_PROJECT_DIR` = main checkout, worktree = "outside the repository") | One headless `claude -p "/implement …"` session per worktree, as the lab prescribes; logs in `../l07-logs/` |
 | O-12 | `/implement` asks the user at caps / blockers | Headless note: take the recommended option, record it in the report; fix loop capped at 2 rounds / 2 fix subagents per feature |
+| O-13 | `pr-self-review` hook blocked `gh pr create` in the demo repo (verdict is about dev-digest HEAD) | `PR_SELF_REVIEW_OVERRIDE=1` for that one command with `-R vklyovsa/devdigest-demo`, under the standing demo-repo permission |
+| O-14 | Required check for "CRITICAL blocks merge" | Ruleset "DevDigest review required" on the default branch, status check `review` from GitHub Actions |
+| O-15 | CI Runs page rendered without the app shell (found on screenshot) | Fixed by the main session in worktree B before its merge (`d40a530`) |
+| O-16 | Test PR content | Buggy `formatDuration` fixture from `specs/fixtures/smart-diff-demo` → demo PR #2 |
 | O-10 | OpenRouter budget | Same volume as earlier runs: 23 runs ≈ $0.17 total so far, biggest session 9 runs ≈ $0.11 → aim at ≤ 15 paid runs for the whole lab |
 
 ## SPEC-11 Multi-Agent Review (`specs/2026-10-18-multi-agent-review.md`)
