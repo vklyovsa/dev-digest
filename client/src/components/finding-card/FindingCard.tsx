@@ -29,6 +29,8 @@ export function FindingCard({
   focused,
   defaultExpanded,
   onAction,
+  onLearn,
+  learned,
   pending,
   repoFullName,
   headSha,
@@ -37,6 +39,8 @@ export function FindingCard({
   focused?: boolean;
   defaultExpanded?: boolean;
   onAction?: (action: FindingActionKind, reply?: string) => void;
+  onLearn?: () => void;
+  learned?: boolean;
   pending?: boolean;
   repoFullName?: string | null;
   headSha?: string | null;
@@ -110,6 +114,11 @@ export function FindingCard({
             >
               {t("finding.dismiss")}
             </Button>
+            {onLearn && (
+              <Button kind="ghost" size="sm" icon="Brain" disabled={pending || learned} onClick={onLearn}>
+                {learned ? t("finding.savedToMemory") : t("finding.learn")}
+              </Button>
+            )}
             <EvalCaseAction finding={f} />
           </div>
         </div>

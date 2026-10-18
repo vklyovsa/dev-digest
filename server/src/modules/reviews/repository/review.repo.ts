@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { Db } from '../../../db/client.js';
 import * as t from '../../../db/schema.js';
 import type { Finding } from '@devdigest/shared';
@@ -71,6 +71,52 @@ export async function reviewsForPull(
     review,
     findings: findings.filter((f) => f.reviewId === review.id),
   }));
+}
+
+export async function reviewsForRuns(
+  db: Db,
+  workspaceId: string,
+  runIds: string[],
+): Promise<{ review: ReviewRow; findings: FindingRow[] }[]> {
+  if (runIds.length === 0) return [];
+  const reviews = await db
+    .select()
+    .from(t.reviews)
+    .where(and(eq(t.reviews.workspaceId, workspaceId), inArray(t.reviews.runId, runIds)))
+    .orderBy(desc(t.reviews.createdAt));
+  if (reviews.length === 0) return [];
+  const ids = reviews.map((r) => r.id);
+  const findings = await db.select().from(t.findings).where(inArray(t.findings.reviewId, ids));
+  return reviews.map((review) => ({
+    review,
+    findings: findings.filter((f) => f.reviewId === review.id),
+  }));
+}
+
+export async function saveLearningOnce(
+  db: Db,
+  values: { workspaceId: string; repoId: string; findingId: string; content: string },
+): Promise<void> {
+  const [existing] = await db
+    .select({ id: t.memory.id })
+    .from(t.memory)
+    .where(
+      and(
+        eq(t.memory.workspaceId, values.workspaceId),
+        eq(t.memory.kind, 'learning'),
+        sql`${t.memory.sources}->>'finding_id' = ${values.findingId}`,
+      ),
+    )
+    .limit(1);
+  if (existing) return;
+  await db.insert(t.memory).values({
+    workspaceId: values.workspaceId,
+    repoId: values.repoId,
+    scope: 'repo',
+    kind: 'learning',
+    content: values.content,
+    sources: { finding_id: values.findingId },
+  });
 }
 
 export async function getReview(db: Db, reviewId: string): Promise<ReviewRow | undefined> {

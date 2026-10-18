@@ -18,7 +18,7 @@ import {
 import { useSmartDiff } from "@/lib/hooks/smart-diff";
 import { notify } from "@/lib/toast";
 import type { PrFile } from "@devdigest/shared";
-import { FindingCard } from "../FindingCard";
+import { FindingCard } from "@/components/finding-card";
 import { RoleGroup } from "./_components/RoleGroup";
 import { OrderToggle } from "./_components/OrderToggle";
 import type { DiffOrder } from "./constants";
