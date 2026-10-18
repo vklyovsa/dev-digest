@@ -125,7 +125,7 @@ flowchart LR
 - **EC-8** A second multi-agent run on the same PR → a new parent; the landing page shows the newer one; groups never mix runs. — covered by: AC-45
 - **EC-9** Only one child finishes → no disagreement rows. — covered by: AC-39
 - **EC-10** Learn clicked twice → one memory row. — covered by: AC-30
-- **EC-11** The run trace is stored just after the run turns `done` (server `INSIGHTS.md`, `reviews-skills.it.test.ts` flake) → the drawer's trace query retries until it answers 200, as on the PR page. — covered by: AC-40
+- **EC-11** The run trace is stored just after the run turns `done` (server `INSIGHTS.md`, `reviews-skills.it.test.ts` flake) → the drawer's trace query retries on 404 until it answers 200 (bounded, about 10 s). — covered by: AC-40
 
 ## Non-functional requirements
 
