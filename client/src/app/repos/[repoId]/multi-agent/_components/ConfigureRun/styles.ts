@@ -1,0 +1,38 @@
+import type { CSSProperties } from "react";
+
+export const s = {
+  root: { padding: "24px 28px 40px", maxWidth: 720, margin: "0 auto" },
+  title: { fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em" },
+  subtitle: { fontSize: 13, color: "var(--text-secondary)", marginTop: 4, marginBottom: 22 },
+  stepRow: { display: "flex", alignItems: "center", gap: 10, marginBottom: 10 },
+  stepLabel: { fontSize: 13.5, fontWeight: 600 },
+  indent: { marginLeft: 32 },
+  prSelect: { marginLeft: 32, marginBottom: 24, maxWidth: 420 },
+  agentList: { marginLeft: 32, display: "flex", flexDirection: "column", gap: 8 },
+  agentCard: {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+    padding: "12px 14px",
+    borderRadius: 9,
+    border: "1px solid var(--border)",
+    background: "var(--bg-elevated)",
+  },
+  agentMain: { minWidth: 0, flex: 1, display: "flex", flexDirection: "column", gap: 3 },
+  agentDesc: { fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.45, marginLeft: 26, overflowWrap: "anywhere" },
+  estimate: { fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap", flexShrink: 0 },
+  placeholder: {
+    marginLeft: 32,
+    padding: "34px 20px",
+    borderRadius: 10,
+    border: "1px dashed var(--border-strong)",
+    background: "var(--bg-elevated)",
+    textAlign: "center",
+  },
+  placeholderTitle: { fontSize: 14, fontWeight: 600 },
+  placeholderBody: { fontSize: 12.5, color: "var(--text-muted)", marginTop: 5, lineHeight: 1.5 },
+  runBar: { display: "flex", alignItems: "center", gap: 14, marginTop: 26, marginLeft: 32 },
+  total: { fontSize: 11.5, color: "var(--text-muted)" },
+  link: { color: "var(--accent-text)", fontWeight: 600 },
+} satisfies Record<string, CSSProperties>;

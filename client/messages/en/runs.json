@@ -73,7 +73,7 @@
     "running": "running",
     "completed": "completed",
     "copyRawOutput": "Copy raw output",
-  "copied": "Copied!",
+    "copied": "Copied!",
     "tracePending": "Trace is written when the run completes — see the Live log tab.",
     "loadingTrace": "Loading trace…",
     "noTrace": "No trace available yet."
@@ -122,7 +122,7 @@
     },
     "runAll": "Run all agents",
     "running": "Running…",
-    "meta": "{count} agents · fan-out via p-queue · {duration}s total · {cost}",
+    "meta": "{count, number} agents · parallel · {duration} total · {cost}",
     "noAgents": {
       "title": "Enable agents to run reviews",
       "body": "Multi-agent review runs the PR through every enabled agent in parallel. You have no agents enabled yet.",
@@ -135,5 +135,32 @@
       "cta": "Run all agents"
     },
     "crumb": "Multi-Agent Review"
+  },
+  "multiAgent": {
+    "pickPrFirst": "Pick a pull request first",
+    "pickPrBody": "Choose which PR to review above, then select the agents to run on it.",
+    "configureTitle": "Run a Multi-Agent Review",
+    "configureSubtitle": "Pick a pull request and choose which agents to run — they run in parallel and you compare their findings side by side.",
+    "pullRequest": "Pull request",
+    "agentsToRun": "Agents to run",
+    "noEstimate": "no estimate",
+    "total": "≈ {duration} · {cost} · parallel",
+    "runButton": {
+      "select": "Select agents",
+      "one": "Run 1 agent",
+      "many": "Run multi-agent review ({count, number})"
+    },
+    "deletedAgent": "Deleted agent",
+    "needsTwoAgents": "Needs at least two finished agents",
+    "startNewReview": "Start new review",
+    "viewSwitch": "View",
+    "noFindings": "No findings.",
+    "status": {
+      "running": "running",
+      "done": "done",
+      "failed": "failed",
+      "cancelled": "cancelled"
+    },
+    "loadFailed": "Couldn't load this multi-agent run"
   }
 }

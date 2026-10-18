@@ -30,6 +30,10 @@ export type { ReviewDto, ReviewDtoFinding } from './helpers.js';
 export interface RunTargets {
   agentId?: string;
   all?: boolean;
+  /** Explicit agent set (enabled or not); duplicates collapse to one run. */
+  agentIds?: string[];
+  /** Parent multi-agent run the created agent runs belong to. */
+  multiAgentRunId?: string;
 }
 
 export class ReviewService {
@@ -56,6 +60,15 @@ export class ReviewService {
     workspaceId: string,
     opts: RunTargets,
   ): Promise<AgentRow[]> {
+    if (opts.agentIds) {
+      const targets: AgentRow[] = [];
+      for (const id of new Set(opts.agentIds)) {
+        const agent = await this.agents.getById(workspaceId, id);
+        if (!agent) throw new NotFoundError('Agent not found');
+        targets.push(agent);
+      }
+      return targets;
+    }
     if (opts.all) return this.agents.listEnabled(workspaceId);
     if (opts.agentId) {
       const agent = await this.agents.getById(workspaceId, opts.agentId);
@@ -133,6 +146,7 @@ export class ReviewService {
         prId,
         provider: agent.provider,
         model: agent.model,
+        multiAgentRunId: opts.multiAgentRunId ?? null,
       });
       runs.push({ run_id: runId, agent_id: agent.id, agent_name: agent.name });
       jobs.push({ agent, runId });
@@ -181,6 +195,12 @@ export class ReviewService {
     return rows.map(({ review, findings }) =>
       reviewToDto(review, findings, review.agentId ? names.get(review.agentId) : null),
     );
+  }
+
+  /** Reviews written by the given runs (a multi-agent run's children), with findings. */
+  async reviewsForRuns(workspaceId: string, runIds: string[]): Promise<ReviewDto[]> {
+    const rows = await this.repo.reviewsForRuns(workspaceId, runIds);
+    return rows.map(({ review, findings }) => reviewToDto(review, findings, null));
   }
 
   async getRunTrace(runId: string): Promise<RunTrace | undefined> {

@@ -11,7 +11,7 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { Toggle, EmptyState, Icon, SEV, type Severity as SeverityToken } from "@devdigest/ui";
 import type { FindingRecord, Severity } from "@devdigest/shared";
-import { FindingCard } from "../FindingCard";
+import { FindingCard } from "@/components/finding-card";
 import { countBySeverity } from "@/components/findings-summary";
 import { useFindingAction } from "@/lib/hooks/reviews";
 import { KEY_TO_ACTION } from "./constants";

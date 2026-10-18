@@ -3,10 +3,10 @@ import { render, screen, fireEvent, cleanup, waitFor, within } from "@testing-li
 import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { EvalCase, EvalCaseDraft, EvalCaseDraftResponse, FindingRecord } from "@devdigest/shared";
-import messages from "../../../../../../../../../../messages/en/prReview.json";
-import evalMessages from "../../../../../../../../../../messages/en/eval.json";
-import common from "../../../../../../../../../../messages/en/common.json";
-import shell from "../../../../../../../../../../messages/en/shell.json";
+import messages from "../../../../../messages/en/prReview.json";
+import evalMessages from "../../../../../messages/en/eval.json";
+import common from "../../../../../messages/en/common.json";
+import shell from "../../../../../messages/en/shell.json";
 import { FindingCard } from "../../FindingCard";
 import { EvalCaseAction } from "./EvalCaseAction";
 

@@ -6,7 +6,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { api } from "../api";
+import { api, ApiError } from "../api";
 import type { RunTrace } from "@devdigest/shared";
 
 export function useRunTrace(runId: string | null | undefined, enabled = true) {
@@ -14,6 +14,7 @@ export function useRunTrace(runId: string | null | undefined, enabled = true) {
     queryKey: ["run-trace", runId],
     queryFn: () => api.get<RunTrace>(`/runs/${runId}/trace`),
     enabled: !!runId && enabled,
-    retry: false,
+    retry: (count, err) => err instanceof ApiError && err.status === 404 && count < 10,
+    retryDelay: 1000,
   });
 }

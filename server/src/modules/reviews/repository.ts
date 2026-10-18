@@ -65,6 +65,24 @@ export class ReviewRepository {
     return reviewRepo.reviewsForPull(this.db, prId);
   }
 
+  /** Reviews written by the given runs, each with its findings. Workspace-scoped. */
+  reviewsForRuns(
+    workspaceId: string,
+    runIds: string[],
+  ): Promise<{ review: ReviewRow; findings: FindingRow[] }[]> {
+    return reviewRepo.reviewsForRuns(this.db, workspaceId, runIds);
+  }
+
+  /** Store one `learning` memory row for a finding unless one exists already. */
+  saveLearningOnce(values: {
+    workspaceId: string;
+    repoId: string;
+    findingId: string;
+    content: string;
+  }): Promise<void> {
+    return reviewRepo.saveLearningOnce(this.db, values);
+  }
+
   getReview(reviewId: string): Promise<ReviewRow | undefined> {
     return reviewRepo.getReview(this.db, reviewId);
   }
@@ -135,6 +153,7 @@ export class ReviewRepository {
     prId: string;
     provider: string | null;
     model: string | null;
+    multiAgentRunId?: string | null;
   }): Promise<string> {
     return runRepo.createAgentRun(this.db, values);
   }
