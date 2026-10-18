@@ -188,6 +188,14 @@ export class CiService {
       return;
     }
 
+    const reject = (reason: Rejection) => {
+      result.rejected.push({ run_url: run.htmlUrl, reason });
+    };
+
+    if (run.event !== 'pull_request' || run.headRepositoryId !== repositoryId) {
+      return reject('untrusted_run');
+    }
+
     const artifacts = await gh.listRunArtifacts(ref, run.id);
     const found = artifacts.find((a: RunArtifactSummary) => a.name === ARTIFACT_NAME && !a.expired);
     if (!found) {
@@ -200,10 +208,6 @@ export class CiService {
       result.failed++;
       return;
     }
-
-    const reject = (reason: Rejection) => {
-      result.rejected.push({ run_url: run.htmlUrl, reason });
-    };
 
     if (found.sizeInBytes > ARTIFACT_MAX_BYTES) return reject('artifact_unreadable');
     const archive = await gh.downloadArtifact(ref, found.id);

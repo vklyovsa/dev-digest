@@ -450,6 +450,8 @@ export class OctokitGitHubClient implements GitHubClient {
       headSha: r.head_sha,
       prNumber: r.pull_requests?.[0]?.number ?? null,
       startedAt: r.run_started_at ?? r.created_at,
+      headRepositoryId: r.head_repository?.id ?? null,
+      event: r.event,
     }));
   }
 

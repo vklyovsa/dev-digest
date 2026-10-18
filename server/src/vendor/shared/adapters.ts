@@ -160,6 +160,8 @@ export interface WorkflowRunSummary {
   headSha: string;
   prNumber: number | null;
   startedAt: string;
+  headRepositoryId: number | null;
+  event: string;
 }
 
 export interface RunArtifactSummary {

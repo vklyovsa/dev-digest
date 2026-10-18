@@ -174,7 +174,7 @@ export const CiSyncResult = z.object({
   rejected: z.array(
     z.object({
       run_url: z.string(),
-      reason: z.enum(['schema', 'head_sha_mismatch', 'repository_mismatch', 'artifact_unreadable']),
+      reason: z.enum(['schema', 'head_sha_mismatch', 'repository_mismatch', 'artifact_unreadable', 'untrusted_run']),
     }),
   ),
   errors: z.array(z.object({ repo: z.string(), message: z.string() })),

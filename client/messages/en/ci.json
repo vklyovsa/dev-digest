@@ -16,7 +16,8 @@
       "schema": "The result file does not match the expected format",
       "head_sha_mismatch": "The result belongs to a different commit than the workflow run",
       "repository_mismatch": "The result belongs to a different repository",
-      "artifact_unreadable": "The result file is missing, empty or too large"
+      "artifact_unreadable": "The result file is missing, empty or too large",
+      "untrusted_run": "The workflow run is not a pull request run from this repository"
     },
     "columns": {
       "repository": "Repository",
